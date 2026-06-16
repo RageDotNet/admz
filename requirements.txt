@@ -1,0 +1,9 @@
+dydantic
+litellm
+python-dotenv
+flask
+celery
+sqlalchemy
+email-validator
+requests
+python-a2a[server]

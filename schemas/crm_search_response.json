@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://llmdmz.example/schemas/crm-search-response.json",
+  "title": "CRM Search Response",
+  "description": "CRM contact records matching the search request, or an empty list if none matched.",
+  "type": "object",
+  "properties": {
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/contact"
+      },
+      "description": "Matching CRM contact records. Empty when no contacts match."
+    }
+  },
+  "required": ["records"],
+  "additionalProperties": false,
+  "$defs": {
+    "contact": {
+      "type": "object",
+      "description": "A CRM contact record.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Contact identifier, e.g. c001."
+        },
+        "name": {
+          "type": "string",
+          "description": "Contact full name."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Contact email address."
+        },
+        "company": {
+          "type": "string",
+          "description": "Company name."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Contact phone number."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "lead", "churned"],
+          "description": "Contact account status."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Free-text notes for the contact."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "company",
+        "phone",
+        "status",
+        "notes"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

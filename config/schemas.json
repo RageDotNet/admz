@@ -1,0 +1,13 @@
+{
+  "schemas": [
+    {
+      "id": "crm_search",
+      "description": "Search CRM contacts by name or company",
+      "request_schema": "schemas/crm_search_request.json",
+      "response_schema": "schemas/crm_search_response.json",
+      "requestor_id": "ext_agent",
+      "requestee_id": "int_agent",
+      "requestee_a2a_url": "http://127.0.0.1:5001"
+    }
+  ]
+}
