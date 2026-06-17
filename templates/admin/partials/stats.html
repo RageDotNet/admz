@@ -1,18 +1,20 @@
-<div id="stats-panel" class="z-grid" style="grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 1rem;">
-  <div class="z-card z-card-body z-text-center">
-    <div class="z-text-muted">Schemas</div>
-    <div class="z-text-large z-text-bold">{{ schema_count }}</div>
-  </div>
-  <div class="z-card z-card-body z-text-center">
-    <div class="z-text-muted">In-flight</div>
-    <div class="z-text-large z-text-bold">{{ inflight }}</div>
-  </div>
-  <div class="z-card z-card-body z-text-center">
-    <div class="z-text-muted">Pending review</div>
-    <div class="z-text-large z-text-bold z-text-warning">{{ pending_reviews }}</div>
-  </div>
-  <div class="z-card z-card-body z-text-center">
-    <div class="z-text-muted">Total requests</div>
-    <div class="z-text-large z-text-bold">{{ counts.values() | sum }}</div>
+<div id="stats-panel" class="z-card z-card-body z-padding-small z-margin-bottom">
+  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; text-align: center; align-items: center;">
+    <div>
+      <div class="z-text-muted z-text-small">Schemas</div>
+      <div class="z-text-bold">{{ schema_count }}</div>
+    </div>
+    <div>
+      <div class="z-text-muted z-text-small">In-flight</div>
+      <div class="z-text-bold">{{ inflight }}</div>
+    </div>
+    <div>
+      <div class="z-text-muted z-text-small">Pending review</div>
+      <div class="z-text-bold z-text-warning">{{ pending_reviews }}</div>
+    </div>
+    <div>
+      <div class="z-text-muted z-text-small">Total requests</div>
+      <div class="z-text-bold">{{ counts.values() | sum }}</div>
+    </div>
   </div>
 </div>

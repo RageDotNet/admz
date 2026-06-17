@@ -43,6 +43,8 @@ def main() -> None:
     schema_id = sys.argv[1] if len(sys.argv) > 1 else "crm_search"
     if schema_id == "crm_search":
         payload = {"company": "Acme Corp"}
+    elif schema_id == "crm_add_note":
+        payload = {"contact_id": "c001", "note": "Test note from example client."}
     else:
         payload = json.loads(sys.argv[2]) if len(sys.argv) > 2 else {}
 

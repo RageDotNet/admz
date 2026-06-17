@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://llmdmz.example/schemas/crm-add-note-request.json",
+  "title": "CRM Add Note Request",
+  "description": "Append a note to an existing CRM contact record.",
+  "type": "object",
+  "properties": {
+    "contact_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "CRM contact identifier, e.g. c001."
+    },
+    "note": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Note text to append to the contact record."
+    }
+  },
+  "required": ["contact_id", "note"],
+  "additionalProperties": false
+}

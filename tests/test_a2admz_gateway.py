@@ -8,6 +8,8 @@ import pytest
 from python_a2a import Task, TaskState
 
 from tests.conftest import (
+    CRM_ADD_NOTE_REQUEST,
+    CRM_ADD_NOTE_RESPONSE,
     CRM_REQUEST,
     CRM_RESPONSE,
     EXT_HEADERS,
@@ -33,6 +35,21 @@ def test_a2a_successful_flow(a2a_gateway, mock_a2a_client, patch_storage) -> Non
     assert result.status.state == TaskState.COMPLETED
     assert result.metadata["llmdmz"]["response_payload"]["records"][0]["name"] == "Jane Smith"
     assert patch_storage.get_request("a2a-ok").status == "completed"
+
+
+def test_a2a_crm_add_note_flow(a2a_gateway, mock_a2a_client, patch_storage) -> None:
+    mock_a2a_client(CRM_ADD_NOTE_RESPONSE)
+    task = make_a2a_task(
+        request_id="a2a-add-note",
+        schema_id="crm_add_note",
+        payload=CRM_ADD_NOTE_REQUEST,
+    )
+    result = _handle(a2a_gateway, task)
+    assert result.status.state == TaskState.COMPLETED
+    record = result.metadata["llmdmz"]["response_payload"]["record"]
+    assert record["id"] == "c001"
+    assert CRM_ADD_NOTE_REQUEST["note"] in record["notes"]
+    assert patch_storage.get_request("a2a-add-note").status == "completed"
 
 
 def test_a2a_missing_envelope(a2a_gateway) -> None:

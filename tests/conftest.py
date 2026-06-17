@@ -27,6 +27,14 @@ CRM_CONTACT = {
 CRM_REQUEST = {"company": "Acme Corp"}
 CRM_RESPONSE = {"records": [CRM_CONTACT]}
 
+CRM_ADD_NOTE_REQUEST = {"contact_id": "c001", "note": "Follow-up call scheduled for next week."}
+CRM_ADD_NOTE_RESPONSE = {
+    "record": {
+        **CRM_CONTACT,
+        "notes": f"{CRM_CONTACT['notes']}\n{CRM_ADD_NOTE_REQUEST['note']}",
+    }
+}
+
 EXT_HEADERS = {"X-Agent-Id": "ext_agent", "X-Agent-Key": "ext-dev-key-change-me"}
 INT_HEADERS = {"X-Agent-Id": "int_agent", "X-Agent-Key": "int-dev-key-change-me"}
 REV_HEADERS = {"X-Agent-Id": "reviewer1", "X-Agent-Key": "review-dev-key-change-me"}

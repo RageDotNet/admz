@@ -8,6 +8,15 @@
       "requestor_id": "ext_agent",
       "requestee_id": "int_agent",
       "requestee_a2a_url": "http://127.0.0.1:5001"
+    },
+    {
+      "id": "crm_add_note",
+      "description": "Append a note to a CRM contact record",
+      "request_schema": "schemas/crm_add_note_request.json",
+      "response_schema": "schemas/crm_add_note_response.json",
+      "requestor_id": "ext_agent",
+      "requestee_id": "int_agent",
+      "requestee_a2a_url": "http://127.0.0.1:5001"
     }
   ]
 }

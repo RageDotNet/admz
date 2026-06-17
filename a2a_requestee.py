@@ -9,7 +9,7 @@ from typing import Any
 from dotenv import load_dotenv
 from python_a2a import A2AServer, Task, TaskState, TaskStatus, run_server
 
-from crmtool import search_contacts
+from crmtool import add_contact_note, search_contacts
 from dmz.a2a_protocol import extract_llmdmz_envelope
 from llm_logging import get_logger
 
@@ -36,8 +36,16 @@ def fulfill_crm_search(payload: dict[str, Any]) -> dict[str, Any]:
     return {"records": records}
 
 
+def fulfill_crm_add_note(payload: dict[str, Any]) -> dict[str, Any]:
+    contact_id = str(payload["contact_id"])
+    note = str(payload["note"])
+    record = add_contact_note(contact_id, note)
+    return {"record": record}
+
+
 HANDLERS = {
     "crm_search": fulfill_crm_search,
+    "crm_add_note": fulfill_crm_add_note,
 }
 
 
@@ -110,7 +118,11 @@ class RequesteeServer(A2AServer):
         ]
         task.metadata = body
         task.status = TaskStatus(state=TaskState.COMPLETED)
-        logger.info("Requestee completed request_id=%s records=%d", request_id, len(response_payload.get("records", [])))
+        logger.info(
+            "Requestee completed request_id=%s schema_id=%s",
+            request_id,
+            schema_id,
+        )
         return task
 
     def _fail(self, task: Task, reason: str) -> Task:

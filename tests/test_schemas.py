@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from dmz.schemas import SchemaRegistry
-from tests.conftest import CRM_CONTACT, CRM_REQUEST, CRM_RESPONSE
+from tests.conftest import CRM_CONTACT, CRM_REQUEST, CRM_RESPONSE, CRM_ADD_NOTE_REQUEST, CRM_ADD_NOTE_RESPONSE
 
 
 @pytest.fixture
@@ -16,6 +16,7 @@ def registry() -> SchemaRegistry:
 def test_list_schemas(registry: SchemaRegistry) -> None:
     schemas = registry.list_schemas()
     assert any(item["id"] == "crm_search" for item in schemas)
+    assert any(item["id"] == "crm_add_note" for item in schemas)
 
 
 def test_validate_request_valid(registry: SchemaRegistry) -> None:
@@ -47,3 +48,16 @@ def test_validate_response_invalid_status(registry: SchemaRegistry) -> None:
     bad = {"records": [{**CRM_CONTACT, "status": "invalid"}]}
     with pytest.raises(Exception):
         registry.validate_response("crm_search", bad)
+
+
+def test_validate_crm_add_note_request(registry: SchemaRegistry) -> None:
+    registry.validate_request("crm_add_note", CRM_ADD_NOTE_REQUEST)
+
+
+def test_validate_crm_add_note_request_invalid(registry: SchemaRegistry) -> None:
+    with pytest.raises(Exception):
+        registry.validate_request("crm_add_note", {"contact_id": "c001"})
+
+
+def test_validate_crm_add_note_response(registry: SchemaRegistry) -> None:
+    registry.validate_response("crm_add_note", CRM_ADD_NOTE_RESPONSE)
