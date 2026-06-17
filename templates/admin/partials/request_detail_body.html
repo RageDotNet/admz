@@ -1,5 +1,5 @@
 {% from "admin/macros.html" import status_badge %}
-<div id="request-detail-{{ record.request_id }}" class="z-padding-small">
+<div class="z-padding-small">
   <div class="z-flex z-flex-between z-flex-middle z-margin-bottom">
     <div class="z-flex z-flex-middle" style="gap: 0.75rem;">
       <strong>Request details</strong>
@@ -8,7 +8,7 @@
     <button
       type="button"
       class="z-button z-button-small z-button-default"
-      data-on:click="$detailRequestId = null; @get('/admin/partials/request-detail-clear/{{ record.request_id }}')"
+      data-on:click="$detailRequestId = null; @get('{{ list_partial }}')"
       aria-label="Close request details"
     >Close</button>
   </div>

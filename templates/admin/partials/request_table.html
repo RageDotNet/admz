@@ -29,10 +29,19 @@
               type="button"
               class="z-button z-button-small"
               data-class="{'z-button-primary': $detailRequestId === '{{ r.request_id }}', 'z-button-default': $detailRequestId !== '{{ r.request_id }}'}"
-              data-on:click="if ($detailRequestId === '{{ r.request_id }}') { $detailRequestId = null; @get('/admin/partials/request-detail-clear') } else { $detailRequestId = '{{ r.request_id }}'; @get('/admin/partials/request/{{ r.request_id }}') }"
+              data-on:click="if ($detailRequestId === '{{ r.request_id }}') { $detailRequestId = null } else { $detailRequestId = '{{ r.request_id }}' }; @get('{{ list_partial }}')"
             >Details</button>
           </td>
         </tr>
+        {% if expanded_request_id == r.request_id and expanded_record %}
+        <tr>
+          <td colspan="7" class="z-padding-remove">
+            {% with record=expanded_record, list_partial=list_partial %}
+              {% include "admin/partials/request_detail_body.html" %}
+            {% endwith %}
+          </td>
+        </tr>
+        {% endif %}
         {% endfor %}
       </tbody>
     </table>

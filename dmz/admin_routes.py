@@ -54,6 +54,37 @@ def _pretty_json(data: Any) -> str:
     return escape(json.dumps(data, indent=2, default=str), quote=False)
 
 
+def _read_datastar_signals() -> dict[str, Any]:
+    """Read Datastar signals from GET query param or JSON request body."""
+    raw = request.args.get("datastar")
+    if raw:
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+    data = request.get_json(silent=True)
+    if isinstance(data, dict):
+        signals = data.get("signals")
+        if isinstance(signals, dict):
+            return signals
+        return data
+    return {}
+
+
+def _expanded_request(storage: Storage) -> tuple[str | None, RequestRecord | None]:
+    detail_id = _read_datastar_signals().get("detailRequestId")
+    if not detail_id:
+        return None, None
+    detail_id = str(detail_id)
+    try:
+        return detail_id, storage.get_request(detail_id)
+    except KeyError:
+        return detail_id, None
+
+
 def register_admin_routes(
     app: Flask,
     *,
@@ -152,36 +183,49 @@ def register_admin_routes(
     @app.get("/admin/partials/inflight")
     @require_admin
     def admin_inflight():
+        expanded_id, expanded_record = _expanded_request(storage)
         return render_template(
             "admin/partials/request_table.html",
             records=storage.list_inflight_requests(),
             title="In-flight requests",
             empty_message="No requests currently in flight.",
+            list_partial="/admin/partials/inflight",
+            expanded_request_id=expanded_id,
+            expanded_record=expanded_record,
+            pretty_json=_pretty_json,
         )
 
     @app.get("/admin/partials/log")
     @require_admin
     def admin_log():
+        expanded_id, expanded_record = _expanded_request(storage)
         return render_template(
             "admin/partials/request_table.html",
             records=storage.list_requests(limit=100, exclude_inflight=True),
             title="Access log",
             empty_message="No completed or historical requests yet.",
+            list_partial="/admin/partials/log",
+            expanded_request_id=expanded_id,
+            expanded_record=expanded_record,
+            pretty_json=_pretty_json,
         )
 
     @app.get("/admin/partials/reviews")
     @require_admin
     def admin_reviews():
+        expanded_id, expanded_record = _expanded_request(storage)
         return render_template(
             "admin/partials/reviews.html",
             reviews=storage.list_pending_reviews(limit=100),
+            expanded_request_id=expanded_id,
+            expanded_record=expanded_record,
             pretty_json=_pretty_json,
         )
 
-    @app.get("/admin/partials/request-detail-clear")
+    @app.get("/admin/partials/request-detail-clear/<request_id>")
     @require_admin
-    def admin_request_detail_clear():
-        return render_template("admin/partials/request_detail_clear.html")
+    def admin_request_detail_clear(request_id: str):
+        return render_template("admin/partials/request_detail_clear.html", request_id=request_id)
 
     @app.get("/admin/partials/request/<request_id>")
     @require_admin
@@ -227,10 +271,13 @@ def register_admin_routes(
         return _multi_patch(storage)
 
     def _multi_patch(storage: Storage) -> Response:
+        expanded_id, expanded_record = _expanded_request(storage)
         html = (
             render_template(
                 "admin/partials/reviews.html",
                 reviews=storage.list_pending_reviews(limit=100),
+                expanded_request_id=expanded_id,
+                expanded_record=expanded_record,
                 pretty_json=_pretty_json,
             )
             + render_template(

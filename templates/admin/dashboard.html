@@ -27,25 +27,25 @@
       type="button"
       class="z-button"
       data-class="{'z-button-primary': $activeTab === 'reviews'}"
-      data-on:click="$detailRequestId = null; @get('/admin/partials/request-detail-clear'); $activeTab = 'reviews'"
+      data-on:click="$detailRequestId = null; $activeTab = 'reviews'; @get('/admin/partials/reviews')"
     >Review queue</button>
     <button
       type="button"
       class="z-button"
       data-class="{'z-button-primary': $activeTab === 'inflight'}"
-      data-on:click="$detailRequestId = null; @get('/admin/partials/request-detail-clear'); $activeTab = 'inflight'; @get('/admin/partials/inflight')"
+      data-on:click="$detailRequestId = null; $activeTab = 'inflight'; @get('/admin/partials/inflight')"
     >In-flight</button>
     <button
       type="button"
       class="z-button"
       data-class="{'z-button-primary': $activeTab === 'log'}"
-      data-on:click="$detailRequestId = null; @get('/admin/partials/request-detail-clear'); $activeTab = 'log'; @get('/admin/partials/log')"
+      data-on:click="$detailRequestId = null; $activeTab = 'log'; @get('/admin/partials/log')"
     >Access log</button>
     <button
       type="button"
       class="z-button"
       data-class="{'z-button-primary': $activeTab === 'schemas'}"
-      data-on:click="$detailRequestId = null; @get('/admin/partials/request-detail-clear'); $activeTab = 'schemas'; @get('/admin/partials/schemas')"
+      data-on:click="$detailRequestId = null; $activeTab = 'schemas'; @get('/admin/partials/schemas')"
     >Schemas</button>
   </div>
 
@@ -78,8 +78,6 @@
       data-init="$activeTab === 'schemas' && @get('/admin/partials/schemas')"
     ></div>
   </div>
-
-  <div id="request-detail-slot"></div>
 </div>
 
 {{ zbuild_foot() }}

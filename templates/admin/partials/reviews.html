@@ -43,10 +43,17 @@
           type="button"
           class="z-button z-button-default"
           data-class="{'z-button-primary': $detailRequestId === '{{ item.request_id }}'}"
-          data-on:click="if ($detailRequestId === '{{ item.request_id }}') { $detailRequestId = null; @get('/admin/partials/request-detail-clear') } else { $detailRequestId = '{{ item.request_id }}'; @get('/admin/partials/request/{{ item.request_id }}') }"
+          data-on:click="if ($detailRequestId === '{{ item.request_id }}') { $detailRequestId = null } else { $detailRequestId = '{{ item.request_id }}' }; @get('/admin/partials/reviews')"
         >View request</button>
       </div>
     </div>
+    {% if expanded_request_id == item.request_id and expanded_record %}
+    <div class="z-card-body" style="border-top: 1px solid var(--z-border);">
+      {% with record=expanded_record, list_partial='/admin/partials/reviews' %}
+        {% include "admin/partials/request_detail_body.html" %}
+      {% endwith %}
+    </div>
+    {% endif %}
   </div>
   {% endfor %}
   {% else %}
