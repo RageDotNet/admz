@@ -1,0 +1,57 @@
+<div id="reviews-content">
+  <h2 class="z-margin-bottom">Human review queue</h2>
+  <p class="z-text-muted">Requests flagged by schema validation or the LLM arbiter.</p>
+  {% if reviews %}
+  {% for item in reviews %}
+  <div class="z-card z-margin-bottom">
+    <div class="z-card-header">
+      <div class="z-flex z-flex-between z-flex-middle">
+        <div>
+          <span class="z-badge z-badge-warning">{{ item.review_type }}</span>
+          <code class="z-margin-left">{{ item.request_id }}</code>
+        </div>
+        <span class="z-text-muted z-text-small">{{ item.created_at[:19] }}</span>
+      </div>
+    </div>
+    <div class="z-card-body">
+      <p><strong>Reason:</strong> {{ item.reason }}</p>
+      <details class="z-margin-top">
+        <summary>Flagged payload</summary>
+        <pre><code>{{ pretty_json(item.payload_snapshot) }}</code></pre>
+      </details>
+      <div class="z-margin-top">
+        <label class="z-form-label">Reviewer notes (optional)</label>
+        <input
+          class="z-input"
+          type="text"
+          data-bind="$reviewNotes"
+          placeholder="Reason for approval or rejection"
+        />
+      </div>
+      <div class="z-flex z-flex-middle z-margin-top" style="gap: 0.5rem;">
+        <button
+          type="button"
+          class="z-button z-button-success"
+          data-on:click="@post('/admin/review/{{ item.id }}/approve')"
+        >Approve</button>
+        <button
+          type="button"
+          class="z-button z-button-danger"
+          data-on:click="@post('/admin/review/{{ item.id }}/reject')"
+        >Reject</button>
+        <button
+          type="button"
+          class="z-button z-button-default"
+          data-class="{'z-button-primary': $detailRequestId === '{{ item.request_id }}'}"
+          data-on:click="if ($detailRequestId === '{{ item.request_id }}') { $detailRequestId = null; @get('/admin/partials/request-detail-clear') } else { $detailRequestId = '{{ item.request_id }}'; @get('/admin/partials/request/{{ item.request_id }}') }"
+        >View request</button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="z-alert z-alert-success" data-z-alert>
+    <p>No items pending human review.</p>
+  </div>
+  {% endif %}
+</div>

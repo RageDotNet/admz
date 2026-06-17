@@ -1,0 +1,43 @@
+{% from "admin/macros.html" import status_badge %}
+<div id="{% if title == 'In-flight requests' %}inflight-content{% else %}log-content{% endif %}">
+  <h2 class="z-margin-bottom">{{ title }}</h2>
+  {% if records %}
+  <div class="z-overflow-auto">
+    <table class="z-table z-table-striped z-table-hover">
+      <thead>
+        <tr>
+          <th>Request ID</th>
+          <th>Schema</th>
+          <th>Requestor</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Updated</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td><code>{{ r.request_id }}</code></td>
+          <td>{{ r.schema_id }}</td>
+          <td>{{ r.requestor_id }}</td>
+          <td>{{ status_badge(r.status) }}</td>
+          <td class="z-text-nowrap">{{ r.created_at[:19] }}</td>
+          <td class="z-text-nowrap">{{ r.updated_at[:19] }}</td>
+          <td>
+            <button
+              type="button"
+              class="z-button z-button-small"
+              data-class="{'z-button-primary': $detailRequestId === '{{ r.request_id }}', 'z-button-default': $detailRequestId !== '{{ r.request_id }}'}"
+              data-on:click="if ($detailRequestId === '{{ r.request_id }}') { $detailRequestId = null; @get('/admin/partials/request-detail-clear') } else { $detailRequestId = '{{ r.request_id }}'; @get('/admin/partials/request/{{ r.request_id }}') }"
+            >Details</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="z-text-muted">{{ empty_message }}</p>
+  {% endif %}
+</div>

@@ -1,0 +1,47 @@
+{% from "admin/macros.html" import status_badge %}
+<div id="request-detail-slot">
+  <div class="z-card z-margin-top">
+    <div class="z-card-header z-flex z-flex-between z-flex-middle">
+      <div class="z-flex z-flex-middle" style="gap: 0.75rem;">
+        <h3 class="z-card-title z-margin-remove">Request {{ record.request_id }}</h3>
+        {{ status_badge(record.status) }}
+      </div>
+      <button
+        type="button"
+        class="z-button z-button-small z-button-default"
+        data-on:click="$detailRequestId = null; @get('/admin/partials/request-detail-clear')"
+        aria-label="Close request details"
+      >Close</button>
+    </div>
+    <div class="z-card-body">
+      <dl class="z-description-list">
+        <dt>Schema</dt><dd><code>{{ record.schema_id }}</code></dd>
+        <dt>Requestor</dt><dd><code>{{ record.requestor_id }}</code></dd>
+        <dt>Requestee</dt><dd><code>{{ record.requestee_id }}</code></dd>
+        <dt>Created</dt><dd>{{ record.created_at }}</dd>
+        <dt>Updated</dt><dd>{{ record.updated_at }}</dd>
+      </dl>
+      {% if record.validation_errors %}
+      <div class="z-alert z-alert-danger z-margin-top" data-z-alert>
+        <p>{{ record.validation_errors }}</p>
+      </div>
+      {% endif %}
+      {% if record.arbiter_request_notes %}
+      <p><strong>Arbiter (request):</strong> {{ record.arbiter_request_notes }}</p>
+      {% endif %}
+      {% if record.arbiter_response_notes %}
+      <p><strong>Arbiter (response):</strong> {{ record.arbiter_response_notes }}</p>
+      {% endif %}
+      <details open class="z-margin-top">
+        <summary>Request payload</summary>
+        <pre><code>{{ pretty_json(record.request_payload) }}</code></pre>
+      </details>
+      {% if record.response_payload %}
+      <details class="z-margin-top">
+        <summary>Response payload</summary>
+        <pre><code>{{ pretty_json(record.response_payload) }}</code></pre>
+      </details>
+      {% endif %}
+    </div>
+  </div>
+</div>

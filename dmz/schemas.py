@@ -62,6 +62,25 @@ class SchemaRegistry:
             for pair in self._pairs.values()
         ]
 
+    def list_schemas_detail(self) -> list[dict[str, Any]]:
+        details: list[dict[str, Any]] = []
+        for pair in self._pairs.values():
+            binding = pair.binding
+            details.append(
+                {
+                    "id": binding.id,
+                    "description": binding.description,
+                    "requestor_id": binding.requestor_id,
+                    "requestee_id": binding.requestee_id,
+                    "requestee_a2a_url": binding.requestee_a2a_url,
+                    "request_schema_path": str(binding.request_schema_path),
+                    "response_schema_path": str(binding.response_schema_path),
+                    "request_schema": pair.request_schema,
+                    "response_schema": pair.response_schema,
+                }
+            )
+        return details
+
     def validate_request(self, schema_id: str, payload: dict[str, Any]) -> None:
         pair = self.get(schema_id)
         jsonschema.validate(payload, pair.request_schema)

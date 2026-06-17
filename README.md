@@ -211,7 +211,24 @@ Terminal 2 — A2A DMZ gateway:
 python a2admz.py
 ```
 
-Listens on `http://127.0.0.1:5000` by default. Also exposes the human review API at `/api/v1/review/*`.
+Listens on `http://127.0.0.1:5000` by default. Also exposes the human review API at `/api/v1/review/*` and an admin web UI at `/admin`.
+
+### Admin web UI (`/admin`)
+
+The A2A gateway includes a browser-based admin dashboard built with [0build](https://github.com/0builddotdev/0build) and [Datastar](https://data-star.dev/) for live updates without custom JavaScript.
+
+Open `http://127.0.0.1:5000/admin` and sign in with a **reviewer** agent from `config/agents.json` (default: `reviewer1` / `review-dev-key-change-me`).
+
+| Tab | Purpose |
+|-----|---------|
+| **Review queue** | Approve or reject requests flagged by schema validation or the LLM arbiter |
+| **In-flight** | Requests currently being validated, forwarded, or awaiting review (auto-refreshes every 3s) |
+| **Access log** | Completed and historical requests |
+| **Schemas** | Registered A2A operations, bindings, and JSON Schema definitions |
+
+The dashboard polls for stats and in-flight/review updates via Datastar. Reviewer credentials are validated against the same agent registry used by the REST review API; successful login stores a Flask session cookie.
+
+Set `FLASK_SECRET_KEY` in production to sign session cookies securely.
 
 ### A2A request envelope
 
@@ -279,6 +296,7 @@ If validation fails at either stage, the task returns `input-required` with a re
 | `A2A_DMZ_HOST` | `127.0.0.1` | Gateway bind host |
 | `A2A_DMZ_PORT` | `5000` | Gateway bind port |
 | `A2A_DMZ_URL` | `http://127.0.0.1:5000` | Gateway public URL (agent card) |
+| `FLASK_SECRET_KEY` | dev default | Signs admin UI session cookies |
 | `A2A_REQUESTEE_HOST` | `127.0.0.1` | Requestee bind host |
 | `A2A_REQUESTEE_PORT` | `5001` | Requestee bind port |
 | `A2A_REQUESTEE_URL` | `http://127.0.0.1:5001` | Requestee public URL |
@@ -663,6 +681,28 @@ No changes to `llmdmz.py` are required — the schema registry loads all binding
 | `email-validator` | Required by dydantic for `format: email` |
 | `requests` | Review CLI HTTP client |
 | `python-a2a[server]` | A2A protocol gateway and requestee |
+| `pytest` | Test suite |
+
+---
+
+## Testing
+
+The test suite runs fully offline. LLM arbiter calls and A2A requestee forwarding are mocked — no network access required.
+
+```bash
+pip install -r requirements.txt
+pytest
+```
+
+Coverage includes:
+
+- **Storage** — queue, polling, review approve/reject
+- **Schemas** — valid/invalid request and response payloads
+- **Agents** — authentication and role checks
+- **Arbiter** — mocked LiteLLM verdict parsing and approval/rejection
+- **Celery tasks** — synchronous `process_request` / `process_response` pipeline
+- **`llmdmz.py`** — full REST API flow, auth errors, review queue
+- **`a2admz.py`** — A2A gateway success/failure paths, HTTP `/a2a/tasks/send`, review API
 
 ---
 

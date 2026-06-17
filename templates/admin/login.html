@@ -1,0 +1,36 @@
+{% from "admin/macros.html" import zbuild_head, zbuild_foot %}
+{{ zbuild_head("A2A DMZ Admin — Login") }}
+
+<div class="z-container z-container-small z-margin-auto-vertical">
+  <div class="z-card">
+    <div class="z-card-header">
+      <h1 class="z-card-title">A2A DMZ Admin</h1>
+      <p class="z-text-muted z-margin-remove">Reviewer sign-in</p>
+    </div>
+    <div class="z-card-body">
+      <form
+        id="login-form"
+        data-on:submit__prevent="@post('/admin/login', {contentType: 'form', selector: '#login-form'})"
+        class="z-form-stacked"
+      >
+        <div class="z-margin">
+          <label class="z-form-label" for="agent_id">Reviewer agent ID</label>
+          <input class="z-input" id="agent_id" name="agent_id" type="text" placeholder="reviewer1" autocomplete="username" required />
+        </div>
+        <div class="z-margin">
+          <label class="z-form-label" for="agent_key">Secret key</label>
+          <input class="z-input" id="agent_key" name="agent_key" type="password" placeholder="review-dev-key-change-me" autocomplete="current-password" required />
+        </div>
+        {% if error %}
+        <div class="z-alert z-alert-danger z-margin" data-z-alert>
+          <p>{{ error }}</p>
+        </div>
+        {% endif %}
+        <div id="login-error"></div>
+        <button class="z-button z-button-primary w-full" type="submit">Sign in</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{{ zbuild_foot() }}

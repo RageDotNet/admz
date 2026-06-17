@@ -13,6 +13,17 @@ from typing import Any, Iterator
 
 DB_PATH = Path(__file__).parent.parent / "data" / "dmz.db"
 
+INFLIGHT_STATUSES = frozenset(
+    {
+        "validating",
+        "pending_requestee",
+        "in_progress",
+        "validating_response",
+        "pending_review_request",
+        "pending_review_response",
+    }
+)
+
 
 def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -357,3 +368,53 @@ class Storage:
                 self.update_request(review.request_id, status="rejected")
 
         return self.get_review(review_id)
+
+    def list_requests(
+        self,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+        status: str | None = None,
+        exclude_inflight: bool = False,
+    ) -> list[RequestRecord]:
+        query = "SELECT * FROM requests"
+        params: list[Any] = []
+        clauses: list[str] = []
+
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        elif exclude_inflight:
+            placeholders = ",".join("?" for _ in INFLIGHT_STATUSES)
+            clauses.append(f"status NOT IN ({placeholders})")
+            params.extend(INFLIGHT_STATUSES)
+
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [self._row_to_request(row) for row in rows]
+
+    def list_inflight_requests(self, limit: int = 100) -> list[RequestRecord]:
+        placeholders = ",".join("?" for _ in INFLIGHT_STATUSES)
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT * FROM requests
+                WHERE status IN ({placeholders})
+                ORDER BY updated_at DESC
+                LIMIT ?
+                """,
+                (*INFLIGHT_STATUSES, limit),
+            ).fetchall()
+        return [self._row_to_request(row) for row in rows]
+
+    def count_requests_by_status(self) -> dict[str, int]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT status, COUNT(*) AS cnt FROM requests GROUP BY status"
+            ).fetchall()
+        return {row["status"]: row["cnt"] for row in rows}

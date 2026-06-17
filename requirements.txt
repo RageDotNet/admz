@@ -7,3 +7,4 @@ sqlalchemy
 email-validator
 requests
 python-a2a[server]
+pytest

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import uuid
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
@@ -22,6 +23,7 @@ from dmz.a2a_protocol import (
 )
 from dmz.agents import AgentRegistry, AuthError
 from dmz.arbiter import check_request, check_response
+from dmz.admin_routes import register_admin_routes
 from dmz.review_routes import register_review_routes
 from dmz.schemas import SchemaRegistry
 from dmz.storage import Storage
@@ -360,11 +362,19 @@ def main() -> None:
     )
 
     app = create_flask_app(gateway)
+    app.template_folder = str(Path(__file__).resolve().parent / "templates")
     register_review_routes(app, agent_registry=gateway.agent_registry, storage=gateway.storage)
+    register_admin_routes(
+        app,
+        agent_registry=gateway.agent_registry,
+        schema_registry=gateway.schema_registry,
+        storage=gateway.storage,
+    )
 
     debug = os.getenv("FLASK_DEBUG", "0") == "1"
     print(f"Starting A2A DMZ gateway on http://{host}:{port}/a2a")
     print(f"Review API available at http://{host}:{port}/api/v1/review/pending")
+    print(f"Admin UI available at http://{host}:{port}/admin")
     app.run(host=host, port=port, debug=debug)
 
 
