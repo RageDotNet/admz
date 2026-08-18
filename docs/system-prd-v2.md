@@ -4,12 +4,12 @@
 
 ## Overview & goals
 
-The DMZ is a **directory-driven broker** that sits between untrusted LLM agents. Providers register *actions* (validated API capabilities); clients discover those actions, request access, and invoke them. Every request and response passing through the DMZ is validated against a JSON Schema and judged by an LLM security arbiter before reaching the other side.
+The DMZ is a **directory-driven broker** that sits between untrusted LLM agents. Providers register *actions* (validated API capabilities); clients discover those actions, request enrollment, and invoke them. Every request and response passing through the DMZ is validated against a JSON Schema and judged by an LLM security arbiter before reaching the other side.
 
 Goals for this version:
 
 - **Synchronous processing** — every request is handled in one round trip; the client gets a final answer (result, or a specific rejection) immediately. There is no manual review or quarantine state for individual requests.
-- **Self-service directory** — providers manage their own actions via a REST API; clients browse the directory and request access; administrators approve actions, action updates, and access requests.
+- **Self-service directory** — providers manage their own actions via a REST API; clients browse the directory and request enrollment; administrators approve actions, action updates, and enrollments.
 - **Governance by approval, not interception** — human review moves upstream: actions and access are approved before any traffic flows, so live traffic needs no human gate.
 - **Portability** — SQLite is the default database, but the system is structured so switching to MariaDB, PostgreSQL, etc. is a configuration change, not a code change.
 
@@ -33,7 +33,7 @@ One synchronous REST application: agent identity, action directory with versioni
 | **Provider** | An agent that registers and responds on actions |
 | **Admin** | A human administrator (multiple allowed; defined in the config file) |
 | **Directory** | The catalog of all registered actions, filterable per client by access state |
-| **Access request** | A client's request for permission to invoke a specific action |
+| **Enrollment** | A client's granted permission to invoke a specific action, requested by the client and approved by an admin |
 | **Action version** | A specific revision of an action's definition; only one version of an action is active at a time |
 
 ## System components
@@ -87,18 +87,18 @@ A client can query the directory and see actions grouped by its relationship to 
 
 - **Available** — active actions it has not yet requested access to
 - **Pending** — actions it has requested access to that are not yet approved
-- **Rejected** — actions where its access request was rejected
+- **Rejected** — actions where its enrollment request was rejected
 - **Approved** — actions it is approved to invoke
 
-### Access requests
+### Enrollment requests
 
 - A client requests access to an action via the REST API.
-- Administrators see and manage access requests in the webui: approve or reject each one.
+- Administrators see and manage enrollment requests in the webui: approve or reject each one.
 - Only approved clients may invoke an action; other callers receive an authorization error.
 
 ### Admin directory view
 
-Admins see the full directory: all actions, all versions, lifecycle states, owning providers, and per-action access grants.
+Admins see the full directory: all actions, all versions, lifecycle states, owning providers, and per-action enrollments.
 
 ## Request flow (synchronous)
 
@@ -116,7 +116,7 @@ One request, one response — no intermediate states a client must poll:
 
 The DMZ exposes a `/skill` endpoint with **two skill documents**:
 
-- **Client skill** — machine/model-facing instructions for client agents: how to authenticate, browse the directory, interpret access states, request access, and invoke actions (including the meaning of immediate rejections and provider-failure responses).
+- **Client skill** — machine/model-facing instructions for client agents: how to authenticate, browse the directory, interpret enrollment states, request enrollment, and invoke actions (including the meaning of immediate rejections and provider-failure responses).
 - **Provider skill** — instructions for provider agents: how to authenticate, register and version actions, submit schemas and instructions, interpret approval states, and what the DMZ guarantees when invoking their endpoint.
 
 Skills are returned in a form an LLM agent can consume directly (the point being that an agent can bootstrap its use of the DMZ from the skill alone).
@@ -127,7 +127,7 @@ Administrators, via the webui (and API where noted):
 
 - Register agents, issue/revoke bearer keys, assign roles, configure provider endpoints
 - Approve or reject **new action versions** (activating them on approval)
-- Manage **client access requests** (approve/reject)
+- Manage **client enrollment requests** (approve/reject)
 - Browse the full **action directory** with version history
 - Browse **request logs** — all traffic with validation/arbitration outcomes
 - Manage their own credentials as defined in the config file
@@ -137,7 +137,7 @@ Administrators, via the webui (and API where noted):
 - **Offline test suite** — the full test suite runs with no network access (LLM and provider calls mocked).
 - **Startup validation** — config parsing and validation happen at boot; bad config crashes loudly rather than misbehaving at runtime.
 - **Portability** — no SQLite-specific constructs in application code; the ORM and DSN-config keep MariaDB/PostgreSQL switchable.
-- **Auditability** — every request, decision, and state change (approvals, access grants, agent registration) is persisted with enough context for after-the-fact review.
+- **Auditability** — every request, decision, and state change (approvals, enrollments and revocations, agent registration) is persisted with enough context for after-the-fact review.
 - **Immediate feedback** — no code path leaves a client waiting on human action; the only human gates are upstream (action/access approval).
 
 ## Beyond the scope of this document
