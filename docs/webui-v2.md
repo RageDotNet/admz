@@ -38,7 +38,7 @@ A single dashboard: a **stats bar** on top (agent count, action counts by state,
 |---|---|
 | **Dashboard/Directory** | All actions with all versions, lifecycle states, owning providers; entry point to per-action detail ("Directory tab & per-action detail") |
 | **Enrollment requests** | Cross-action queue of pending client enrollment requests; approve/reject |
-| **Agents** | Register agents, manage keys and capability flags, configure provider endpoints |
+| **Agents** | Register agents, manage keys and capability flags, configure provider delivery (`dispatch-v2.md`) |
 | **Request log** | All traffic with validation/arbitration outcomes, retries, and final results |
 | **Audit trail** | Every state change: approvals, rejections, enrollments/revocations, agent registration/edits, key issuance/revocation |
 | **Login** | (Not a tab — standalone page) |
@@ -79,11 +79,11 @@ The admin's "one place to understand one capability," with three sections:
 
 ## Agents tab
 
-- **List** of registered agents: name, capability flags (`is_client`, `is_provider` — displayed as two independent toggles, not a role dropdown), key status (active/revoked), provider endpoint summary, registration date.
+- **List** of registered agents: name, capability flags (`is_client`, `is_provider` — displayed as two independent toggles, not a role dropdown), key status (active/revoked), delivery configuration summary (protocol + endpoint/command), registration date.
 - **Register agent**: name + capability flags; on save the system generates a **bearer key shown exactly once** with a copy affordance and a warning that it cannot be retrieved again.
-- **Edit agent**: toggle capability flags independently (revoking one capability leaves the other intact), edit provider endpoint configuration (protocol — `completions`/`exec`/`post` — and its protocol-specific config: URL + headers, or program path), enable/disable the agent.
+- **Edit agent**: toggle capability flags independently (revoking one capability leaves the other intact), edit the delivery configuration (`dispatch-v2.md`): protocol (`completions`/`exec`/`post`), endpoint URL + headers or command, timeout, retry count, enable/disable the agent.
 - **Revoke key**: immediately cuts off the agent; a new key can be issued later.
-- Provider endpoint config forms validate per protocol (e.g. `exec` requires a program path; `completions`/`post` require a URL).
+- Delivery-config forms validate per protocol (e.g. `exec` requires a command; `completions`/`post` require a URL) and accept timeout/retry values.
 
 ## Request log tab
 

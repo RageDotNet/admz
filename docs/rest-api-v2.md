@@ -133,7 +133,7 @@ Providers do **not** get an agent-facing endpoint listing invocations of their a
 
 ## Beyond the scope of this document
 
-- **Provider dispatch protocols** (`completions`, `exec`, `post`) — how the DMZ calls provider endpoints, timeouts, and retry mechanics are a separate future PRD.
+- **Provider dispatch protocols** (`completions`, `exec`, `post`) — how the DMZ calls provider endpoints, timeouts, and retry mechanics are specified in `dispatch-v2.md`.
 - **Admin console routes** — approval, enrollment management, request log, and audit UI belong to `webui-v2.md`; this document defines only the agent-facing contract.
 - **A2A / MCP front doors, streaming, webhooks, rate limiting** — REST request/response only in this version.
 - **Skill document contents** — the `/v2/skill` endpoint's contract is defined here; the prose of the skill documents themselves is authored with the implementation.
