@@ -9,7 +9,7 @@ This document describes the v2 schema system, in which **providers submit their 
 
 ---
 
-## 1. Submission Format
+## Submission Format
 
 A provider submits a single JSON document to the schema submission endpoint:
 
@@ -32,19 +32,19 @@ A provider submits a single JSON document to the schema submission endpoint:
 |---|---|---|
 | `id` | ✅ | Unique, stable identifier for the action. Becomes the `schema_id` clients use to invoke the action. |
 | `description` | ✅ | **Overall description of the capability** — what it does, when to use it, what kind of data it returns. This is the discovery text shown to **clients looking for the right action to use**, so it should be written for that audience. |
-| `request_schema` | ✅ | JSON Schema (draft 2020-12) describing the request payload (see §1.1). |
-| `response_schema` | ✅ | JSON Schema (draft 2020-12) describing the response payload (see §1.1). |
-| `request_arbiter_instructions` | ❌ | Extra instructions appended to the arbiter's base **request** prompt for this action only (see §3). |
-| `response_arbiter_instructions` | ❌ | Extra instructions appended to the arbiter's base **response** prompt for this action only (see §3). |
-| `client_instructions` | ❌ | Instructions for the **client's model** on what its request payload should contain (and not contain) (see §1.2). |
-| `provider_instructions` | ❌ | Instructions for the **provider's model** on what its response payload should contain (and not contain) (see §1.2). |
+| `request_schema` | ✅ | JSON Schema (draft 2020-12) describing the request payload (see "Schema format"). |
+| `response_schema` | ✅ | JSON Schema (draft 2020-12) describing the response payload (see "Schema format"). |
+| `request_arbiter_instructions` | ❌ | Extra instructions appended to the arbiter's base **request** prompt for this action only (see "Per-Schema Arbiter Instructions"). |
+| `response_arbiter_instructions` | ❌ | Extra instructions appended to the arbiter's base **response** prompt for this action only (see "Per-Schema Arbiter Instructions"). |
+| `client_instructions` | ❌ | Instructions for the **client's model** on what its request payload should contain (and not contain) (see "Model-facing instructions"). |
+| `provider_instructions` | ❌ | Instructions for the **provider's model** on what its response payload should contain (and not contain) (see "Model-facing instructions"). |
 
 There is deliberately **no provider or requestor field** in the submission:
 
-- The **provider** is derived from the authenticated identity that made the POST (see §2).
+- The **provider** is derived from the authenticated identity that made the POST (see "Submission & Review Lifecycle").
 - Which **clients** may invoke an action is governed by a separate client-approval system, not the schema binding.
 
-### 1.1 Schema format
+### Schema format
 
 `request_schema` and `response_schema` are standard **JSON Schema draft 2020-12** documents, embedded inline in the submission. Conventions:
 
@@ -71,14 +71,14 @@ Example request schema:
 }
 ```
 
-### 1.2 Model-facing instructions (`client_instructions` / `provider_instructions`)
+### Model-facing instructions (`client_instructions` / `provider_instructions`)
 
 Schemas constrain *structure* (types, required fields, allowed properties), but they cannot express *intent* — e.g. "use exact names", "keep the note under one paragraph", or "never include unmatched records". Two optional fields give the participating models action-specific guidance:
 
 - **`client_instructions`** — delivered to the **client's model** when it formulates a request. Describes what the request payload should contain and what it must not contain (e.g. no hidden instructions, no free-text questions stuffed into data fields, which fields are optional vs. recommended).
 - **`provider_instructions`** — delivered to the **provider's model** when it generates a response. Describes what the response should contain and what it must not contain (e.g. only records that actually match the query, no extra fields, no internal commentary).
 
-These differ from the arbiter instruction fields in §3:
+These differ from the arbiter instruction fields in "Per-Schema Arbiter Instructions":
 
 | | Arbiter instructions | Model-facing instructions |
 |---|---|---|
@@ -91,7 +91,7 @@ Both sets of instructions are part of the reviewed submission: like the arbiter 
 
 ---
 
-## 2. Submission & Review Lifecycle
+## Submission & Review Lifecycle
 
 ```
 provider ──POST /schemas──► [submitted]
@@ -127,7 +127,7 @@ Because identity comes from authentication rather than a form field, providers c
 
 ---
 
-## 3. Per-Schema Arbiter Instructions
+## Per-Schema Arbiter Instructions
 
 The arbiter uses two **base prompts**, one for request checks and one for response checks. These base prompts are maintained by the DMZ operators in code and cover the universal security checks:
 
@@ -170,12 +170,12 @@ The arbiter's reply is parsed as JSON (with a fallback that extracts the first `
 
 ---
 
-## 4. Runtime Validation
+## Runtime Validation
 
 Once approved, an action enforces its schemas on every message:
 
 1. **Structural validation** — each payload is validated twice against the action's declared schemas: first with a JSON Schema validator, then with a Pydantic model generated from the schema (via `dydantic`). Unknown `schema_id` values are rejected.
-2. **Arbiter check** — base prompts + the action's provider-supplied instruction blocks (§3).
+2. **Arbiter check** — base prompts + the action's provider-supplied instruction blocks ("Per-Schema Arbiter Instructions").
 3. **Immediate feedback** — every failure is terminal for that message: request-side failures reject the client's call immediately; response-side failures trigger the configured provider retries, after which the client receives a provider-failure error. Failures are logged (with full payloads, validation errors, and arbiter verdicts) for after-the-fact admin inspection — but no failure ever waits on a human.
 
 The full pipeline for a request crossing the DMZ:
@@ -204,7 +204,7 @@ response → client
 
 ---
 
-## 5. Beyond the scope of this document
+## Beyond the scope of this document
 
 - Endpoint paths, authentication mechanism, and API shapes (submission, discovery/listing for clients, review actions) are not yet specified.
 - Versioning: what happens when a provider updates an approved schema — new submission + re-review, or in-place edit with history
