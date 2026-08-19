@@ -1,4 +1,4 @@
-﻿<div class="card" id="agent-{{ agent.id }}-detail">
+<div class="card" id="agent-{{ agent.id }}-detail">
   {% if saved %}<p class="notice ok">Saved.</p>{% endif %}
   <h3>{{ agent.name }} <span class="muted small mono">{{ agent.id }}</span></h3>
   <!-- Delivery config is never echoed back (#16): show protocol presence only. -->
