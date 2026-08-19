@@ -1,33 +1,33 @@
 <div>
-  <form class="row" data-on-submit="@get(&quot;/admin/partials/audit&quot;, {contentType: &quot;form&quot;})">
-    <input type="text" name="actor_id" value="{{ actor_id }}" placeholder="actor id">
-    <select name="target_type">
+  <form class="z-flex z-flex-top" data-on-submit="@get(&quot;/admin/partials/audit&quot;, {contentType: &quot;form&quot;})">
+    <input type="text" name="actor_id" class="z-input" value="{{ actor_id }}" placeholder="actor id">
+    <select name="target_type" class="z-select">
       <option value="">any target</option>
       {% for t in ("action", "action_version", "enrollment", "agent") %}
       <option value="{{ t }}" {% if target_type == t %}selected{% endif %}>{{ t }}</option>
       {% endfor %}
     </select>
-    <button type="submit">Filter</button>
+    <button type="submit" class="z-button">Filter</button>
   </form>
-  <table>
+  <table class="z-table z-table-divider z-table-hover z-table-small">
     <thead><tr><th>When</th><th>Actor</th><th>Event</th><th>Target</th><th>Detail</th></tr></thead>
     <tbody>
     {% for e in rows %}
       <tr>
-        <td class="small">{{ e.occurred_at }}</td>
-        <td class="small">{{ e.actor_type }}:{{ e.actor_id }}</td>
-        <td class="small">{{ e.event }}</td>
-        <td class="small">{{ e.target_type }}/{{ e.target_id[:12] }}</td>
-        <td class="small muted">{{ (e.detail | tojson) if e.detail else "" }}</td>
+        <td class="z-text-small">{{ e.occurred_at }}</td>
+        <td class="z-text-small">{{ e.actor_type }}:{{ e.actor_id }}</td>
+        <td class="z-text-small">{{ e.event }}</td>
+        <td class="z-text-small">{{ e.target_type }}/{{ e.target_id[:12] }}</td>
+        <td class="z-text-small z-text-meta">{{ (e.detail | tojson) if e.detail else "" }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="5" class="muted">No events.</td></tr>
+      <tr><td colspan="5" class="z-text-meta">No events.</td></tr>
     {% endfor %}
     </tbody>
   </table>
   <div class="pager">
-    <span class="muted small">{{ total }} total — page {{ page }}</span>
-    {% if page > 1 %}<a class="btn" href="#" data-on-click="@get(&quot;/admin/partials/audit?page={{ page - 1 }}&quot;)">Prev</a>{% endif %}
-    {% if page * per_page < total %}<a class="btn" href="#" data-on-click="@get(&quot;/admin/partials/audit?page={{ page + 1 }}&quot;)">Next</a>{% endif %}
+    <span class="z-text-meta z-text-small">{{ total }} total — page {{ page }}</span>
+    {% if page > 1 %}<a class="z-button z-button-default z-button-small" href="#" data-on-click="@get(&quot;/admin/partials/audit?page={{ page - 1 }}&quot;)">Prev</a>{% endif %}
+    {% if page * per_page < total %}<a class="z-button z-button-default z-button-small" href="#" data-on-click="@get(&quot;/admin/partials/audit?page={{ page + 1 }}&quot;)">Next</a>{% endif %}
   </div>
 </div>

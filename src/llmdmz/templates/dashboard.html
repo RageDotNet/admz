@@ -1,30 +1,43 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="z-layout-small">
 <head>
   <meta charset="utf-8">
   <title>LLM DMZ Admin</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/0build.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/0build-kit.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+  <script>
+    // 0build theme init (per https://0build.dev/docs/latest/kit/installation/)
+    const htmlElement = document.documentElement;
+    const __Z_THEME__ = JSON.parse(localStorage.getItem("__Z_THEME__") || "{}");
+    if (__Z_THEME__.mode === "dark" ||
+        (!__Z_THEME__.mode && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+      htmlElement.classList.add("dark");
+    } else {
+      htmlElement.classList.remove("dark");
+    }
+    htmlElement.classList.add(__Z_THEME__.layout || "z-layout-small");
+  </script>
   <script type="module" src="{{ url_for('static', filename='vendor/datastar-1.0.2.js') }}"></script>
 </head>
-<body>
-<div class="container" data-signals="{tab: 'directory'}">
+<body class="bg color" style="--bg: var(--z-bg); --color: var(--z-bg-f)">
+<div class="z-container" data-signals="{tab: 'directory'}">
   <h1>LLM DMZ â€” Admin Console</h1>
   <div id="stats-bar">{% include "partials/stats_placeholder.html" %}</div>
-  <nav class="tabs" role="tablist">
-    <a class="tab" role="tab" href="#directory" data-on-click="$tab='directory'"
+  <nav class="z-tab" role="tablist">
+    <a class="z-tab" role="tab" href="#directory" data-on-click="$tab='directory'"
        data-attr-aria-selected="$tab==='directory' ? 'true' : 'false'">Directory</a>
-    <a class="tab" role="tab" href="#enrollments" data-on-click="$tab='enrollments'"
+    <a class="z-tab" role="tab" href="#enrollments" data-on-click="$tab='enrollments'"
        data-attr-aria-selected="$tab==='enrollments' ? 'true' : 'false'">Enrollments</a>
-    <a class="tab" role="tab" href="#agents" data-on-click="$tab='agents'"
+    <a class="z-tab" role="tab" href="#agents" data-on-click="$tab='agents'"
        data-attr-aria-selected="$tab==='agents' ? 'true' : 'false'">Agents</a>
-    <a class="tab" role="tab" href="#log" data-on-click="$tab='log'"
+    <a class="z-tab" role="tab" href="#log" data-on-click="$tab='log'"
        data-attr-aria-selected="$tab==='log' ? 'true' : 'false'">Request log</a>
-    <a class="tab" role="tab" href="#audit" data-on-click="$tab='audit'"
+    <a class="z-tab" role="tab" href="#audit" data-on-click="$tab='audit'"
        data-attr-aria-selected="$tab==='audit' ? 'true' : 'false'">Audit trail</a>
     <span class="grow"></span>
-    <form class="inline" method="post" action="{{ url_for('admin.logout') }}">
+    <form class="z-flex z-flex-top" method="post" action="{{ url_for('admin.logout') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit">Log out ({{ admin }})</button>
+      <button type="submit" class="z-button">Log out ({{ admin }})</button>
     </form>
   </nav>
 

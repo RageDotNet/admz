@@ -1,30 +1,30 @@
 <div>
   <h2>Register agent</h2>
-  <form class="row" data-on-submit="@post('/admin/agents', {contentType: 'form'})">
+  <form class="z-flex z-flex-top" data-on-submit="@post('/admin/agents', {contentType: 'form'})">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="text" name="name" placeholder="agent name">
-    <label class="small"><input type="checkbox" name="is_client"> client</label>
-    <label class="small"><input type="checkbox" name="is_provider"> provider</label>
-    <button class="primary" type="submit">Register</button>
+    <input type="text" name="name" class="z-input" placeholder="agent name">
+    <label class="z-text-small"><input type="checkbox" name="is_client"> client</label>
+    <label class="z-text-small"><input type="checkbox" name="is_provider"> provider</label>
+    <button class="z-button-primary" type="submit">Register</button>
   </form>
 
-  <table>
+  <table class="z-table z-table-divider z-table-hover z-table-small">
     <thead><tr><th>Name</th><th>Capabilities</th><th>Status</th><th>Key</th><th></th></tr></thead>
     <tbody>
     {% for agent in agents %}
       <tr>
         <td><a href="#" data-on-click="@get('/admin/agents/{{ agent.id }}')">{{ agent.name }}</a></td>
-        <td class="small">{{ 'client' if agent.is_client }}{{ ' provider' if agent.is_provider }}</td>
+        <td class="z-text-small">{{ 'client' if agent.is_client }}{{ ' provider' if agent.is_provider }}</td>
         <td>{{ 'disabled' if agent.disabled else 'enabled' }}</td>
         <td id="agent-{{ agent.id }}-key-state">{{ 'set' if agent.api_key_hash else 'revoked' }}</td>
         <td>
-          <form class="inline" data-on-submit="@post('/admin/agents/{{ agent.id }}/revoke-key')">
+          <form class="z-flex z-flex-top" data-on-submit="@post('/admin/agents/{{ agent.id }}/revoke-key')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="danger small">Revoke key</button>
+            <button type="submit" class="z-button-danger z-text-small">Revoke key</button>
           </form>
-          <form class="inline" data-on-submit="@post('/admin/agents/{{ agent.id }}/new-key')">
+          <form class="z-flex z-flex-top" data-on-submit="@post('/admin/agents/{{ agent.id }}/new-key')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="small">New key</button>
+            <button type="submit" class="z-text-small">New key</button>
           </form>
         </td>
       </tr>
@@ -32,7 +32,7 @@
     </tbody>
   </table>
   <div class="pager">
-    <span class="muted small">{{ total }} total â€” page {{ page }}</span>
+    <span class="z-text-meta z-text-small">{{ total }} total â€” page {{ page }}</span>
   </div>
   <div id="agent-detail-region"></div>
 </div>

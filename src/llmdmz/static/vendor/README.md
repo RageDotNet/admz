@@ -1,6 +1,12 @@
 # Vendored front-end assets
 
-- `0build.min.css` — utility CSS bundle from https://0build.dev
+- `0build-kit.min.css` ? 0build **v0.6.0** kit CSS (642 KB), the real upstream
+  stylesheet from https://cdn.jsdelivr.net/gh/0builddotdev/0build@0.6.0/dist/css/kit.min.css.
+  All console styling uses its `z-*` component classes; project-specific bits
+  (mono, diff coloring, pager gap) live in `static/admin.css`. Pages also carry
+  0build's theme-init script (`dark` mode / `z-layout-small`) per its docs.
+  The old hand-authored `0build.min.css` was deleted.
+
 - `datastar-1.0.2.js` — Datastar **v1.0.2**, fetched from
   https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.2/bundles/datastar.js
   **This is the build the admin console loads** (dashboard.html, ES module).

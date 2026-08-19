@@ -1,25 +1,25 @@
-<table>
+<table class="z-table z-table-divider z-table-hover z-table-small">
   <thead><tr><th>Client</th><th>Action</th><th>Requested</th><th></th></tr></thead>
   <tbody>
   {% for row in rows %}
     <tr id="enrollment-{{ row.enrollment.id }}">
       <td>{{ row.agent.name if row.agent else row.enrollment.agent_id }}</td>
       <td>{{ row.enrollment.action_id }}</td>
-      <td class="small">{{ row.enrollment.requested_at }}</td>
+      <td class="z-text-small">{{ row.enrollment.requested_at }}</td>
       <td>
-        <form class="inline row" data-on-submit="@post(&quot;/admin/enrollment/{{ row.enrollment.id }}/approve&quot;, {contentType: &quot;form&quot;})">
+        <form class="z-flex z-flex-top z-flex z-flex-top" data-on-submit="@post(&quot;/admin/enrollment/{{ row.enrollment.id }}/approve&quot;, {contentType: &quot;form&quot;})">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <input type="text" name="notes" placeholder="notes" class="small">
-          <button class="primary" type="submit">Approve</button>
+          <input type="text" name="notes" class="z-input" placeholder="notes" class="z-text-small">
+          <button class="z-button-primary" type="submit">Approve</button>
         </form>
-        <form class="inline" data-on-submit="@post(&quot;/admin/enrollment/{{ row.enrollment.id }}/reject&quot;, {contentType: &quot;form&quot;})">
+        <form class="z-flex z-flex-top" data-on-submit="@post(&quot;/admin/enrollment/{{ row.enrollment.id }}/reject&quot;, {contentType: &quot;form&quot;})">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <button class="danger" type="submit">Reject</button>
+          <button class="z-button-danger" type="submit">Reject</button>
         </form>
       </td>
     </tr>
   {% else %}
-    <tr><td colspan="4" class="muted">No pending enrollment requests.</td></tr>
+    <tr><td colspan="4" class="z-text-meta">No pending enrollment requests.</td></tr>
   {% endfor %}
   </tbody>
 </table>

@@ -25,10 +25,10 @@ VENDOR_VERSIONS = {
             "1.0.0-beta.11/dist/datastar.min.js"
         ),
     },
-    # No canonical npm distribution of "0build" was locatable; the committed
-    # bundle is a hand-authored minimal utility stylesheet. Set a URL here
-    # when an upstream is chosen, then re-run this script to replace it.
-    "0build.min.css": {"version": "vendored-minimal", "url": None},
+    "0build-kit.min.css": {
+        "version": "0.6.0",
+        "url": "https://cdn.jsdelivr.net/gh/0builddotdev/0build@0.6.0/dist/css/kit.min.css",
+    },
     # Reference copy of the post-rewrite Datastar core (signals/effects only).
     # NOT loaded by any page — see vendor/README.md before swapping it in.
     "datastar-1.0.2.js": {

@@ -1,19 +1,31 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="z-layout-small">
 <head>
   <meta charset="utf-8">
   <title>LLM DMZ Admin — Login</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/0build.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/0build-kit.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+  <script>
+    const htmlElement = document.documentElement;
+    const __Z_THEME__ = JSON.parse(localStorage.getItem("__Z_THEME__") || "{}");
+    if (__Z_THEME__.mode === "dark" ||
+        (!__Z_THEME__.mode && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+      htmlElement.classList.add("dark");
+    } else {
+      htmlElement.classList.remove("dark");
+    }
+    htmlElement.classList.add(__Z_THEME__.layout || "z-layout-small");
+  </script>
 </head>
-<body>
-<div class="container">
+<body class="bg color" style="--bg: var(--z-bg); --color: var(--z-bg-f)">
+<div class="z-container">
   <h1>LLM DMZ — Admin Login</h1>
-  {% if error %}<p class="notice err">{{ error }}</p>{% endif %}
+  {% if error %}<p class="z-label z-label-danger">{{ error }}</p>{% endif %}
   <form method="post" action="{{ url_for('admin.login_post') }}" class="col" style="max-width:24rem">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label>Username <input type="text" name="username" autocomplete="username"></label>
-    <label>Password <input type="password" name="password" autocomplete="current-password"></label>
-    <button type="submit" class="primary">Log in</button>
+    <label>Username <input class="z-input" type="text" name="username" class="z-input" autocomplete="username"></label>
+    <label>Password <input class="z-input" type="password" name="password" autocomplete="current-password"></label>
+    <button type="submit" class="z-button-primary">Log in</button>
   </form>
 </div>
 </body>

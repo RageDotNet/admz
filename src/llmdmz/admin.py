@@ -27,6 +27,36 @@ from llmdmz.core.auth import bearer_token, resolve_bearer
 
 bp = Blueprint("admin", __name__, url_prefix="/admin", template_folder="../templates")
 
+# 0build kit has no per-state badge classes; map domain states to z-tag variants.
+STATE_TAG = {
+    # action states
+    "pending": "z-tag-warning",
+    "active": "z-tag-success",
+    "withdrawn": "z-tag-muted",
+    # version states
+    "submitted": "z-tag-warning",
+    "rejected": "z-tag-danger",
+    "superseded": "z-tag-muted",
+    # enrollment states
+    "requested": "z-tag-info",
+    "enrolled": "z-tag-success",
+    "revoked": "z-tag-muted",
+    # request outcomes
+    "completed": "z-tag-success",
+    "request_schema_invalid": "z-tag-warning",
+    "arbiter_rejected": "z-tag-danger",
+    "provider_failed": "z-tag-danger",
+    "arbiter_unavailable": "z-tag-warning",
+    "internal_error": "z-tag-danger",
+}
+
+
+def state_tag(state: str) -> str:
+    return STATE_TAG.get(state, "z-tag-muted")
+
+
+bp.add_app_template_global(state_tag)
+
 
 # --- T4.3: auth guard (#17/#23) -----------------------------------------------
 

@@ -1,6 +1,6 @@
-<div class="card">
+<div class="z-card z-card-body">
   <h3>Request {{ req.id }}</h3>
-  <p class="small muted">{{ req.created_at }} — outcome <span class="badge {{ req.outcome }}">{{ req.outcome }}</span></p>
+  <p class="z-text-small z-text-meta">{{ req.created_at }} — outcome <span class="z-tag {{ state_tag(req.outcome) }}">{{ req.outcome }}</span></p>
   <h4>Request payload</h4>
   <pre>{{ req.request_payload | tojson(indent=2) }}</pre>
   <h4>Arbiter verdict (request)</h4>
@@ -8,12 +8,12 @@
   <h4>Response payload</h4>
   <pre>{{ (req.response_payload | tojson(indent=2)) if req.response_payload else "—" }}</pre>
   <h4>Dispatch attempts ({{ attempts | length }})</h4>
-  <table>
+  <table class="z-table z-table-divider z-table-hover z-table-small">
     <thead><tr><th>#</th><th>Protocol</th><th>Error class</th><th>Detail</th></tr></thead>
     <tbody>
     {% for a in attempts %}
       <tr><td>{{ a.attempt_number }}</td><td>{{ a.framing.protocol }}</td>
-      <td>{{ a.error_class or "—" }}</td><td class="small">{{ a.error_detail or "" }}</td></tr>
+      <td>{{ a.error_class or "—" }}</td><td class="z-text-small">{{ a.error_detail or "" }}</td></tr>
     {% endfor %}
     </tbody>
   </table>

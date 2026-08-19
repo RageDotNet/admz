@@ -1,11 +1,11 @@
 <div class="statsbar">
-  <div class="stat"><span class="muted small">Agents</span><span class="num">{{ agent_count }}</span></div>
-  <div class="stat"><span class="muted small">Actions pending</span><span class="num">{{ actions_by_state.pending }}</span></div>
-  <div class="stat"><span class="muted small">active</span><span class="num">{{ actions_by_state.active }}</span></div>
-  <div class="stat"><span class="muted small">withdrawn</span><span class="num">{{ actions_by_state.withdrawn }}</span></div>
-  <div class="stat"><span class="muted small">Pending enrollments</span><span class="num">{{ pending_enrollments }}</span></div>
+  <div class="stat"><span class="z-text-meta z-text-small">Agents</span><span class="num">{{ agent_count }}</span></div>
+  <div class="stat"><span class="z-text-meta z-text-small">Actions pending</span><span class="num">{{ actions_by_state.pending }}</span></div>
+  <div class="stat"><span class="z-text-meta z-text-small">active</span><span class="num">{{ actions_by_state.active }}</span></div>
+  <div class="stat"><span class="z-text-meta z-text-small">withdrawn</span><span class="num">{{ actions_by_state.withdrawn }}</span></div>
+  <div class="stat"><span class="z-text-meta z-text-small">Pending enrollments</span><span class="num">{{ pending_enrollments }}</span></div>
   {% for outcome, count in outcome_counts.items() %}
-  <div class="stat"><span class="muted small">{{ outcome }}</span><span class="num">{{ count }}</span></div>
+  <div class="stat"><span class="z-text-meta z-text-small">{{ outcome }}</span><span class="num">{{ count }}</span></div>
   {% endfor %}
-  <div class="stat"><span class="muted small">last 24h</span><span class="num">{{ last_24h }}</span></div>
+  <div class="stat"><span class="z-text-meta z-text-small">last 24h</span><span class="num">{{ last_24h }}</span></div>
 </div>
