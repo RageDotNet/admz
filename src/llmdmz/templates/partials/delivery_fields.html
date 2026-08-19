@@ -1,17 +1,17 @@
+{% set cfg = (agent.delivery_config or {}) if agent is defined and agent else {} %}
+{% set prov = agent.is_provider if agent is defined and agent else false %}
+{% set proto = cfg.get('protocol', 'post') if cfg else 'post' %}
+{% set hrows = [1, cfg.headers | length if cfg.headers else 1] | max %}
 <div>
-  {% set prov = agent.is_provider if agent is defined and agent else false %}
-  {% set proto = (agent.delivery_config.protocol if agent.delivery_config else 'post')
-                 if agent is defined and agent else 'post' %}
-  <div data-signals="{provider: {{ 'true' if prov else 'false' }}, protocol: '{{ proto }}', headerRows: 1}">
+  <div data-signals="{provider: {{ 'true' if prov else 'false' }}, protocol: '{{ proto }}', headerRows: {{ hrows }}{% if cfg.headers %}{% for k, v in cfg.headers.items() %}, hk{{ loop.index0 }}: {{ k | tojson }}, hv{{ loop.index0 }}: {{ v | tojson }}{% endfor %}{% endif %}}">
     <div data-show="$provider" class="card bg-body-tertiary border-0">
       <div class="card-body d-flex flex-column gap-2">
-        <div class="small text-body-secondary">Delivery config — write-only: values are stored but never displayed again.</div>
         <div>
           <label class="form-label small mb-1">Delivery method</label>
           <select name="protocol" class="form-select form-select-sm" data-bind="$protocol">
-            <option value="post">HTTP POST endpoint</option>
-            <option value="exec">Local command (exec)</option>
-            <option value="completions">LLM completions (LiteLLM)</option>
+            <option value="post"{% if proto == 'post' %} selected{% endif %}>HTTP POST endpoint</option>
+            <option value="exec"{% if proto == 'exec' %} selected{% endif %}>Local command (exec)</option>
+            <option value="completions"{% if proto == 'completions' %} selected{% endif %}>LLM completions (LiteLLM)</option>
           </select>
         </div>
 
@@ -20,18 +20,20 @@
           <div>
             <label class="form-label small mb-1">Endpoint URL</label>
             <input type="url" name="endpoint" class="form-control form-control-sm"
+                   value="{{ cfg.get('endpoint', '') }}"
                    placeholder="https://provider.example/hook">
           </div>
           <div class="small text-body-secondary mb-0">Headers (added verbatim to every POST)</div>
           {% for i in range(12) %}
           <div class="d-flex flex-wrap gap-2 align-items-center" data-show="$headerRows > {{ i }}">
             <input type="text" name="header_key_{{ i }}" class="form-control form-control-sm"
-                   style="max-width: 14rem" placeholder="Header name">
+                   style="max-width: 14rem" placeholder="Header name" data-bind="$hk{{ i }}">
             <input type="text" name="header_value_{{ i }}" class="form-control form-control-sm"
-                   style="max-width: 20rem" placeholder="Value (e.g. Bearer &hellip;)">
+                   style="max-width: 20rem" placeholder="Value (e.g. Bearer &hellip;)" data-bind="$hv{{ i }}">
             {% if i %}
             <button type="button" class="btn btn-sm btn-outline-danger"
-                    data-show="$headerRows > {{ i }}" data-on:click="$headerRows={{ i }}">remove</button>
+                    data-show="$headerRows > {{ i }}"
+                    data-on:click="$headerRows={{ i }};{% for j in range(i, 12) %} $hk{{ j }}=null; $hv{{ j }}=null;{% endfor %}">remove</button>
             {% endif %}
           </div>
           {% endfor %}
@@ -43,6 +45,7 @@
         <div data-show="$protocol==='exec'">
           <label class="form-label small mb-1">Command</label>
           <input type="text" name="command" class="form-control form-control-sm font-monospace"
+                 value="{{ cfg.get('command', '') }}"
                  placeholder="python provider_script.py">
           <div class="form-text small">Run locally; framing arrives on stdin, JSON payload is read from stdout.</div>
         </div>
@@ -51,6 +54,7 @@
         <div data-show="$protocol==='completions'">
           <label class="form-label small mb-1">Model</label>
           <input type="text" name="model" class="form-control form-control-sm font-monospace"
+                 value="{{ cfg.get('model', '') }}"
                  placeholder="openai/gpt-4o-mini">
           <div class="form-text small">LiteLLM model string; called with system/user chat framing.</div>
         </div>
@@ -60,12 +64,12 @@
           <div>
             <label class="form-label small mb-1">Retries</label>
             <input type="number" name="retries" min="0" max="9" class="form-control form-control-sm"
-                   style="max-width: 8rem" placeholder="config default">
+                   style="max-width: 8rem" value="{{ cfg.get('retries', '') }}" placeholder="config default">
           </div>
           <div>
             <label class="form-label small mb-1">Timeout (s)</label>
             <input type="number" name="timeout" min="1" max="600" class="form-control form-control-sm"
-                   style="max-width: 8rem" placeholder="config default">
+                   style="max-width: 8rem" value="{{ cfg.get('timeout', '') }}" placeholder="config default">
           </div>
         </div>
       </div>

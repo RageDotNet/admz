@@ -237,7 +237,8 @@ class TestRevealOnce:  # T4.18
         listing = client_http.get("/admin/partials/agents").get_data(as_text=True)
         assert key.group(0) not in listing
 
-    def test_delivery_config_never_echoed(self, app_fixture, client_http):
+    def test_delivery_config_prefilled_for_admin(self, app_fixture, client_http):
+        """Admins may see all delivery settings (console is admin-only)."""
         app, _, _ = app_fixture
         with app.app_context():
             s = app.extensions["DMZ_SESSION_FACTORY"]()
@@ -252,8 +253,8 @@ class TestRevealOnce:  # T4.18
             s.close()
         _login(client_http)
         detail = client_http.get(f"/admin/agents/{agent_id}").get_data(as_text=True)
-        assert "super-secret-provider-token" not in detail
-        assert "secret.example" not in detail
+        assert "super-secret-provider-token" in detail
+        assert "secret.example" in detail
 
     def test_agent_edit_structured_delivery_post(self, app_fixture, client_http):
         app, _, _ = app_fixture
