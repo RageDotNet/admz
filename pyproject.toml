@@ -15,6 +15,7 @@ dependencies = [
     "alembic>=1.13,<2",
     "litellm>=1.40,<2",
     "PyYAML>=6.0,<7",
+    "datastar-py>=1.0.2,<1.1",
     "dydantic>=0.0.8,<0.1",
     "jsonschema>=4.21,<5",
     "gunicorn>=21.2,<24",

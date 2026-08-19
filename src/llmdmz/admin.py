@@ -11,6 +11,8 @@ import secrets
 from collections.abc import Callable
 from typing import Any
 
+from datastar_py import ServerSentEventGenerator as SSE
+from datastar_py.consts import ElementPatchMode
 from flask import (
     Blueprint,
     Response,
@@ -128,24 +130,18 @@ def csrf_token() -> str:
 def sse_merge(patches: list[tuple[str, str]]) -> Response:
     """Datastar SSE merge response: one event per (selector, html) patch.
 
-    Protocol (datastar v1.0.2, verified against the vendored bundle's SSE
-    parser): each data line is "key value" split at the FIRST space; duplicate
-    keys are rejoined with newline, so the `elements` key must be repeated on
-    every HTML line. The `datastar-patch-elements` handler reads `selector`,
-    `mode` (one of remove/outer/inner/replace/prepend/append/before/after),
-    and `elements`. We use `mode inner` because the partial HTML is content
-    for the target element, not a replacement carrying the target's own id.
+    Event formatting is delegated to the official ``datastar-py`` SDK
+    (datastar_py.ServerSentEventGenerator, version-matched to the vendored
+    datastar 1.0.2 bundle; the core generator is framework-agnostic so it
+    works with Flask). We use ``mode inner`` because the partial HTML is
+    content for the target element, not a replacement carrying the target's
+    own id.
     """
-    lines: list[str] = []
-    for selector, html in patches:
-        lines.append("event: datastar-patch-elements")
-        lines.append(f"data: selector {selector}")
-        lines.append("data: mode inner")
-        for html_line in html.splitlines() or [""]:
-            lines.append(f"data: elements {html_line}")
-        lines.append("")
-        lines.append("")
-    response = Response("\n".join(lines), mimetype="text/event-stream")
+    body = "".join(
+        SSE.patch_elements(html, selector=selector, mode=ElementPatchMode.INNER)
+        for selector, html in patches
+    )
+    response = Response(body, mimetype="text/event-stream")
     response.headers["Cache-Control"] = "no-cache"
     return response
 
