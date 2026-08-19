@@ -62,8 +62,8 @@
 - [x] T3.1 Define `ArbiterClient` + `ProviderTransport` interfaces (the DI seam for offline tests, #31)
 - [x] T3.2 Implement verdict parser (JSON â†’ first-`{...}` fallback, bool coercion, default reason; unparseable = failed check)
 - [x] T3.3 **Validate:** verdict-parser unit tests (clean JSON, fenced JSON, prose-wrapped JSON, garbage)
-- [ ] T3.4 Write `arbiter_prompts.py` (`REQUEST_BASE_PROMPT` / `RESPONSE_BASE_PROMPT`) meeting clarification #3 criteria
-- [ ] T3.5 **Validate + owner gate:** tests assert invariant clauses present (job statement, fixed verdict shape, injection refusal); **owner review of prompt text required before merge**
+- [x] T3.4 Write `arbiter_prompts.py` (`REQUEST_BASE_PROMPT` / `RESPONSE_BASE_PROMPT`) meeting clarification #3 criteria
+- [x] T3.5 **Validate + owner gate:** tests assert invariant clauses present (job statement, fixed verdict shape, injection refusal); **owner review of prompt text required before merge**
 - [ ] T3.6 Implement LiteLLM arbiter adapter (temp 0, max_tokens 512, 30s timeout, no LiteLLM retries, `ARBITER_MODEL` default `openai/gpt-4o-mini`, all knobs, #2)
 - [ ] T3.7 Implement `post` transport adapter (endpoint + verbatim headers, unstructured framing incl. retry-error injection)
 - [ ] T3.8 Implement `exec` transport adapter (subprocess, timeout, exit code/stderr capture)
