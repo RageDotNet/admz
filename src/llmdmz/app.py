@@ -35,6 +35,10 @@ def create_app(config: Config | None = None) -> Flask:
     from llmdmz.core.db import init_db
 
     init_db(app, config)
+
+    from llmdmz.api_v2 import bp as api_v2_bp
+
+    app.register_blueprint(api_v2_bp)
     return app
 
 
