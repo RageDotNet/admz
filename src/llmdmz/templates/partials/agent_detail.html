@@ -1,15 +1,15 @@
-<div class="z-card z-card-body" id="agent-{{ agent.id }}-detail">
-  {% if saved %}<p class="z-label z-label-success">Saved.</p>{% endif %}
-  <h3>{{ agent.name }} <span class="z-text-meta z-text-small mono">{{ agent.id }}</span></h3>
+<div class="card card-body" id="agent-{{ agent.id }}-detail">
+  {% if saved %}<p class="alert alert-success py-2 mb-2">Saved.</p>{% endif %}
+  <h3>{{ agent.name }} <span class="small text-body-secondary mono">{{ agent.id }}</span></h3>
   <!-- Delivery config is never echoed back (#16): show protocol presence only. -->
-  <p class="z-text-small z-text-meta">Delivery config: {{ 'configured (' ~ (agent.delivery_config.protocol if agent.delivery_config else '') ~ ')' if agent.delivery_config else 'not configured' }}</p>
-  <form class="col" data-on-submit="@post('/admin/agents/{{ agent.id }}', {contentType: 'form'})">
+  <p class="small text-body-secondary">Delivery config: {{ 'configured (' ~ (agent.delivery_config.protocol if agent.delivery_config else '') ~ ')' if agent.delivery_config else 'not configured' }}</p>
+  <form class="d-flex flex-column gap-2" data-on:submit="@post('/admin/agents/{{ agent.id }}', {contentType: 'form'})">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label class="z-text-small"><input type="checkbox" name="is_client" {% if agent.is_client %}checked{% endif %}> client</label>
-    <label class="z-text-small"><input type="checkbox" name="is_provider" {% if agent.is_provider %}checked{% endif %}> provider</label>
-    <label class="z-text-small"><input type="checkbox" name="enabled" {% if not agent.disabled %}checked{% endif %}> enabled</label>
-    <label class="z-text-small">Delivery config JSON (write-only; protocol/endpoint/command/headers/model/retries/timeout)
-      <textarea name="delivery_json" rows="4" class="z-textarea mono"></textarea></label>
-    <button type="submit" class="z-button-primary">Save</button>
+    <label class="small text-body-secondary"><input type="checkbox" name="is_client" {% if agent.is_client %}checked{% endif %}> client</label>
+    <label class="small text-body-secondary"><input type="checkbox" name="is_provider" {% if agent.is_provider %}checked{% endif %}> provider</label>
+    <label class="small text-body-secondary"><input type="checkbox" name="enabled" {% if not agent.disabled %}checked{% endif %}> enabled</label>
+    <label class="small text-body-secondary">Delivery config JSON (write-only; protocol/endpoint/command/headers/model/retries/timeout)
+      <textarea name="delivery_json" rows="4" class="form-control font-monospace"></textarea></label>
+    <button type="submit" class="btn btn-sm btn-primary">Save</button>
   </form>
 </div>

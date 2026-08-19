@@ -1,11 +1,12 @@
 # Vendored front-end assets
 
-- `0build-kit.min.css` ? 0build **v0.6.0** kit CSS (642 KB), the real upstream
-  stylesheet from https://cdn.jsdelivr.net/gh/0builddotdev/0build@0.6.0/dist/css/kit.min.css.
-  All console styling uses its `z-*` component classes; project-specific bits
-  (mono, diff coloring, pager gap) live in `static/admin.css`. Pages also carry
-  0build's theme-init script (`dark` mode / `z-layout-small`) per its docs.
-  The old hand-authored `0build.min.css` was deleted.
+- `bootstrap-5.3.3.min.css` — Bootstrap **v5.3.3** CSS (227 KB) from
+  https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css.
+  All console styling uses its component/utility classes (cards, tables,
+  badges, nav-tabs, flex/spacing utilities); no custom stylesheet remains
+  and Bootstrap's JS bundle is not needed (all interactivity is Datastar).
+  Color mode is set via `data-bs-theme` on `<html>` (auto dark mode).
+  The earlier `0build-kit.min.css` and `admin.css` were deleted.
 
 - `datastar-1.0.2.js` — Datastar **v1.0.2**, fetched from
   https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.2/bundles/datastar.js

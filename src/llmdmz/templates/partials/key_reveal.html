@@ -1,9 +1,11 @@
-<div class="key-reveal">
-  <strong>Agent key — shown exactly once.</strong>
-  <p>Copy it now; it is stored only as a hash and can never be displayed again.</p>
-  <pre class="mono">{{ key }}</pre>
-  <form data-on-submit="@get(&quot;/admin/partials/agents&quot;)">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button type="submit" class="z-button">Back to agents</button>
-  </form>
+<div class="card border-warning">
+  <div class="card-body">
+    <strong>Agent key — shown exactly once.</strong>
+    <p class="small text-body-secondary">Copy it now; it is stored only as a hash and can never be displayed again.</p>
+    <pre class="font-monospace bg-body-tertiary p-2 rounded">{{ key }}</pre>
+    <form data-on:submit="@get(&quot;/admin/partials/agents&quot;)">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-sm btn-outline-secondary">Back to agents</button>
+    </form>
+  </div>
 </div>

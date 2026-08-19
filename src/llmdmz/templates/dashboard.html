@@ -1,43 +1,43 @@
 <!DOCTYPE html>
-<html lang="en" class="z-layout-small">
+<html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LLM DMZ Admin</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/0build-kit.min.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
   <script>
-    // 0build theme init (per https://0build.dev/docs/latest/kit/installation/)
-    const htmlElement = document.documentElement;
-    const __Z_THEME__ = JSON.parse(localStorage.getItem("__Z_THEME__") || "{}");
-    if (__Z_THEME__.mode === "dark" ||
-        (!__Z_THEME__.mode && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
-      htmlElement.classList.add("dark");
-    } else {
-      htmlElement.classList.remove("dark");
+    // Bootstrap color-mode init (before paint): honour saved or system preference.
+    if (localStorage.getItem("bs-theme") === "dark" ||
+        (!localStorage.getItem("bs-theme") &&
+         window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+      document.documentElement.setAttribute("data-bs-theme", "dark");
     }
-    htmlElement.classList.add(__Z_THEME__.layout || "z-layout-small");
   </script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-5.3.3.min.css') }}">
   <script type="module" src="{{ url_for('static', filename='vendor/datastar-1.0.2.js') }}"></script>
 </head>
-<body class="bg color" style="--bg: var(--z-bg); --color: var(--z-bg-f)">
-<div class="z-container" data-signals="{tab: 'directory'}">
-  <h1>LLM DMZ â€” Admin Console</h1>
-  <div id="stats-bar">{% include "partials/stats_placeholder.html" %}</div>
-  <nav class="z-tab" role="tablist">
-    <a class="z-tab" role="tab" href="#directory" data-on:click="$tab='directory'"
-       data-attr-aria-selected="$tab==='directory' ? 'true' : 'false'">Directory</a>
-    <a class="z-tab" role="tab" href="#enrollments" data-on:click="$tab='enrollments'"
-       data-attr-aria-selected="$tab==='enrollments' ? 'true' : 'false'">Enrollments</a>
-    <a class="z-tab" role="tab" href="#agents" data-on:click="$tab='agents'"
-       data-attr-aria-selected="$tab=='agents' ? 'true' : 'false'">Agents</a>
-    <a class="z-tab" role="tab" href="#log" data-on:click="$tab='log'"
-       data-attr-aria-selected="$tab==='log' ? 'true' : 'false'">Request log</a>
-    <a class="z-tab" role="tab" href="#audit" data-on:click="$tab='audit'"
-       data-attr-aria-selected="$tab==='audit' ? 'true' : 'false'">Audit trail</a>
-    <span class="grow"></span>
-    <form class="z-flex z-flex-top" method="post" action="{{ url_for('admin.logout') }}">
+<body>
+<div class="container py-4" data-signals="{tab: 'directory'}">
+  <h1 class="h3 mb-3">LLM DMZ — Admin Console</h1>
+  <div id="stats-bar" class="mb-3">{% include "partials/stats_placeholder.html" %}</div>
+  <nav class="d-flex flex-wrap gap-2 align-items-center nav nav-tabs mb-3" role="tablist">
+    <a class="nav-link" role="tab" href="#directory"
+       data-attr-class="$tab==='directory' ? 'nav-link active' : 'nav-link'"
+       data-on:click="$tab='directory'">Directory</a>
+    <a class="nav-link" role="tab" href="#enrollments"
+       data-attr-class="$tab==='enrollments' ? 'nav-link active' : 'nav-link'"
+       data-on:click="$tab='enrollments'">Enrollments</a>
+    <a class="nav-link" role="tab" href="#agents"
+       data-attr-class="$tab==='agents' ? 'nav-link active' : 'nav-link'"
+       data-on:click="$tab='agents'">Agents</a>
+    <a class="nav-link" role="tab" href="#log"
+       data-attr-class="$tab==='log' ? 'nav-link active' : 'nav-link'"
+       data-on:click="$tab='log'">Request log</a>
+    <a class="nav-link" role="tab" href="#audit"
+       data-attr-class="$tab==='audit' ? 'nav-link active' : 'nav-link'"
+       data-on:click="$tab='audit'">Audit trail</a>
+    <form class="ms-auto" method="post" action="{{ url_for('admin.logout') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit" class="z-button">Log out ({{ admin }})</button>
+      <button type="submit" class="btn btn-sm btn-outline-secondary">Log out ({{ admin }})</button>
     </form>
   </nav>
 
@@ -45,12 +45,12 @@
     <div id="directory-list" data-init="@get('/admin/partials/directory')"></div>
   </section>
   <section id="enrollments" data-show="$tab==='enrollments'">
-    <h2>Pending version approvals</h2>
+    <h2 class="h5 mt-3">Pending version approvals</h2>
     <div id="pending-versions">{{ pending_versions | safe }}</div>
-    <h2>Enrollment requests</h2>
+    <h2 class="h5 mt-4">Enrollment requests</h2>
     <div id="pending-enrollments" data-init="@get('/admin/partials/enrollments')"></div>
   </section>
-  <section id="agents" data-show="$tab=='agents'" xdata-show="true">
+  <section id="agents" data-show="$tab==='agents'">
     <div id="agents-list" data-init="@get('/admin/partials/agents', {openWhenHidden: true})"></div>
   </section>
   <section id="log" data-show="$tab==='log'">

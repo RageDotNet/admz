@@ -1,38 +1,38 @@
 <div>
-  <form class="z-flex z-flex-top" method="get" data-on-submit="@get('/admin/partials/directory', {contentType: 'form'})"
+  <form class="d-flex flex-wrap gap-2 align-items-center" method="get" data-on:submit="@get('/admin/partials/directory', {contentType: 'form'})"
        data-indicator="loading">
-    <input type="text" name="q" class="z-input" value="{{ q }}" placeholder="filter by id/state">
-    <select name="state" class="z-select">
+    <input type="text" name="q" class="form-control form-control-sm" value="{{ q }}" placeholder="filter by id/state">
+    <select name="state" class="form-select form-select-sm">
       <option value="">any state</option>
       {% for s in ("pending", "active", "withdrawn") %}
       <option value="{{ s }}" {% if state == s %}selected{% endif %}>{{ s }}</option>
       {% endfor %}
     </select>
-    <button type="submit" class="z-button">Filter</button>
+    <button type="submit" class="btn btn-sm btn-outline-secondary">Filter</button>
   </form>
-  <table class="z-table z-table-divider z-table-hover z-table-small">
+  <table class="table table-sm table-hover table-striped align-middle">
     <thead><tr><th>Action</th><th>Owner</th><th>State</th><th>Active ver.</th><th>Pending ver.</th><th>Enrolled</th></tr></thead>
     <tbody>
     {% for row in rows %}
       <tr>
-        <td><a href="#" data-on-click="@get('/admin/partials/action/{{ row.action.id }}')"
+        <td><a href="#" data-on:click="@get('/admin/partials/action/{{ row.action.id }}')"
                >{{ row.action.id }}</a></td>
 
         <td>{{ row.owner.name if row.owner }}</td>
-        <td id="action-{{ row.action.id }}-state"><span class="z-tag {{ state_tag(row.action.state) }}">{{ row.action.state }}</span></td>
+        <td id="action-{{ row.action.id }}-state"><span class="badge text-bg-{{ state_tag(row.action.state) }}">{{ row.action.state }}</span></td>
         <td>{{ row.action.active_version.version_number if row.action.active_version else 'â€”' }}</td>
         <td>{{ row.pending_version.version_number if row.pending_version else 'â€”' }}</td>
         <td>{{ row.enrolled_count }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="6" class="z-text-meta">No actions.</td></tr>
+      <tr><td colspan="6" class="small text-body-secondary">No actions.</td></tr>
     {% endfor %}
     </tbody>
   </table>
-  <div class="pager">
-    <span class="z-text-meta z-text-small">{{ total }} total â€” page {{ page }} ({{ per_page }}/page)</span>
-    {% if page > 1 %}<a class="z-button z-button-default z-button-small" href="#" data-on-click="@get('/admin/partials/directory?page={{ page - 1 }}')">Prev</a>{% endif %}
-    {% if page * per_page < total %}<a class="z-button z-button-default z-button-small" href="#" data-on-click="@get('/admin/partials/directory?page={{ page + 1 }}')">Next</a>{% endif %}
+  <div class="d-flex flex-wrap gap-2 align-items-center my-3">
+    <span class="small text-body-secondary">{{ total }} total â€” page {{ page }} ({{ per_page }}/page)</span>
+    {% if page > 1 %}<a class="btn btn-sm btn-outline-secondary btn btn-sm btn-outline-secondary" href="#" data-on:click="@get('/admin/partials/directory?page={{ page - 1 }}')">Prev</a>{% endif %}
+    {% if page * per_page < total %}<a class="btn btn-sm btn-outline-secondary btn btn-sm btn-outline-secondary" href="#" data-on:click="@get('/admin/partials/directory?page={{ page + 1 }}')">Next</a>{% endif %}
   </div>
   <div id="action-detail"></div>
 </div>

@@ -167,13 +167,12 @@ class TestSSEFragments:  # T4.7
         assert args.get("selector") == "#directory-list"
         assert args.get("mode") == "inner"
         assert "elements" in args
-        assert "z-table" in args["elements"]
+        assert "table table-sm" in args["elements"]
 
     def test_assets_served_no_network(self, client_http):
         for asset, min_size in (
             ("vendor/datastar-1.0.2.js", 1000),
-            ("vendor/0build-kit.min.css", 1000),
-            ("admin.css", 100),
+            ("vendor/bootstrap-5.3.3.min.css", 1000),
         ):
             resp = client_http.get(f"/static/{asset}")
             assert resp.status_code == 200 and len(resp.get_data()) > min_size

@@ -1,34 +1,34 @@
 <div>
-  <form class="z-flex z-flex-top" data-on-submit="@get(&quot;/admin/partials/log&quot;, {contentType: &quot;form&quot;})">
-    <input type="text" name="action_id" class="z-input" value="{{ action_id }}" placeholder="action id">
-    <select name="outcome" class="z-select">
+  <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@get(&quot;/admin/partials/log&quot;, {contentType: &quot;form&quot;})">
+    <input type="text" name="action_id" class="form-control form-control-sm" value="{{ action_id }}" placeholder="action id">
+    <select name="outcome" class="form-select form-select-sm">
       <option value="">any outcome</option>
       {% for o in ("completed", "request_schema_invalid", "arbiter_rejected", "provider_failed", "arbiter_unavailable", "internal_error") %}
       <option value="{{ o }}" {% if outcome == o %}selected{% endif %}>{{ o }}</option>
       {% endfor %}
     </select>
-    <button type="submit" class="z-button">Filter</button>
+    <button type="submit" class="btn btn-sm btn-outline-secondary">Filter</button>
   </form>
-  <table class="z-table z-table-divider z-table-hover z-table-small">
+  <table class="table table-sm table-hover table-striped align-middle">
     <thead><tr><th>When</th><th>Action</th><th>Agent</th><th>Outcome</th><th></th></tr></thead>
     <tbody>
     {% for r in rows %}
       <tr>
-        <td class="z-text-small">{{ r.created_at }}</td>
-        <td class="z-text-small">{{ r.action_id }}</td>
-        <td class="z-text-small mono">{{ r.agent_id[:8] }}</td>
-        <td><span class="z-tag {{ state_tag(r.outcome) }}">{{ r.outcome }}</span></td>
-        <td><a href="#" data-on-click="@get(&quot;/admin/partials/request/{{ r.id }}&quot;)">detail</a></td>
+        <td class="small text-body-secondary">{{ r.created_at }}</td>
+        <td class="small text-body-secondary">{{ r.action_id }}</td>
+        <td class="small text-body-secondary mono">{{ r.agent_id[:8] }}</td>
+        <td><span class="badge text-bg-{{ state_tag(r.outcome) }}">{{ r.outcome }}</span></td>
+        <td><a href="#" data-on:click="@get(&quot;/admin/partials/request/{{ r.id }}&quot;)">detail</a></td>
       </tr>
     {% else %}
-      <tr><td colspan="5" class="z-text-meta">No requests.</td></tr>
+      <tr><td colspan="5" class="small text-body-secondary">No requests.</td></tr>
     {% endfor %}
     </tbody>
   </table>
-  <div class="pager">
-    <span class="z-text-meta z-text-small">{{ total }} total — page {{ page }}</span>
-    {% if page > 1 %}<a class="z-button z-button-default z-button-small" href="#" data-on-click="@get(&quot;/admin/partials/log?page={{ page - 1 }}&quot;)">Prev</a>{% endif %}
-    {% if page * per_page < total %}<a class="z-button z-button-default z-button-small" href="#" data-on-click="@get(&quot;/admin/partials/log?page={{ page + 1 }}&quot;)">Next</a>{% endif %}
+  <div class="d-flex flex-wrap gap-2 align-items-center my-3">
+    <span class="small text-body-secondary">{{ total }} total — page {{ page }}</span>
+    {% if page > 1 %}<a class="btn btn-sm btn-outline-secondary btn btn-sm btn-outline-secondary" href="#" data-on:click="@get(&quot;/admin/partials/log?page={{ page - 1 }}&quot;)">Prev</a>{% endif %}
+    {% if page * per_page < total %}<a class="btn btn-sm btn-outline-secondary btn btn-sm btn-outline-secondary" href="#" data-on:click="@get(&quot;/admin/partials/log?page={{ page + 1 }}&quot;)">Next</a>{% endif %}
   </div>
   <div id="request-detail"></div>
 </div>

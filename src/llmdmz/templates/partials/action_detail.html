@@ -1,42 +1,42 @@
-<div class="z-card z-card-body">
-  <div class="z-flex z-flex-top">
+<div class="card card-body">
+  <div class="d-flex flex-wrap gap-2 align-items-center">
     <h2>{{ action.id }}</h2>
-    <span id="action-{{ action.id }}-state" class="z-tag {{ state_tag(action.state) }}">{{ action.state }}</span>
-    <span class="z-text-meta z-text-small">owner: {{ owner.name if owner }}</span>
+    <span id="action-{{ action.id }}-state" class="badge text-bg-{{ state_tag(action.state) }}">{{ action.state }}</span>
+    <span class="small text-body-secondary">owner: {{ owner.name if owner }}</span>
   </div>
   <p>{{ action.active_version.payload.description if action.active_version }}</p>
 
   <h3>Versions</h3>
-  <table class="z-table z-table-divider z-table-hover z-table-small">
+  <table class="table table-sm table-hover table-striped align-middle">
     <thead><tr><th>#</th><th>State</th><th>Submitted</th><th>Decided by</th><th>Notes</th><th>Diff vs active</th><th></th></tr></thead>
     <tbody>
     {% for v in versions %}
       <tr>
         <td>{{ v.version_number }}</td>
-        <td id="version-{{ v.id }}-state"><span class="z-tag {{ state_tag(v.state) }}">{{ v.state }}</span></td>
-        <td class="z-text-small">{{ v.submitted_at }}</td>
-        <td class="z-text-small">{{ v.decided_by or 'â€”' }}</td>
-        <td class="z-text-small">{{ v.decision_notes or '' }}</td>
-        <td class="z-text-small">
+        <td id="version-{{ v.id }}-state"><span class="badge text-bg-{{ state_tag(v.state) }}">{{ v.state }}</span></td>
+        <td class="small text-body-secondary">{{ v.submitted_at }}</td>
+        <td class="small text-body-secondary">{{ v.decided_by or 'â€”' }}</td>
+        <td class="small text-body-secondary">{{ v.decision_notes or '' }}</td>
+        <td class="small text-body-secondary">
           {% set d = diffs.get(v.version_number) or {} %}
-          {% if not d %}<span class="z-text-meta">â€”</span>{% endif %}
+          {% if not d %}<span class="small text-body-secondary">â€”</span>{% endif %}
           {% for field, entries in d.items() %}
             <div><strong>{{ field }}</strong>:
             {% for e in entries %}
-              <span class="{{ 'diff-add' if e.op == 'added' else ('diff-del' if e.op == 'removed' else '') }}">{{ e.op }} {{ e.path }}</span>
+              <span class="{{ 'text-success' if e.op == 'added' else ('text-danger text-decoration-line-through' if e.op == 'removed' else '') }}">{{ e.op }} {{ e.path }}</span>
             {% endfor %}</div>
           {% endfor %}
         </td>
         <td>
           {% if v.state == 'submitted' %}
-          <form class="z-flex z-flex-top" data-on-submit="@post('/admin/action-version/{{ v.id }}/approve', {contentType: 'form'})">
+          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/action-version/{{ v.id }}/approve', {contentType: 'form'})">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <input type="text" name="notes" class="z-input" placeholder="optional notes" class="z-text-small">
-            <button class="z-button-primary" type="submit">Approve</button>
+            <input type="text" name="notes" class="form-control form-control-sm small text-body-secondary" placeholder="optional notes">
+            <button class="btn btn-sm btn-primary" type="submit">Approve</button>
           </form>
-          <form class="z-flex z-flex-top" data-on-submit="@post('/admin/action-version/{{ v.id }}/reject', {contentType: 'form'})">
+          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/action-version/{{ v.id }}/reject', {contentType: 'form'})">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button class="z-button-danger" type="submit">Reject</button>
+            <button class="btn btn-sm btn-danger" type="submit">Reject</button>
           </form>
           {% endif %}
         </td>
@@ -46,56 +46,56 @@
   </table>
 
   <h3>Enrolled clients</h3>
-  <table class="z-table z-table-divider z-table-hover z-table-small">
+  <table class="table table-sm table-hover table-striped align-middle">
     <thead><tr><th>Agent</th><th>State</th><th>Requested</th><th></th></tr></thead>
     <tbody>
     {% for e in enrollments %}
       <tr>
-        <td class="mono z-text-small">{{ e.agent_id }}</td>
-        <td><span class="z-tag {{ state_tag(e.state) }}">{{ e.state }}</span></td>
-        <td class="z-text-small">{{ e.requested_at }}</td>
+        <td class="mono small text-body-secondary">{{ e.agent_id }}</td>
+        <td><span class="badge text-bg-{{ state_tag(e.state) }}">{{ e.state }}</span></td>
+        <td class="small text-body-secondary">{{ e.requested_at }}</td>
         <td>
           {% if e.state in ('requested',) %}
-          <form class="z-flex z-flex-top" data-on-submit="@post('/admin/enrollment/{{ e.id }}/approve')">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="z-button">Approve</button>
+          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/enrollment/{{ e.id }}/approve')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-sm btn-outline-secondary">Approve</button>
           </form>
-          <form class="z-flex z-flex-top" data-on-submit="@post('/admin/enrollment/{{ e.id }}/reject')">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="z-button-danger">Reject</button>
+          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/enrollment/{{ e.id }}/reject')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-sm btn-danger">Reject</button>
           </form>
           {% elif e.state == 'enrolled' %}
-          <form class="z-flex z-flex-top" data-on-submit="@post('/admin/enrollment/{{ e.id }}/revoke')">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="z-button-danger">Revoke</button>
+          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/enrollment/{{ e.id }}/revoke')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-sm btn-danger">Revoke</button>
           </form>
           {% endif %}
         </td>
       </tr>
     {% else %}
-      <tr><td colspan="4" class="z-text-meta">No enrollments.</td></tr>
+      <tr><td colspan="4" class="small text-body-secondary">No enrollments.</td></tr>
     {% endfor %}
     </tbody>
   </table>
 
   <h3>Recent invocations</h3>
-  <table class="z-table z-table-divider z-table-hover z-table-small">
+  <table class="table table-sm table-hover table-striped align-middle">
     <thead><tr><th>When</th><th>Outcome</th><th>Verdict</th><th></th></tr></thead>
     <tbody>
     {% for r in requests %}
       <tr>
-        <td class="z-text-small">{{ r.created_at }}</td>
-        <td><span class="z-tag {{ state_tag(r.outcome) }}">{{ r.outcome }}</span></td>
-        <td class="z-text-small z-text-meta">{{ r.request_verdict.reason if r.request_verdict else '' }}</td>
-        <td><a href="#" data-on-click="@get('/admin/partials/request/{{ r.id }}')">detail</a></td>
+        <td class="small text-body-secondary">{{ r.created_at }}</td>
+        <td><span class="badge text-bg-{{ state_tag(r.outcome) }}">{{ r.outcome }}</span></td>
+        <td class="small text-body-secondary">{{ r.request_verdict.reason if r.request_verdict else '' }}</td>
+        <td><a href="#" data-on:click="@get('/admin/partials/request/{{ r.id }}')">detail</a></td>
       </tr>
     {% else %}
-      <tr><td colspan="4" class="z-text-meta">No invocations.</td></tr>
+      <tr><td colspan="4" class="small text-body-secondary">No invocations.</td></tr>
     {% endfor %}
     </tbody>
   </table>
 
   {% if action.state == 'active' %}
-  <form data-on-submit="@post('/admin/action/{{ action.id }}/withdraw')">
+  <form data-on:submit="@post('/admin/action/{{ action.id }}/withdraw')">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button type="submit" class="z-button-danger">Withdraw action (admin)</button>
+    <button type="submit" class="btn btn-sm btn-danger">Withdraw action (admin)</button>
   </form>
   {% endif %}
 </div>

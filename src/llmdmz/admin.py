@@ -30,29 +30,29 @@ bp = Blueprint("admin", __name__, url_prefix="/admin", template_folder="../templ
 # 0build kit has no per-state badge classes; map domain states to z-tag variants.
 STATE_TAG = {
     # action states
-    "pending": "z-tag-warning",
-    "active": "z-tag-success",
-    "withdrawn": "z-tag-muted",
+    "pending": "warning",
+    "active": "success",
+    "withdrawn": "secondary",
     # version states
-    "submitted": "z-tag-warning",
-    "rejected": "z-tag-danger",
-    "superseded": "z-tag-muted",
+    "submitted": "warning",
+    "rejected": "danger",
+    "superseded": "secondary",
     # enrollment states
-    "requested": "z-tag-info",
-    "enrolled": "z-tag-success",
-    "revoked": "z-tag-muted",
+    "requested": "info",
+    "enrolled": "success",
+    "revoked": "secondary",
     # request outcomes
-    "completed": "z-tag-success",
-    "request_schema_invalid": "z-tag-warning",
-    "arbiter_rejected": "z-tag-danger",
-    "provider_failed": "z-tag-danger",
-    "arbiter_unavailable": "z-tag-warning",
-    "internal_error": "z-tag-danger",
+    "completed": "success",
+    "request_schema_invalid": "warning",
+    "arbiter_rejected": "danger",
+    "provider_failed": "danger",
+    "arbiter_unavailable": "warning",
+    "internal_error": "danger",
 }
 
 
 def state_tag(state: str) -> str:
-    return STATE_TAG.get(state, "z-tag-muted")
+    return STATE_TAG.get(state, "secondary")
 
 
 bp.add_app_template_global(state_tag)

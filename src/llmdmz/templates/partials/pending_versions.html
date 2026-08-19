@@ -1,27 +1,27 @@
-<table class="z-table z-table-divider z-table-hover z-table-small">
+<table class="table table-sm table-hover table-striped align-middle">
   <thead><tr><th>Action</th><th>Version</th><th>Submitted</th><th>Description</th><th></th></tr></thead>
   <tbody>
   {% for row in pending %}
     <tr>
       <td>{{ row.action.id }}</td>
-      <td id="version-{{ row.version.id }}-state">v{{ row.version.version_number }} <span class="z-tag-warning">submitted</span></td>
-      <td class="z-text-small">{{ row.version.submitted_at }}</td>
-      <td class="z-text-small">{{ row.version.payload.description[:120] }}</td>
+      <td id="version-{{ row.version.id }}-state">v{{ row.version.version_number }} <span class="badge text-bg-warning">submitted</span></td>
+      <td class="small text-body-secondary">{{ row.version.submitted_at }}</td>
+      <td class="small text-body-secondary">{{ row.version.payload.description[:120] }}</td>
       <td>
-        <form class="z-flex z-flex-top z-flex z-flex-top" data-on-submit="@post(&quot;/admin/action-version/{{ row.version.id }}/approve&quot;, {contentType: &quot;form&quot;})">
+        <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post(&quot;/admin/action-version/{{ row.version.id }}/approve&quot;, {contentType: &quot;form&quot;})">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <input type="text" name="notes" class="z-input" placeholder="notes" class="z-text-small">
-          <button class="z-button-primary" type="submit">Approve</button>
+          <input type="text" name="notes" class="form-control form-control-sm small text-body-secondary" placeholder="notes">
+          <button class="btn btn-sm btn-primary" type="submit">Approve</button>
         </form>
-        <form class="z-flex z-flex-top" data-on-submit="@post(&quot;/admin/action-version/{{ row.version.id }}/reject&quot;, {contentType: &quot;form&quot;})">
+        <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post(&quot;/admin/action-version/{{ row.version.id }}/reject&quot;, {contentType: &quot;form&quot;})">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <input type="text" name="notes" class="z-input" placeholder="notes" class="z-text-small">
-          <button class="z-button-danger" type="submit">Reject</button>
+          <input type="text" name="notes" class="form-control form-control-sm small text-body-secondary" placeholder="notes">
+          <button class="btn btn-sm btn-danger" type="submit">Reject</button>
         </form>
       </td>
     </tr>
   {% else %}
-    <tr><td colspan="5" class="z-text-meta">No pending versions.</td></tr>
+    <tr><td colspan="5" class="small text-body-secondary">No pending versions.</td></tr>
   {% endfor %}
   </tbody>
 </table>

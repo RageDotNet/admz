@@ -25,9 +25,9 @@ VENDOR_VERSIONS = {
             "1.0.0-beta.11/dist/datastar.min.js"
         ),
     },
-    "0build-kit.min.css": {
-        "version": "0.6.0",
-        "url": "https://cdn.jsdelivr.net/gh/0builddotdev/0build@0.6.0/dist/css/kit.min.css",
+    "bootstrap-5.3.3.min.css": {
+        "version": "5.3.3",
+        "url": "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css",
     },
     # Reference copy of the post-rewrite Datastar core (signals/effects only).
     # NOT loaded by any page — see vendor/README.md before swapping it in.
