@@ -46,7 +46,7 @@ Goals:
 | `422` | Semantically valid JSON that fails action-level validation (schema compilation, instructions) |
 | `502` | Provider failure — dispatch retries exhausted without a valid response |
 
-- **Error codes** (stable tokens used in `error.code`): `unauthorized`, `forbidden`, `not_found`, `malformed_json`, `duplicate_action`, `request_schema_invalid`, `arbiter_rejected`, `not_enrolled`, `provider_failed`, `already_enrolled`, `version_pending`.
+- **Error codes** (stable tokens used in `error.code`): `unauthorized`, `forbidden`, `not_found`, `malformed_json`, `duplicate_action`, `request_schema_invalid`, `arbiter_rejected`, `arbiter_unavailable`, `not_enrolled`, `provider_failed`, `already_enrolled`, `version_pending`.
 
 ## Endpoint reference
 
@@ -116,6 +116,7 @@ Client invokes the action. Requires `enrolled` state (see enrollment below); oth
   - `request_schema_invalid` — `detail` carries the JSON Schema errors.
   - `arbiter_rejected` — `detail` carries the arbiter's verdict (`{ "approved": false, "reason": "..." }`) including its stated reason.
 - **`502 provider_failed`** — dispatch was retried up to the configured limit (default 2) without producing a valid response. The client is told the provider failed, not why the provider's output was invalid; retrying the same request may succeed if the failure was transient.
+- **`503 arbiter_unavailable`** — the request could not be checked because the arbiter call itself failed (network error, timeout, rate limit, 5xx from OpenRouter). No request was dispatched to the provider. The client may retry; the arbiter is expected to recover. If an arbiter transport failure occurs on the *response* side, it counts as a retryable failed dispatch attempt; exhaustion yields `502 provider_failed`.
 
 Rejections are final for that request; there is no pending state and no human in the loop.
 

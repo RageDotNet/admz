@@ -1,6 +1,6 @@
 # System PRD v2 — The LLM DMZ
 
-> Product requirements for the next version of the LLM DMZ. This document is self-contained and describes the overall system: what it does, who uses it, and the behaviors it must implement. Companion documents (referenced for deeper detail, not required reading): `infra-v2.md` (technology stack, deployment), `schemas-v2.md` (schema registry and validation detail), and a future `webui-v2.md` (admin console UI detail).
+> Product requirements for the next version of the LLM DMZ. This document is self-contained and describes the overall system: what it does, who uses it, and the behaviors it must implement. Companion documents (referenced for deeper detail, not required reading): `infra-v2.md` (technology stack, deployment), `schemas-v2.md` (schema registry and validation detail), and `webui-v2.md` (admin console UI detail).
 
 ## Overview & goals
 
@@ -21,7 +21,7 @@ One synchronous REST application: agent identity, action directory with versioni
 
 - **A2A and MCP endpoints** — REST only for now; additional front-door protocols may be revisited later.
 - **Long-running work conventions** — providers that need async processing should implement their own queue/tracking-ID/polling pattern or push results to a client's own action. This is a provider implementation detail and may later be documented as a best practice, but it is not part of what the DMZ builds.
-- **Webui detail** — the admin console's page-level design lives in the future `webui-v2.md`; this PRD defines only what the console must let administrators *do*.
+- **Webui detail** — the admin console's page-level design lives in `webui-v2.md`; this PRD defines only what the console must let administrators *do*.
 
 ## Terms
 
@@ -43,7 +43,7 @@ One synchronous REST application: agent identity, action directory with versioni
   - All database access goes through the ORM and the storage module's interface — no raw, dialect-specific SQL in application code.
   - The connection is a configurable DSN (e.g. `DMZ_DATABASE_URL`), defaulting to a SQLite file, so MariaDB/PostgreSQL/etc. are drop-in via configuration.
   - Schema changes go through migrations; nothing is created ad hoc at runtime.
-- **Admin webui** — server-rendered console mounted under `/admin` in the same application (detail spec in the future `webui-v2.md`).
+- **Admin webui** — server-rendered console mounted under `/admin` in the same application (detail spec in `webui-v2.md`).
 - **LLM stack** — all model calls (arbiter, any internal agents) go through a unified LLM gateway routed via OpenRouter.
 
 ## Configuration
@@ -176,7 +176,7 @@ Administrators, via the webui. Every **mutating** console endpoint (`POST /admin
 
 - **A2A and MCP front doors** — REST is the only interface in this version; additional protocols may be added later.
 - **Long-running work conventions** — tracking IDs, polling endpoints, and result push-back are provider implementation choices; a future best-practices document may describe patterns.
-- **Webui design detail** — page structure, interactions, and console UX belong to the future `webui-v2.md`.
+- **Webui design detail** — page structure, interactions, and console UX belong to `webui-v2.md`.
 - **Infrastructure detail** — packaging, Docker/deployment, migrations, config file paths, and dev workflows are specified in `infra-v2.md`.
 - **Schema registry internals** — submission validation rules, instruction-field semantics, and registry behavior are specified in `schemas-v2.md`.
 

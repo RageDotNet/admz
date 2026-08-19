@@ -103,7 +103,7 @@ The admin's "one place to understand one capability," with three sections:
 - Rows link to the affected object (action detail, agent record) where it still exists.
 - Entries are append-only from the console's perspective — the console never edits audit history.
 
-## Routes (illustrative surface)
+## Routes (authoritative surface)
 
 | Method | Path | Purpose | Auth |
 |---|---|---|---|
@@ -121,6 +121,7 @@ The admin's "one place to understand one capability," with three sections:
 | POST | `/admin/enrollment/<request_id>/reject` | Reject an enrollment request | session / admin token |
 | POST | `/admin/action/<action_id>/enroll` | Admin-initiated enrollment (client + action) | session / admin token |
 | POST | `/admin/enrollment/<enrollment_id>/revoke` | Revoke an existing enrollment | session / admin token |
+| POST | `/admin/enrollment/<enrollment_id>/reset` | Reset a rejected enrollment, allowing the client to re-request | session / admin token |
 | GET | `/admin/partials/agents` | Agent list fragment | session |
 | POST | `/admin/agents` | Register agent (returns key once) | session |
 | GET/POST | `/admin/agents/<agent_id>` | View / edit agent (flags, endpoint, enable/disable) | session |
