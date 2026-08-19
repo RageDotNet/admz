@@ -29,22 +29,22 @@
   </nav>
 
   <section id="directory" data-show="$tab==='directory'">
-    <div id="directory-list" data-on-load="@get('/admin/partials/directory')"></div>
+    <div id="directory-list" data-on-intersect.once="@get('/admin/partials/directory')"></div>
   </section>
   <section id="enrollments" data-show="$tab==='enrollments'">
     <h2>Pending version approvals</h2>
     <div id="pending-versions">{{ pending_versions | safe }}</div>
     <h2>Enrollment requests</h2>
-    <div id="pending-enrollments" data-on-load="@get('/admin/partials/enrollments')"></div>
+    <div id="pending-enrollments" data-on-intersect.once="@get('/admin/partials/enrollments')"></div>
   </section>
   <section id="agents" data-show="$tab==='agents'">
-    <div id="agents-list" data-on-load="@get('/admin/partials/agents')"></div>
+    <div id="agents-list" data-on-intersect.once="@get('/admin/partials/agents', {openWhenHidden: true})"></div>
   </section>
   <section id="log" data-show="$tab==='log'">
-    <div id="log-list" data-on-load="@get('/admin/partials/log')"></div>
+    <div id="log-list" data-on-intersect.once="@get('/admin/partials/log')"></div>
   </section>
   <section id="audit" data-show="$tab==='audit'">
-    <div id="audit-list" data-on-load="@get('/admin/partials/audit')"></div>
+    <div id="audit-list" data-on-intersect.once="@get('/admin/partials/audit')"></div>
   </section>
 </div>
 </body>
