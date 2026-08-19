@@ -255,7 +255,9 @@ class TestInvokeRetries:
         assert resp.status_code == 502
         assert resp.get_json()["error"]["code"] == "provider_failed"
         # The client is NOT told why the provider output was invalid.
-        assert resp.get_json()["error"].get("detail") is None
+        detail = resp.get_json()["error"].get("detail") or {}
+        assert detail.get("attempts") == 3
+        assert "unparseable" in str(detail.get("final_error"))
         app, _, _ = app_fixture
         with app.app_context():
             s = app.extensions["DMZ_SESSION_FACTORY"]()

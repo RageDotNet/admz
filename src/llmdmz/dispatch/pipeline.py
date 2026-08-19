@@ -11,6 +11,7 @@ a retryable attempt; arbiter configuration faults â†’ 500 internal_error.
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any
@@ -157,6 +158,7 @@ def run_invoke(
             framing=framing,
             response_schema=response_schema,
             response_arbiter_instructions=response_arbiter_instructions,
+            request_payload=request_payload,
         )
         if previous_error is None:
             _log_step("request completed", request_row.id)
@@ -169,10 +171,20 @@ def run_invoke(
                 },
             )
 
-    storage.finish_request(session, request_row, outcome="provider_failed")
-    _log_step("provider failed (retries exhausted)", request_row.id, attempts=total_attempts)
-    # The client is told the provider failed, not why (dispatch-v2.md).
-    return InvokeResult(502, "provider_failed")
+    storage.finish_request(
+        session, request_row, outcome="provider_failed"
+    )
+    _log_step(
+        "provider failed (retries exhausted)", request_row.id,
+        attempts=total_attempts, final_error=previous_error,
+    )
+    # The client is told the provider failed, not why (dispatch-v2.md) — but the
+    # final attempt's failure is surfaced in `detail` for operator diagnosis.
+    return InvokeResult(
+        502,
+        "provider_failed",
+        detail={"final_error": previous_error, "attempts": total_attempts},
+    )
 
 
 def _run_attempt(
@@ -186,6 +198,7 @@ def _run_attempt(
     framing: Framing,
     response_schema: dict,
     response_arbiter_instructions: str,
+    request_payload: dict[str, Any],
 ) -> str | None:
     """One dispatch attempt. Returns None on success, else the retry-injected error."""
     _log_step("delivery to provider", request_row.id, attempt=attempt_row.attempt_number)
@@ -206,12 +219,21 @@ def _run_attempt(
 
     storage.set_request_state(session, request_row, outcome="arbiter_reviewing_response")
     _log_step("arbiter reviewing response", request_row.id, attempt=attempt_row.attempt_number)
+    # Give the arbiter the original request so it can judge scope ("data beyond
+    # what the request asked for") instead of screening the response blind.
+    extra = response_arbiter_instructions
+    context = (
+        "The client's original request was:\n"
+        + json.dumps(request_payload, ensure_ascii=False)
+        + "\nJudge the response payload against this request."
+    )
+    extra = f"{extra}\n\n{context}" if extra else context
     try:
         r_verdict = arbiter.check(
             side="response",
             action_id=action.id,
             payload=candidate,
-            extra_instructions=response_arbiter_instructions,
+            extra_instructions=extra,
         )
     except ArbiterTransportError as exc:
         # Response-side arbiter outage = retryable attempt (#1).
