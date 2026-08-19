@@ -169,6 +169,22 @@ class TestSSEFragments:  # T4.7
         assert "elements" in args
         assert "table table-sm" in args["elements"]
 
+    def test_directory_renders_after_session_close(self, app_fixture, client_http):
+        """Regression: directory rows hold detached Action objects; the template
+        touches the lazy `versions` relationship (via `active_version`) after
+        the DB session closes — must be force-loaded inside the session.
+        """
+        _, provider_key, _ = app_fixture
+        assert client_http.post(
+            "/v2/actions",
+            json=CRM_SEARCH,
+            headers={"Authorization": f"Bearer {provider_key}"},
+        ).status_code == 201
+        _login(client_http)
+        resp = client_http.get("/admin/partials/directory")
+        assert resp.status_code == 200
+        assert "crm_search" in resp.get_data(as_text=True)
+
     def test_assets_served_no_network(self, client_http):
         for asset, min_size in (
             ("vendor/datastar-1.0.2.js", 1000),

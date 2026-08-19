@@ -67,6 +67,10 @@ def partial_directory():
             actions = [a for a in actions if a.state == state]
         rows = []
         for a in actions:
+            # Force-load the lazy `versions` relationship while the session is
+            # open: the template accesses `action.active_version` after the
+            # session closes (DetachedInstanceError otherwise).
+            a.versions  # noqa: B018
             _, enroll_total = storage.list_enrollments(
                 session, action_id=a.id, state="enrolled", page=1, per_page=1
             )
