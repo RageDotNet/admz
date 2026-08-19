@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pathlib
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
@@ -487,3 +488,32 @@ def enrollment_state(action_id: str):
                 else None,
             }
         )
+
+
+# --- T2.16: GET /v2/skill (role-merged skill documents, #21) ---------------------
+
+_SKILLS_DIR = pathlib.Path(__file__).resolve().parent.parent.parent / "skills"
+
+
+def _load_skill(name: str) -> str:
+    path = _SKILLS_DIR / name
+    return path.read_text(encoding="utf-8")
+
+
+@bp.get("/skill")
+def skill():
+    agent = authenticate_agent()
+    documents = []
+    if agent.is_client:
+        documents.append(_load_skill("client.md"))
+    if agent.is_provider:
+        documents.append(_load_skill("provider.md"))
+    if not documents:
+        raise ApiError("forbidden", "No skill applies to this agent.", 403)
+    return jsonify(
+        {
+            "base_url": "",
+            "capabilities": {"is_client": agent.is_client, "is_provider": agent.is_provider},
+            "skill": "\n\n---\n\n".join(documents),
+        }
+    )

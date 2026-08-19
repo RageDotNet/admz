@@ -459,6 +459,42 @@ class TestEnrollment:
         ).status_code == 403
 
 
+class TestSkill:
+    def test_client_skill(self, app_fixture, client_http):
+        _, _, client_key = app_fixture
+        resp = client_http.get("/v2/skill", headers=_hdr(client_key))
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body["capabilities"] == {"is_client": True, "is_provider": False}
+        assert "/v2/actions" in body["skill"]
+        for endpoint in ("/v2/actions", "/enroll", "/invoke"):
+            assert endpoint in body["skill"]
+        assert "arbiter_rejected" in body["skill"]
+        assert "provider_failed" in body["skill"]
+
+    def test_provider_skill(self, app_fixture, client_http):
+        _, provider_key, _ = app_fixture
+        body = client_http.get("/v2/skill", headers=_hdr(provider_key)).get_json()
+        assert body["capabilities"]["is_provider"] is True
+        assert "PUT /v2/actions/{id}" in body["skill"]
+        assert "DELETE /v2/actions/{id}" in body["skill"]
+        assert "completions" in body["skill"]
+
+    def test_dual_role_merged(self, app_fixture, client_http):
+        app, provider_key, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            from llmdmz.core.models import Agent
+
+            row = s.scalars(select(Agent).where(Agent.name == "provider")).first()
+            row.is_client = True
+            s.commit()
+            s.close()
+        body = client_http.get("/v2/skill", headers=_hdr(provider_key)).get_json()
+        assert body["capabilities"] == {"is_client": True, "is_provider": True}
+        assert "Client Skill" in body["skill"] and "Provider Skill" in body["skill"]
+
+
 class TestErrorEnvelope:
     def test_unknown_route_404_envelope(self, client_http):
         resp = client_http.get("/v2/nonexistent")

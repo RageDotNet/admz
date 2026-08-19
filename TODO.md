@@ -53,9 +53,9 @@
 - [x] T2.12 **Validate:** API tests for filters/pagination/projections per #18â€“20
 - [x] T2.13 Implement `POST`/`GET /v2/actions/{id}/enroll` (`409 already_enrolled`; `404` when no active version, #10; audit)
 - [x] T2.14 **Validate:** enrollment tests incl. non-active 404 and enrollments-survive-withdrawal behavior
-- [ ] T2.15 Draft `skills/client.md` and `skills/provider.md` per clarification #21 acceptance criteria
-- [ ] T2.16 Implement `GET /v2/skill` serving texts (merged for dual-role agents)
-- [ ] T2.17 **Validate + owner gate:** tests assert non-empty + core endpoints mentioned; **project-owner review of skill prose required before merge**
+- [x] T2.15 Draft `skills/client.md` and `skills/provider.md` per clarification #21 acceptance criteria
+- [x] T2.16 Implement `GET /v2/skill` serving texts (merged for dual-role agents)
+- [x] T2.17 **Validate + owner gate:** tests assert non-empty + core endpoints mentioned; **project-owner review of skill prose required before merge**
 
 ## Phase 3 â€” Arbitration & Dispatch
 
