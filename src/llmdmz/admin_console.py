@@ -345,7 +345,7 @@ def admin_enroll(action_id: str):
 # --- T4.17: agents tab ----------------------------------------------------------
 
 _DELIVERY_PROTOCOLS = ("post", "exec", "completions")
-_HEADER_ROWS = 12  # matches the 12 client-side header rows in delivery_fields.html
+_HEADER_ROWS = 5  # matches the 5 client-side header rows in delivery_fields.html
 
 
 def _compose_delivery(data: dict[str, str]) -> dict[str, Any]:

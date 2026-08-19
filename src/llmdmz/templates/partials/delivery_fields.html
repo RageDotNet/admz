@@ -27,7 +27,7 @@
                    placeholder="https://provider.example/hook">
           </div>
           <div class="small text-body-secondary mb-0">Headers (added verbatim to every POST)</div>
-          {% for i in range(12) %}
+          {% for i in range(5) %}
           <div class="d-flex flex-wrap gap-2 align-items-center" data-show="${{ sig }}_headerRows > {{ i }}">
             <input type="text" name="header_key_{{ i }}" class="form-control form-control-sm"
                    style="max-width: 14rem" placeholder="Header name" data-bind="${{ sig }}_hk{{ i }}">
@@ -36,12 +36,12 @@
             {% if i %}
             <button type="button" class="btn btn-sm btn-outline-danger"
                     data-show="${{ sig }}_headerRows > {{ i }}"
-                    data-on:click="${{ sig }}_headerRows={{ i }};{% for j in range(i, 12) %} ${{ sig }}_hk{{ j }}=null; ${{ sig }}_hv{{ j }}=null;{% endfor %}">remove</button>
+                    data-on:click="${{ sig }}_headerRows={{ i }};{% for j in range(i, 5) %} ${{ sig }}_hk{{ j }}=null; ${{ sig }}_hv{{ j }}=null;{% endfor %}">remove</button>
             {% endif %}
           </div>
           {% endfor %}
           <button type="button" class="btn btn-sm btn-outline-secondary align-self-start"
-                  data-show="${{ sig }}_headerRows < 12" data-on:click="${{ sig }}_headerRows++">+ header</button>
+                  data-show="${{ sig }}_headerRows < 5" data-on:click="${{ sig }}_headerRows++">+ header</button>
         </div>
 
         {# --- exec: command line; framing on stdin, JSON payload on stdout --- #}
