@@ -5,10 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
+from sqlalchemy import select
 
 from llmdmz.core.auth import Identity, bearer_token, resolve_bearer
 from llmdmz.core.db import session_scope
-from llmdmz.core.models import Action, ActionVersion, Agent
+from llmdmz.core.models import Action, ActionVersion, Agent, Enrollment
 
 bp = Blueprint("api_v2", __name__, url_prefix="/v2")
 
@@ -326,3 +327,163 @@ def withdraw_action(action_id: str):
             target_id=action.id,
         )
         return jsonify({"id": action.id, "state": action.state})
+
+
+# --- T2.10/T2.11: GET /v2/actions (role-projected directory, #18-#20) ----------
+
+
+def _clamp_int(value: str | None, default: int, lo: int, hi: int) -> int:
+    try:
+        n = int(value) if value is not None else default
+    except ValueError:
+        return default
+    return max(lo, min(hi, n))
+
+
+@bp.get("/actions")
+def list_actions():
+    agent = authenticate_agent()
+    page = _clamp_int(request.args.get("page"), 1, 1, 10**9)
+    per_page = _clamp_int(request.args.get("per_page"), 100, 1, 500)
+    q = (request.args.get("q") or "").strip().lower()
+    enrollment_filter = request.args.get("enrollment") or None
+
+    from llmdmz.core import storage
+    from llmdmz.core.models import Action
+
+    with session_scope(current_app) as session:
+        # Provider-only agents see only their own actions (provider projection).
+        rows = session.scalars(select(Action).order_by(Action.id)).all()
+        if agent.is_client:
+            visible = rows  # full client projection incl. other providers (#20)
+        else:
+            visible = [a for a in rows if a.owner_agent_id == agent.id]
+        enrollments = {
+            e.action_id: e.state
+            for e in session.scalars(
+                select(Enrollment).where(Enrollment.agent_id == agent.id)
+            ).all()
+        }
+        items = []
+        for action in visible:
+            active = action.active_version
+            if agent.is_client:
+                if active is not None and action.state == "active":
+                    state = enrollments.get(action.id, "available")
+                else:
+                    state = "unavailable"  # display-only (#10)
+            else:
+                state = action.state  # provider projection: canonical state
+            payload = active.payload if active else {}
+            entry = {
+                "id": action.id,
+                "description": payload.get("description", "")[0:200] if payload else "",
+                "state": state if not agent.is_client else action.state,
+                "enrollment": enrollments.get(action.id, "available") if agent.is_client else None,
+                "active_version": active.version_number if active else None,
+            }
+            if agent.is_client:
+                entry["state"] = state  # client-relative annotation in `state`
+            # Provider overlay on owned rows (dual-role merge base, #19).
+            if agent.is_provider and action.owner_agent_id == agent.id:
+                entry["owner"] = True
+                entry["action_state"] = action.state
+                pending = storage.submitted_version(session, action.id)
+                entry["pending_version"] = pending.version_number if pending else None
+            items.append((action, entry))
+        # Compose filters: q substring + enrollment (#18).
+        result = [
+            entry
+            for action, entry in items
+            if _matches(action, entry, q, enrollment_filter)
+        ]
+        total = len(result)
+        start = (page - 1) * per_page
+        return jsonify(
+            {
+                "items": result[start : start + per_page],
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+            }
+        )
+
+
+def _matches(action, entry, q, enrollment_filter):
+    if q and q not in action.id.lower() and q not in entry["description"].lower():
+        return False
+    if enrollment_filter and entry.get("enrollment") != enrollment_filter:
+        return False
+    return True
+
+
+# --- T2.13: POST/GET /v2/actions/<id>/enroll -------------------------------------
+
+
+@bp.post("/actions/<action_id>/enroll")
+def request_enrollment(action_id: str):
+    agent = authenticate_agent()
+    require_client(agent)
+    with session_scope(current_app) as session:
+        from llmdmz.core import storage
+        from llmdmz.core.audit import audit
+        from llmdmz.core.models import Enrollment
+
+        action = storage.get_action(session, action_id)
+        # Enrollment only against listed, invokable actions (#10).
+        if action is None or action.state != "active" or action.active_version is None:
+            raise ApiError("not_found", "Unknown action.", 404)
+        existing = storage.find_enrollment(session, agent_id=agent.id, action_id=action.id)
+        if existing is not None and existing.state in ("requested", "enrolled"):
+            raise ApiError("already_enrolled", "An enrollment already exists.", 409)
+        enrollment = Enrollment(agent_id=agent.id, action_id=action.id, state="requested")
+        session.add(enrollment)
+        session.flush()
+        audit(
+            session,
+            actor_type="agent",
+            actor_id=agent.id,
+            event="enrollment.requested",
+            target_type="enrollment",
+            target_id=str(enrollment.id),
+            detail={"action_id": action.id},
+        )
+        return (
+            jsonify(
+                {
+                    "action": action.id,
+                    "state": enrollment.state,
+                    "requested_at": enrollment.requested_at.isoformat()
+                    if enrollment.requested_at
+                    else None,
+                }
+            ),
+            201,
+        )
+
+
+@bp.get("/actions/<action_id>/enroll")
+def enrollment_state(action_id: str):
+    agent = authenticate_agent()
+    require_client(agent)
+    with session_scope(current_app) as session:
+        from llmdmz.core import storage
+
+        action = storage.get_action(session, action_id)
+        if action is None:
+            raise ApiError("not_found", "Unknown action.", 404)
+        enrollment = storage.find_enrollment(session, agent_id=agent.id, action_id=action.id)
+        if enrollment is None:
+            raise ApiError("not_found", "No enrollment exists for this action.", 404)
+        return jsonify(
+            {
+                "action": action.id,
+                "state": enrollment.state,
+                "requested_at": enrollment.requested_at.isoformat()
+                if enrollment.requested_at
+                else None,
+                "granted_at": enrollment.decided_at.isoformat()
+                if enrollment.state == "enrolled" and enrollment.decided_at
+                else None,
+            }
+        )

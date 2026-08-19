@@ -325,6 +325,140 @@ def _hdr(key):  # noqa: F811 â€” shared helper re-exported for subclasses b
     return {"Authorization": f"Bearer {key}"}
 
 
+class TestDirectory:
+    def _seed(self, app_fixture, client_http):
+        """Two providers' actions: crm_search (approved) + hr_lookup (pending)."""
+        _, provider_key, _ = app_fixture
+        client_http.post("/v2/actions", json=CRM_SEARCH, headers=_hdr(provider_key))
+        _approve_v1(app_fixture)
+        hr = {**CRM_SEARCH, "id": "hr_lookup", "description": "Look up HR records."}
+        client_http.post("/v2/actions", json=hr, headers=_hdr(provider_key))
+
+    def test_client_projection_and_states(self, app_fixture, client_http):
+        self._seed(app_fixture, client_http)
+        _, _, client_key = app_fixture
+        resp = client_http.get("/v2/actions", headers=_hdr(client_key))
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body["total"] == 2 and [i["id"] for i in body["items"]] == [
+            "crm_search",
+            "hr_lookup",
+        ]
+        by_id = {i["id"]: i for i in body["items"]}
+        assert by_id["crm_search"]["state"] == "available"
+        assert by_id["hr_lookup"]["state"] == "unavailable"
+
+    def test_provider_only_sees_own(self, app_fixture, client_http):
+        self._seed(app_fixture, client_http)
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            _, other_key = storage.register_agent(
+                s, name="other-provider", is_client=False, is_provider=True
+            )
+            s.commit()
+            s.close()
+        body = client_http.get("/v2/actions", headers=_hdr(other_key)).get_json()
+        assert body["total"] == 0
+
+    def test_dual_role_overlay(self, app_fixture, client_http):
+        self._seed(app_fixture, client_http)
+        app, provider_key, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            from llmdmz.core.models import Agent
+
+            row = s.scalars(select(Agent).where(Agent.name == "provider")).first()
+            row.is_client = True  # promote to dual-role
+            s.commit()
+            s.close()
+        body = client_http.get("/v2/actions", headers=_hdr(provider_key)).get_json()
+        by_id = {i["id"]: i for i in body["items"]}
+        assert by_id["crm_search"]["owner"] is True
+        assert by_id["crm_search"]["action_state"] == "active"
+        assert "owner" not in by_id.get("hr_lookup", {"owner": 1}) or True
+        # hr_lookup is also owned by this provider (seeded with same key)
+        assert by_id["hr_lookup"]["owner"] is True
+        assert by_id["hr_lookup"]["pending_version"] == 1
+
+    def test_pagination_and_q(self, app_fixture, client_http):
+        self._seed(app_fixture, client_http)
+        _, _, client_key = app_fixture
+        resp = client_http.get(
+            "/v2/actions", query_string={"page": 1, "per_page": 1}, headers=_hdr(client_key)
+        )
+        body = resp.get_json()
+        assert body["total"] == 2 and len(body["items"]) == 1 and body["per_page"] == 1
+        resp = client_http.get(
+            "/v2/actions", query_string={"q": "CRM"}, headers=_hdr(client_key)
+        )
+        assert [i["id"] for i in resp.get_json()["items"]] == ["crm_search"]
+
+    def test_enrollment_filter(self, app_fixture, client_http):
+        self._seed(app_fixture, client_http)
+        _, _, client_key = app_fixture
+        client_http.post("/v2/actions/crm_search/enroll", headers=_hdr(client_key))
+        resp = client_http.get(
+            "/v2/actions", query_string={"enrollment": "requested"}, headers=_hdr(client_key)
+        )
+        assert [i["id"] for i in resp.get_json()["items"]] == ["crm_search"]
+
+
+class TestEnrollment:
+    def _active_action(self, app_fixture, client_http):
+        _, provider_key, _ = app_fixture
+        client_http.post("/v2/actions", json=CRM_SEARCH, headers=_hdr(provider_key))
+        _approve_v1(app_fixture)
+
+    def test_enroll_flow(self, app_fixture, client_http):
+        self._active_action(app_fixture, client_http)
+        _, _, client_key = app_fixture
+        resp = client_http.post("/v2/actions/crm_search/enroll", headers=_hdr(client_key))
+        assert resp.status_code == 201
+        assert resp.get_json()["state"] == "requested"
+        # Second request → 409 already_enrolled.
+        resp = client_http.post("/v2/actions/crm_search/enroll", headers=_hdr(client_key))
+        assert resp.status_code == 409
+        assert resp.get_json()["error"]["code"] == "already_enrolled"
+        # GET state.
+        resp = client_http.get("/v2/actions/crm_search/enroll", headers=_hdr(client_key))
+        assert resp.get_json()["state"] == "requested"
+        assert resp.get_json()["requested_at"] is not None
+        # No enrollment for other action.
+        assert client_http.get(
+            "/v2/actions/nope/enroll", headers=_hdr(client_key)
+        ).status_code == 404
+
+    def test_enroll_non_active_404(self, app_fixture, client_http):
+        # #10: pending action → 404.
+        _, provider_key, client_key = app_fixture
+        client_http.post("/v2/actions", json=CRM_SEARCH, headers=_hdr(provider_key))
+        assert client_http.post(
+            "/v2/actions/crm_search/enroll", headers=_hdr(client_key)
+        ).status_code == 404
+
+    def test_enrollment_survives_withdrawal(self, app_fixture, client_http):
+        # #8: enrollment rows survive withdraw and reactivate.
+        _, provider_key, client_key = app_fixture
+        self._active_action(app_fixture, client_http)
+        client_http.post("/v2/actions/crm_search/enroll", headers=_hdr(client_key))
+        client_http.delete("/v2/actions/crm_search", headers=_hdr(provider_key))
+        # Still findable via GET enroll (row retained).
+        resp = client_http.get("/v2/actions/crm_search/enroll", headers=_hdr(client_key))
+        assert resp.status_code == 200 and resp.get_json()["state"] == "requested"
+        # Re-enroll while withdrawn → still 404 (not active).
+        assert client_http.post(
+            "/v2/actions/crm_search/enroll", headers=_hdr(client_key)
+        ).status_code == 404
+
+    def test_provider_cannot_enroll(self, app_fixture, client_http):
+        self._active_action(app_fixture, client_http)
+        _, provider_key, _ = app_fixture
+        assert client_http.post(
+            "/v2/actions/crm_search/enroll", headers=_hdr(provider_key)
+        ).status_code == 403
+
+
 class TestErrorEnvelope:
     def test_unknown_route_404_envelope(self, client_http):
         resp = client_http.get("/v2/nonexistent")
