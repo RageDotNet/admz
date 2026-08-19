@@ -40,3 +40,11 @@ def test_request_vs_response_roles():
     assert "RESPONSE" in RESPONSE_BASE_PROMPT
     assert "malicious" in REQUEST_BASE_PROMPT.lower()
     assert "exfiltration" in RESPONSE_BASE_PROMPT.lower()
+
+
+def test_response_prompt_has_benign_content_guidance():
+    """The response arbiter must not reject ordinary free-text record fields."""
+    p = RESPONSE_BASE_PROMPT
+    assert "Judgment guidance" in p
+    assert "NOT attacks" in p
+    assert "imperatively addressed to a model" in p
