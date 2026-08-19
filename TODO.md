@@ -59,9 +59,9 @@
 
 ## Phase 3 â€” Arbitration & Dispatch
 
-- [ ] T3.1 Define `ArbiterClient` + `ProviderTransport` interfaces (the DI seam for offline tests, #31)
-- [ ] T3.2 Implement verdict parser (JSON â†’ first-`{...}` fallback, bool coercion, default reason; unparseable = failed check)
-- [ ] T3.3 **Validate:** verdict-parser unit tests (clean JSON, fenced JSON, prose-wrapped JSON, garbage)
+- [x] T3.1 Define `ArbiterClient` + `ProviderTransport` interfaces (the DI seam for offline tests, #31)
+- [x] T3.2 Implement verdict parser (JSON â†’ first-`{...}` fallback, bool coercion, default reason; unparseable = failed check)
+- [x] T3.3 **Validate:** verdict-parser unit tests (clean JSON, fenced JSON, prose-wrapped JSON, garbage)
 - [ ] T3.4 Write `arbiter_prompts.py` (`REQUEST_BASE_PROMPT` / `RESPONSE_BASE_PROMPT`) meeting clarification #3 criteria
 - [ ] T3.5 **Validate + owner gate:** tests assert invariant clauses present (job statement, fixed verdict shape, injection refusal); **owner review of prompt text required before merge**
 - [ ] T3.6 Implement LiteLLM arbiter adapter (temp 0, max_tokens 512, 30s timeout, no LiteLLM retries, `ARBITER_MODEL` default `openai/gpt-4o-mini`, all knobs, #2)
