@@ -7,6 +7,18 @@ Two modes:
   agent-facing REST API (``POST /v2/actions``), using the schemas in
   ``./schemas``.
 
+- ``python crm_provider.py update`` — submit a NEW VERSION of each action
+  (``PUT /v2/actions/{id}``); the active version keeps serving until an
+  admin approves the new one.
+
+- ``python crm_provider.py enroll [pattern]`` — as a client, request
+  enrollment in every directory action whose id contains ``pattern``
+  (default ``crm``).
+
+- ``python crm_provider.py client <action_id> [request JSON]`` — invoke an
+  action as a client via ``POST /v2/actions/{id}/invoke``; the request
+  payload comes from the argument, or stdin if omitted.
+
 - ``python crm_provider.py run`` — implement the **exec delivery protocol**
   (dispatch-v2.md): read the unstructured framing on stdin, extract the
   request JSON after the ``REQUEST JSON FOLLOWS:`` marker, fulfill it, and
@@ -29,6 +41,9 @@ from crmtool import add_contact_note, search_contacts
 # Provider bearer key (agent must carry the provider capability). Override
 # with DMZ_PROVIDER_KEY when the key is reissued.
 PROVIDER_KEY = os.getenv("DMZ_PROVIDER_KEY", "dmz_dtLE62fWaxmMBZ2QzBabmPJwlWf9jVglTMAYe1_RjLY")
+# Client-capability key used by `enroll` and `client` (may be the same agent
+# if it carries both flags; override with DMZ_CLIENT_KEY).
+CLIENT_KEY = os.getenv("DMZ_CLIENT_KEY", PROVIDER_KEY)
 DMZ_BASE_URL = os.getenv("DMZ_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
 SCHEMA_DIR = Path(__file__).resolve().parent / "schemas"
@@ -131,6 +146,129 @@ def register() -> int:
         except Exception as exc:  # noqa: BLE001
             failures += 1
             print(f"[register] {package['id']}: {exc}", file=sys.stderr)
+
+    if failures:
+        print(f"[register] {failures} action(s) failed to register", file=sys.stderr)
+        return 1
+    print("[register] all actions submitted; awaiting admin approval (state 'pending')")
+    return 0
+
+
+# --- shared v2 API helper --------------------------------------------------------
+
+
+def _api(
+    method: str,
+    path: str,
+    body: dict[str, Any] | list[dict[str, Any]] | None = None,
+    *,
+    key: str | None = None,
+) -> tuple[int, Any, str]:
+    """Call the DMZ v2 REST API; returns (status, parsed_json_or_None, raw_text)."""
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    req = urllib.request.Request(
+        f"{DMZ_BASE_URL}{path}",
+        data=data,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {key or PROVIDER_KEY}",
+        },
+        method=method,
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=300) as resp:  # noqa: S310
+            text = resp.read().decode("utf-8", errors="replace")
+            return resp.status, _maybe_json(text), text
+    except urllib.error.HTTPError as exc:
+        text = exc.read().decode("utf-8", errors="replace")
+        return exc.code, _maybe_json(text), text
+
+
+def _maybe_json(text: str) -> Any:
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def _report(label: str, status: int, body: Any, ok: tuple[int, ...] = (200, 201)) -> bool:
+    if status in ok:
+        print(f"[{label}] {status} {json.dumps(body)}")
+        return True
+    print(f"[{label}] HTTP {status} {json.dumps(body)}", file=sys.stderr)
+    return False
+
+
+# --- update mode -----------------------------------------------------------------
+
+
+def update() -> int:
+    """PUT each schema package to /v2/actions/{id}: submits a NEW pending version."""
+    failures = 0
+    for package in ACTION_PACKAGES:
+        status, body, _ = _api("PUT", f"/v2/actions/{package['id']}", package)
+        if not _report("update", status, body, ok=(200, 201)):
+            failures += 1
+    if failures:
+        print(f"[update] {failures} action(s) failed to update", file=sys.stderr)
+        return 1
+    print("[update] new versions submitted; awaiting admin approval")
+    return 0
+
+
+# --- enroll mode -----------------------------------------------------------------
+
+
+def enroll(pattern: str = "crm") -> int:
+    """As a client, request enrollment in every directory action matching `pattern`."""
+    status, body, _ = _api("GET", "/v2/actions", key=CLIENT_KEY)
+    items = body.get("items") if isinstance(body, dict) else None
+    if status != 200 or not isinstance(items, list):
+        print(f"[enroll] could not list actions: HTTP {status} {body}", file=sys.stderr)
+        return 1
+    targets = [
+        entry.get("id")
+        for entry in items
+        if isinstance(entry, dict) and pattern in str(entry.get("id", ""))
+    ]
+    if not targets:
+        print(f"[enroll] no directory actions match {pattern!r}")
+        return 0
+    failures = 0
+    for action_id in targets:
+        status, body, _ = _api("POST", f"/v2/actions/{action_id}/enroll", {}, key=CLIENT_KEY)
+        if status == 409:  # already enrolled/requested — fine
+            print(f"[enroll] {action_id}: 409 already enrolled/requested")
+            continue
+        if not _report("enroll", status, body, ok=(200, 201)):
+            failures += 1
+    return 1 if failures else 0
+
+
+# --- client mode (invoke) ----------------------------------------------------------
+
+
+def client_invoke(action_id: str, payload_json: str | None) -> int:
+    """Invoke an action as a client: `client <action> [request JSON]`.
+
+    The request payload is the argument if given, else read from stdin.
+    """
+    raw = payload_json if payload_json is not None else sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except (json.JSONDecodeError, ValueError) as exc:
+        print(f"[client] request payload is not valid JSON: {exc}", file=sys.stderr)
+        return 1
+    status, body, _ = _api(
+        "POST", f"/v2/actions/{action_id}/invoke", payload, key=CLIENT_KEY
+    )
+    if status == 200:
+        print(json.dumps(body, indent=2))
+        return 0
+    print(f"[client] HTTP {status} {json.dumps(body)}", file=sys.stderr)
+    return 1
+
+
 # --- run mode (exec delivery protocol) -------------------------------------------
 # The framing carries no action id (one delivery config serves all of this
 # provider's actions), so the action is inferred from the request payload shape.
@@ -173,9 +311,22 @@ def main() -> None:
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
     if mode == "register":
         sys.exit(register())
+    if mode == "update":
+        sys.exit(update())
+    if mode == "enroll":
+        sys.exit(enroll(sys.argv[2] if len(sys.argv) > 2 else "crm"))
     if mode == "run":
         sys.exit(run())
-    print("usage: crm_provider.py [register|run]", file=sys.stderr)
+    if mode == "client":
+        if len(sys.argv) < 3:
+            print("usage: crm_provider.py client <action_id> [request JSON]", file=sys.stderr)
+            sys.exit(2)
+        sys.exit(client_invoke(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None))
+    print(
+        "usage: crm_provider.py [register|update|enroll [pattern]|run|"
+        "client <action_id> [request JSON]]",
+        file=sys.stderr,
+    )
     sys.exit(2)
 
 
