@@ -99,13 +99,13 @@ def sse_merge(patches: list[tuple[str, str]]) -> Response:
     """Datastar SSE merge response: one event per (selector, html) patch.
 
     Follows the reference pattern in clarification #25 â€” named target
-    elements, mode replace, fragments on their own data lines.
+    elements, mode morph (Datastar merge modes are morph/upsert/prepend/append).
     """
     lines: list[str] = []
     for selector, html in patches:
         lines.append("event: datastar-merge-fragments")
         lines.append(f"data: selector {selector}")
-        lines.append("data: mode replace")
+        lines.append("data: mode morph")
         lines.append("data: fragments")
         for html_line in html.splitlines() or [""]:
             lines.append(f"data: {html_line}")
