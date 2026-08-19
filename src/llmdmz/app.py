@@ -42,6 +42,11 @@ def create_app(config: Config | None = None) -> Flask:
 
     app.register_blueprint(api_v2_bp)
 
+    from llmdmz import admin_console  # noqa: F401 — registers routes on bp
+    from llmdmz.admin import bp as admin_bp
+
+    app.register_blueprint(admin_bp)
+
     @app.errorhandler(ApiError)
     def _api_error(exc: ApiError):
         return api_error(exc.code, exc.message, exc.status, exc.detail)

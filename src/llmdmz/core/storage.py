@@ -410,3 +410,39 @@ def decide_version(
     version.decision_notes = notes
     session.flush()
     return action
+
+
+def decide_enrollment(
+    session: Session,
+    enrollment: Enrollment,
+    *,
+    decision: str,  # approved | rejected | revoked | reset
+    decided_by: str,
+    notes: str | None = None,
+) -> Enrollment:
+    """Apply an admin decision to an enrollment (T4.15, #11).
+
+    ``reset`` deletes the rejected row so the client may re-request (#11).
+    Caller commits + audits.
+    """
+    now = datetime.now(tz=UTC)
+    if decision == "approved":
+        enrollment.state = "enrolled"
+        enrollment.decided_at = now
+        enrollment.decided_by = decided_by
+        enrollment.decision_notes = notes
+    elif decision in ("rejected", "revoked"):
+        enrollment.state = decision if decision == "rejected" else "revoked"
+        enrollment.decided_at = now
+        enrollment.decided_by = decided_by
+        enrollment.decision_notes = notes
+        if decision == "revoked":
+            enrollment.revoked_at = now
+    elif decision == "reset":
+        session.delete(enrollment)
+        session.flush()
+        return enrollment
+    else:
+        raise ValueError(f"unknown enrollment decision: {decision}")
+    session.flush()
+    return enrollment

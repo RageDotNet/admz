@@ -1,0 +1,27 @@
+﻿<table>
+  <thead><tr><th>Action</th><th>Version</th><th>Submitted</th><th>Description</th><th></th></tr></thead>
+  <tbody>
+  {% for row in pending %}
+    <tr>
+      <td>{{ row.action.id }}</td>
+      <td id="version-{{ row.version.id }}-state">v{{ row.version.version_number }} <span class="badge submitted">submitted</span></td>
+      <td class="small">{{ row.version.submitted_at }}</td>
+      <td class="small">{{ row.version.payload.description[:120] }}</td>
+      <td>
+        <form class="inline row" data-on-submit="$post(&quot;/admin/action-version/{{ row.version.id }}/approve?&quot; + $formData)">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="text" name="notes" placeholder="notes" class="small">
+          <button class="primary" type="submit">Approve</button>
+        </form>
+        <form class="inline" data-on-submit="$post(&quot;/admin/action-version/{{ row.version.id }}/reject?&quot; + $formData)">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="text" name="notes" placeholder="notes" class="small">
+          <button class="danger" type="submit">Reject</button>
+        </form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5" class="muted">No pending versions.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>

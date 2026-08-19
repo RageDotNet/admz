@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>LLM DMZ Admin</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/0build.min.css') }}">
+  <script type="module" src="{{ url_for('static', filename='vendor/datastar.min.js') }}"></script>
+</head>
+<body>
+<div class="container" data-signals="{tab: 'directory'}">
+  <h1>LLM DMZ — Admin Console</h1>
+  <div id="stats-bar">{% include "partials/stats_placeholder.html" %}</div>
+  <nav class="tabs" role="tablist">
+    <a class="tab" role="tab" href="#directory" data-on-click="$tab='directory'"
+       data-attr-aria-selected="$tab==='directory' ? 'true' : 'false'">Directory</a>
+    <a class="tab" role="tab" href="#enrollments" data-on-click="$tab='enrollments'"
+       data-attr-aria-selected="$tab==='enrollments' ? 'true' : 'false'">Enrollments</a>
+    <a class="tab" role="tab" href="#agents" data-on-click="$tab='agents'"
+       data-attr-aria-selected="$tab==='agents' ? 'true' : 'false'">Agents</a>
+    <a class="tab" role="tab" href="#log" data-on-click="$tab='log'"
+       data-attr-aria-selected="$tab==='log' ? 'true' : 'false'">Request log</a>
+    <a class="tab" role="tab" href="#audit" data-on-click="$tab='audit'"
+       data-attr-aria-selected="$tab==='audit' ? 'true' : 'false'">Audit trail</a>
+    <span class="grow"></span>
+    <form class="inline" method="post" action="{{ url_for('admin.logout') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit">Log out ({{ admin }})</button>
+    </form>
+  </nav>
+
+  <section id="directory" data-show="$tab==='directory'">
+    <div id="directory-list" data-on-load="$get('/admin/partials/directory')"></div>
+  </section>
+  <section id="enrollments" data-show="$tab==='enrollments'">
+    <h2>Pending version approvals</h2>
+    <div id="pending-versions">{{ pending_versions | safe }}</div>
+    <h2>Enrollment requests</h2>
+    <div id="pending-enrollments" data-on-load="$get('/admin/partials/enrollments')"></div>
+  </section>
+  <section id="agents" data-show="$tab==='agents'">
+    <div id="agents-list" data-on-load="$get('/admin/partials/agents')"></div>
+  </section>
+  <section id="log" data-show="$tab==='log'">
+    <div id="log-list" data-on-load="$get('/admin/partials/log')"></div>
+  </section>
+  <section id="audit" data-show="$tab==='audit'">
+    <div id="audit-list" data-on-load="$get('/admin/partials/audit')"></div>
+  </section>
+</div>
+</body>
+</html>

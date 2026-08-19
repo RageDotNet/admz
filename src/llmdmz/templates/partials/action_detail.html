@@ -1,0 +1,101 @@
+<div class="card">
+  <div class="row">
+    <h2>{{ action.id }}</h2>
+    <span id="action-{{ action.id }}-state" class="badge {{ action.state }}">{{ action.state }}</span>
+    <span class="muted small">owner: {{ owner.name if owner }}</span>
+  </div>
+  <p>{{ action.active_version.payload.description if action.active_version }}</p>
+
+  <h3>Versions</h3>
+  <table>
+    <thead><tr><th>#</th><th>State</th><th>Submitted</th><th>Decided by</th><th>Notes</th><th>Diff vs active</th><th></th></tr></thead>
+    <tbody>
+    {% for v in versions %}
+      <tr>
+        <td>{{ v.version_number }}</td>
+        <td id="version-{{ v.id }}-state"><span class="badge {{ v.state }}">{{ v.state }}</span></td>
+        <td class="small">{{ v.submitted_at }}</td>
+        <td class="small">{{ v.decided_by or '—' }}</td>
+        <td class="small">{{ v.decision_notes or '' }}</td>
+        <td class="small">
+          {% set d = diffs.get(v.version_number) or {} %}
+          {% if not d %}<span class="muted">—</span>{% endif %}
+          {% for field, entries in d.items() %}
+            <div><strong>{{ field }}</strong>:
+            {% for e in entries %}
+              <span class="{{ 'diff-add' if e.op == 'added' else ('diff-del' if e.op == 'removed' else '') }}">{{ e.op }} {{ e.path }}</span>
+            {% endfor %}</div>
+          {% endfor %}
+        </td>
+        <td>
+          {% if v.state == 'submitted' %}
+          <form class="inline" data-on-submit="$post('/admin/action-version/{{ v.id }}/approve?' + $formData)">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="text" name="notes" placeholder="optional notes" class="small">
+            <button class="primary" type="submit">Approve</button>
+          </form>
+          <form class="inline" data-on-submit="$post('/admin/action-version/{{ v.id }}/reject?' + $formData)">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="danger" type="submit">Reject</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <h3>Enrolled clients</h3>
+  <table>
+    <thead><tr><th>Agent</th><th>State</th><th>Requested</th><th></th></tr></thead>
+    <tbody>
+    {% for e in enrollments %}
+      <tr>
+        <td class="mono small">{{ e.agent_id }}</td>
+        <td><span class="badge {{ e.state }}">{{ e.state }}</span></td>
+        <td class="small">{{ e.requested_at }}</td>
+        <td>
+          {% if e.state in ('requested',) %}
+          <form class="inline" data-on-submit="$post('/admin/enrollment/{{ e.id }}/approve')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">Approve</button>
+          </form>
+          <form class="inline" data-on-submit="$post('/admin/enrollment/{{ e.id }}/reject')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="danger">Reject</button>
+          </form>
+          {% elif e.state == 'enrolled' %}
+          <form class="inline" data-on-submit="$post('/admin/enrollment/{{ e.id }}/revoke')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="danger">Revoke</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="muted">No enrollments.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <h3>Recent invocations</h3>
+  <table>
+    <thead><tr><th>When</th><th>Outcome</th><th>Verdict</th><th></th></tr></thead>
+    <tbody>
+    {% for r in requests %}
+      <tr>
+        <td class="small">{{ r.created_at }}</td>
+        <td><span class="badge {{ r.outcome }}">{{ r.outcome }}</span></td>
+        <td class="small muted">{{ r.request_verdict.reason if r.request_verdict else '' }}</td>
+        <td><a href="#" data-on-click="$get('/admin/partials/request/{{ r.id }}')">detail</a></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="muted">No invocations.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  {% if action.state == 'active' %}
+  <form data-on-submit="$post('/admin/action/{{ action.id }}/withdraw')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="danger">Withdraw action (admin)</button>
+  </form>
+  {% endif %}
+</div>

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>LLM DMZ Admin — Login</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/0build.min.css') }}">
+</head>
+<body>
+<div class="container">
+  <h1>LLM DMZ — Admin Login</h1>
+  {% if error %}<p class="notice err">{{ error }}</p>{% endif %}
+  <form method="post" action="{{ url_for('admin.login_post') }}" class="col" style="max-width:24rem">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Username <input type="text" name="username" autocomplete="username"></label>
+    <label>Password <input type="password" name="password" autocomplete="current-password"></label>
+    <button type="submit" class="primary">Log in</button>
+  </form>
+</div>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<div>
+  <form class="row" method="get" data-on-submit="$get('/admin/partials/directory?' + $formData)"
+       data-indicator="loading">
+    <input type="text" name="q" value="{{ q }}" placeholder="filter by id/state">
+    <select name="state">
+      <option value="">any state</option>
+      {% for s in ("pending", "active", "withdrawn") %}
+      <option value="{{ s }}" {% if state == s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Filter</button>
+  </form>
+  <table>
+    <thead><tr><th>Action</th><th>Owner</th><th>State</th><th>Active ver.</th><th>Pending ver.</th><th>Enrolled</th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr>
+        <td><a href="#" data-on-click="$get('/admin/partials/action/{{ row.action.id }}')" data-on-click-ntl
+               >{{ row.action.id }}</a></td>
+        <td>{{ row.owner.name if row.owner }}</td>
+        <td id="action-{{ row.action.id }}-state"><span class="badge {{ row.action.state }}">{{ row.action.state }}</span></td>
+        <td>{{ row.action.active_version.version_number if row.action.active_version else '—' }}</td>
+        <td>{{ row.pending_version.version_number if row.pending_version else '—' }}</td>
+        <td>{{ row.enrolled_count }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="muted">No actions.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="pager">
+    <span class="muted small">{{ total }} total — page {{ page }} ({{ per_page }}/page)</span>
+    {% if page > 1 %}<a class="btn" href="#" data-on-click="$get('/admin/partials/directory?page={{ page - 1 }}')">Prev</a>{% endif %}
+    {% if page * per_page < total %}<a class="btn" href="#" data-on-click="$get('/admin/partials/directory?page={{ page + 1 }}')">Next</a>{% endif %}
+  </div>
+  <div id="action-detail"></div>
+</div>

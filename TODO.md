@@ -78,27 +78,27 @@
 
 ## Phase 4 â€” Admin Console
 
-- [ ] T4.1 Mount `/admin` blueprint; login/logout routes; session config (12h rolling, HttpOnly, SameSite=Lax, secure in Docker, #23)
-- [ ] T4.2 Implement CSRF: per-session token, hidden field on all console forms, 400 on mismatch; bearer mutations exempt
-- [ ] T4.3 Implement auth guard decorator (bearer first, else session; agent key â†’ 403/redirect per #17)
-- [ ] T4.4 **Validate:** auth matrix tests (page redirect, fragment 401, agent-key 403, admin-token-on-/v2 403, unknown 401, CSRF reject)
-- [ ] T4.5 Vendor Datastar script + 0build CSS into `static/vendor/` with pinned versions + `scripts/update_vendor.py` (#22)
-- [ ] T4.6 Implement multi-patch SSE merge response helper + shared partial-per-region pattern (#25)
-- [ ] T4.7 **Validate:** fragment route test returns `text/event-stream` with expected selectors; assets served with no network
-- [ ] T4.8 Build dashboard shell: stats bar (agent count, action states, pending enrollments, all-time outcomes, 24h count, #26) + six Datastar tabs
-- [ ] T4.9 **Validate:** stats numbers match storage-module stats; tab switching without full reload
-- [ ] T4.10 Build directory tab: all actions/versions/states/owners, server-side pagination + filters
-- [ ] T4.11 Build structural JSON diff utility (canonicalize + recursive walk; per-field changed/added/removed, #24)
-- [ ] T4.12 **Validate:** diff utility unit tests on nested schema changes (no new dependency)
-- [ ] T4.13 Build per-action detail view: definition, version history with diff vs active, enrolled clients, invocation history, admin withdraw (actor-labeled)
-- [ ] T4.14 Build pending-version approval queue: approve/reject + optional notes (`decision_notes`), activation incl. withdrawnâ†’active path
-- [ ] T4.15 Build enrollment queue: approve/reject + notes, revoke, admin-initiated enroll, `POST /admin/enrollment/<id>/reset` (#11)
-- [ ] T4.16 **Validate:** queue tests â€” â‰¤2-click flows, notes persisted, multi-patch updates queue+stats together, audit rows with actor
-- [ ] T4.17 Build agents tab: register (reveal-once key), re-issue/revoke keys, capability flags, delivery-config editing (never echoed back, #16)
-- [ ] T4.18 **Validate:** reveal-once flow test; delivery config absent from all API/fragment/log output
-- [ ] T4.19 Build request log tab: paginated/filtered list + per-request detail (payloads, verdicts, attempts)
-- [ ] T4.20 Build audit trail tab: append-only, actor-labeled, filtered/paginated
-- [ ] T4.21 **Validate:** route table matches `webui-v2.md` "authoritative surface" exactly (route-introspection test); log/audit pagination caps enforced
+- [x] T4.1 Mount `/admin` blueprint; login/logout routes; session config (12h rolling, HttpOnly, SameSite=Lax, secure in Docker, #23)
+- [x] T4.2 Implement CSRF: per-session token, hidden field on all console forms, 400 on mismatch; bearer mutations exempt
+- [x] T4.3 Implement auth guard decorator (bearer first, else session; agent key â†’ 403/redirect per #17)
+- [x] T4.4 **Validate:** auth matrix tests (page redirect, fragment 401, agent-key 403, admin-token-on-/v2 403, unknown 401, CSRF reject)
+- [x] T4.5 Vendor Datastar script + 0build CSS into `static/vendor/` with pinned versions + `scripts/update_vendor.py` (#22)
+- [x] T4.6 Implement multi-patch SSE merge response helper + shared partial-per-region pattern (#25)
+- [x] T4.7 **Validate:** fragment route test returns `text/event-stream` with expected selectors; assets served with no network
+- [x] T4.8 Build dashboard shell: stats bar (agent count, action states, pending enrollments, all-time outcomes, 24h count, #26) + six Datastar tabs
+- [x] T4.9 **Validate:** stats numbers match storage-module stats; tab switching without full reload
+- [x] T4.10 Build directory tab: all actions/versions/states/owners, server-side pagination + filters
+- [x] T4.11 Build structural JSON diff utility (canonicalize + recursive walk; per-field changed/added/removed, #24)
+- [x] T4.12 **Validate:** diff utility unit tests on nested schema changes (no new dependency)
+- [x] T4.13 Build per-action detail view: definition, version history with diff vs active, enrolled clients, invocation history, admin withdraw (actor-labeled)
+- [x] T4.14 Build pending-version approval queue: approve/reject + optional notes (`decision_notes`), activation incl. withdrawnâ†’active path
+- [x] T4.15 Build enrollment queue: approve/reject + notes, revoke, admin-initiated enroll, `POST /admin/enrollment/<id>/reset` (#11)
+- [x] T4.16 **Validate:** queue tests â€” â‰¤2-click flows, notes persisted, multi-patch updates queue+stats together, audit rows with actor
+- [x] T4.17 Build agents tab: register (reveal-once key), re-issue/revoke keys, capability flags, delivery-config editing (never echoed back, #16)
+- [x] T4.18 **Validate:** reveal-once flow test; delivery config absent from all API/fragment/log output
+- [x] T4.19 Build request log tab: paginated/filtered list + per-request detail (payloads, verdicts, attempts)
+- [x] T4.20 Build audit trail tab: append-only, actor-labeled, filtered/paginated
+- [x] T4.21 **Validate:** route table matches `webui-v2.md` "authoritative surface" exactly (route-introspection test); log/audit pagination caps enforced
 
 ## Phase 5 â€” Hardening & Cutover Prep
 
