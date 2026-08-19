@@ -29,6 +29,15 @@ VENDOR_VERSIONS = {
     # bundle is a hand-authored minimal utility stylesheet. Set a URL here
     # when an upstream is chosen, then re-run this script to replace it.
     "0build.min.css": {"version": "vendored-minimal", "url": None},
+    # Reference copy of the post-rewrite Datastar core (signals/effects only).
+    # NOT loaded by any page — see vendor/README.md before swapping it in.
+    "datastar-1.0.2.js": {
+        "version": "1.0.2",
+        "url": (
+            "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.2"
+            "/bundles/datastar.js"
+        ),
+    },
 }
 
 
