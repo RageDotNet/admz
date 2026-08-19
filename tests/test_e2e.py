@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from sqlalchemy import select
-
-from llmdmz.core import storage
-from llmdmz.core.models import Action, Agent, Enrollment, Request
 from tests.test_registry import CRM_SEARCH
+
+from llmdmz.core.models import Action, Agent, Enrollment, Request
 
 ADMIN_TOKEN = "dmzadm_testtoken0000000000000000000000000"
 GOOD = {"contacts": [{"name": "Ada", "company": "Lovelace", "status": "ok"}]}
@@ -108,7 +107,6 @@ class TestScenario1FullHappyPath:  # T5.1
 
 class TestScenario2Withdrawal:  # T5.2 (#8/#10)
     def test_withdraw_404_reactivation_enrollment_survives(self, app_fixture, client_http):
-        from llmdmz.dispatch.interfaces import ProviderResult
 
         app, provider_key, client_key = app_fixture
         app.extensions["DMZ_ARBITER"] = ApprovingArbiter()

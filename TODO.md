@@ -105,9 +105,9 @@
 - [x] T5.1 E2E scenario 1: provider registers â†’ admin approves â†’ client enrolls â†’ admin grants â†’ invoke succeeds (all fakes)
 - [x] T5.2 E2E scenario 2: withdrawal â†’ 404 on invoke â†’ new version approved â†’ auto-reactivation, enrollment still valid (#8)
 - [x] T5.3 E2E scenario 3: version supersede, enrollment rejection â†’ admin reset â†’ re-request (#11), retry exhaustion, arbiter outage paths (#1)
-- [ ] T5.4 **Validate:** full suite + lint + typecheck green in CI; `fab test` from a clean checkout
+- [x] T5.4 **Validate:** full suite + lint + typecheck green in CI; `fab test` from a clean checkout
 - [x] T5.5 Write `deploy/README.md` checklist (gunicorn `-w 2 --threads 16 --timeout 900`, `proxy_read_timeout` â‰¥ 900s, OpenRouter key checks, `internal_error` alerting, SQLite sizing/growth note, vendor upgrade step)
-- [ ] T5.6 Final compose validation: deterministic config check, entrypoint order (migrate â†’ serve), documented smoke-run steps
+- [x] T5.6 Final compose validation: deterministic config check, entrypoint order (migrate â†’ serve), documented smoke-run steps
 
 ---
 
