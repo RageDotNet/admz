@@ -42,6 +42,11 @@ _DEFAULTS: dict[str, Any] = {
     "arbiter_temperature": 0.0,
     "dispatch_retries": 2,  # dispatch-v2.md default
     "dispatch_timeout": 180,  # dispatch-v2.md default
+    # Optional prompt overrides (empty string = built-in default prompt).
+    "arbiter_request_prompt": "",
+    "arbiter_response_prompt": "",
+    "arbiter_injection_focus": "",
+    "arbiter_exfiltration_focus": "",
 }
 
 _ENV_MAP = {
@@ -145,6 +150,10 @@ class Config:
     arbiter_temperature: float
     dispatch_retries: int
     dispatch_timeout: int
+    arbiter_request_prompt: str = ""
+    arbiter_response_prompt: str = ""
+    arbiter_injection_focus: str = ""
+    arbiter_exfiltration_focus: str = ""
     admins: tuple[AdminAccount, ...] = field(default_factory=tuple)
 
     def admin_by_username(self, username: str) -> AdminAccount | None:
@@ -178,6 +187,15 @@ def _flatten_yaml(data: dict[str, Any]) -> dict[str, Any]:
                 raise ConfigError(f"{key}: expected a mapping section")
             for sub_key, sub_value in value.items():
                 flat[prefix + sub_key] = sub_value
+        elif key in (
+            "arbiter_request_prompt",
+            "arbiter_response_prompt",
+            "arbiter_injection_focus",
+            "arbiter_exfiltration_focus",
+        ):
+            if not isinstance(value, str):
+                raise ConfigError(f"{key}: must be a string (prompt text)")
+            flat[key] = value
         elif key in ("admins", "session_cookie_secure"):
             flat[key] = value
         elif key in _DEFAULTS:

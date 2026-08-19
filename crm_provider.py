@@ -92,14 +92,29 @@ def _load_schema(name: str) -> dict[str, Any]:
         return json.load(fh)  # type: ignore[no-any-return]
 
 
-def _action_package(action_id: str, description: str, provider_instructions: str) -> dict[str, Any]:
-    return {
+def _action_package(
+    action_id: str,
+    description: str,
+    provider_instructions: str,
+    *,
+    request_risk: str = "",
+    response_risk: str = "",
+) -> dict[str, Any]:
+    package = {
         "id": action_id,
         "description": description,
         "request_schema": _load_schema(f"{action_id}_request"),
         "response_schema": _load_schema(f"{action_id}_response"),
         "provider_instructions": provider_instructions,
     }
+    # Risk focus for each arbiter side: the request side of these actions
+    # mainly risks prompt injection (untrusted client text in name/note
+    # fields), the response side mainly risks exfiltration (contact data).
+    if request_risk:
+        package["request_risk"] = request_risk
+    if response_risk:
+        package["response_risk"] = response_risk
+    return package
 
 
 ACTION_PACKAGES = [
@@ -110,6 +125,8 @@ ACTION_PACKAGES = [
         "The request JSON contains optional 'name' and/or 'company' fields. "
         "Return {\"records\": [...]} with every matching contact; return an "
         "empty list when nothing matches. Output ONLY the response JSON.",
+        request_risk="injection",
+        response_risk="exfiltration",
     ),
     _action_package(
         "crm_add_note",
@@ -118,6 +135,8 @@ ACTION_PACKAGES = [
         "The request JSON contains 'contact_id' and 'note'. Append the note "
         "to that contact and return {\"record\": {...}} of the updated "
         "contact. Output ONLY the response JSON.",
+        request_risk="injection",
+        response_risk="exfiltration",
     ),
 ]
 

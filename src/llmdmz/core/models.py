@@ -146,6 +146,11 @@ class DispatchAttempt(Base):
     )
     attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
     framing: Mapped[dict] = mapped_column(JSON, nullable=False)
+    # Per-attempt payloads for operator debugging (both set by the pipeline:
+    # the request this attempt delivered, and the candidate response the
+    # provider returned — kept even when schema/arbiter rejects it).
+    request_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    response_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error_class: Mapped[str | None] = mapped_column(String(32), nullable=True)
     error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

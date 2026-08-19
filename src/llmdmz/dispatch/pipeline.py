@@ -25,6 +25,7 @@ from llmdmz.dispatch.adapters import (
     build_structured_framing,
     build_unstructured_framing,
 )
+from llmdmz.dispatch.arbiter_prompts import resolve_risk_focus
 from llmdmz.dispatch.interfaces import (
     ArbiterClient,
     ArbiterTransportError,
@@ -70,6 +71,7 @@ def _arbiter_context(
     request_schema: dict,
     response_schema: dict | None = None,
     original_request: Any = None,
+    risk: str = "",
 ) -> str:
     """Authoritative context for an arbiter evaluation.
 
@@ -87,6 +89,10 @@ def _arbiter_context(
         "",
         f"Action name: {action.id}",
     ]
+    if risk:
+        focus = resolve_risk_focus(risk)
+        if focus:
+            lines.insert(0, focus)
     if action_description:
         lines.append(f"Action description: {action_description}")
     if provider_instructions:
@@ -141,6 +147,7 @@ def run_invoke(
         action_description=action_description,
         provider_instructions=instructions,
         request_schema=payload["request_schema"],
+        risk=payload.get("request_risk", ""),
     )
     if request_arbiter_instructions:
         request_ctx = f"{request_arbiter_instructions}\n\n{request_ctx}"
@@ -151,6 +158,7 @@ def run_invoke(
         request_schema=payload["request_schema"],
         response_schema=response_schema,
         original_request=request_payload,
+        risk=payload.get("response_risk", ""),
     )
     if response_arbiter_instructions:
         response_ctx = f"{response_arbiter_instructions}\n\n{response_ctx}"
@@ -223,7 +231,12 @@ def run_invoke(
             request_id=request_row.id,
             attempt_number=attempt_number,
             framing=_framing_log(framing),
+            request_payload=request_payload,
         )
+        # Commit immediately: the attempt row (with its request payload) must
+        # be durable before we hand off to the provider transport, which may
+        # use other sessions; we also mutate this row post-delivery.
+        session.commit()
         previous_error = _run_attempt(
             session,
             arbiter=arbiter,
@@ -286,6 +299,9 @@ def _run_attempt(
         return f"transport error ({attempt_row.error_class}): {outcome.error_detail}"
 
     candidate = outcome.payload
+    # Persist the candidate now, before any rejection path, so operators can
+    # inspect exactly what the provider returned on every attempt.
+    attempt_row.response_payload = candidate
     errors = validate_payload(response_schema, candidate)
     if errors:
         attempt_row.error_class = "response_schema_invalid"

@@ -251,6 +251,7 @@ def log_attempt(
     request_id: str,
     attempt_number: int,
     framing: dict,
+    request_payload: dict | None = None,
     error_class: str | None = None,
     error_detail: str | None = None,
 ) -> DispatchAttempt:
@@ -259,6 +260,7 @@ def log_attempt(
         request_id=request_id,
         attempt_number=attempt_number,
         framing=framing,
+        request_payload=request_payload,
         error_class=error_class,
         error_detail=error_detail,
         started_at=now,

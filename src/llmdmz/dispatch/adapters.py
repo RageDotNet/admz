@@ -16,7 +16,7 @@ from collections.abc import Callable
 from typing import Any
 
 from llmdmz.core.config import Config
-from llmdmz.dispatch.arbiter_prompts import REQUEST_BASE_PROMPT, RESPONSE_BASE_PROMPT
+from llmdmz.dispatch.arbiter_prompts import resolve_prompts
 from llmdmz.dispatch.interfaces import (
     ArbiterConfigFault,
     ArbiterTransportError,
@@ -147,7 +147,8 @@ class LiteLLMArbiterClient:
         payload: Any,
         extra_instructions: str = "",
     ) -> Verdict:
-        base = REQUEST_BASE_PROMPT if side == "request" else RESPONSE_BASE_PROMPT
+        req_prompt, resp_prompt = resolve_prompts()
+        base = req_prompt if side == "request" else resp_prompt
         parts = [base]
         if extra_instructions:
             parts.append(

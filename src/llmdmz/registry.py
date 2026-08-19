@@ -1,4 +1,4 @@
-﻿"""Schema registry: submission field validation + JSON Schema compilation (T2.1/T2.2).
+"""Schema registry: submission field validation + JSON Schema compilation (T2.1/T2.2).
 
 Implements `schemas-v2.md`: required fields (id, description, request_schema,
 response_schema), optional instruction fields, and instruction-field rules.
@@ -20,9 +20,11 @@ OPTIONAL_INSTRUCTION_FIELDS = (
     "client_instructions",
     "provider_instructions",
 )
-ALLOWED_FIELDS = frozenset(REQUIRED_FIELDS + OPTIONAL_INSTRUCTION_FIELDS)
+RISK_VALUES = ("injection", "exfiltration")
+RISK_FIELDS = ("request_risk", "response_risk")
+ALLOWED_FIELDS = frozenset(REQUIRED_FIELDS + OPTIONAL_INSTRUCTION_FIELDS + RISK_FIELDS)
 
-# IDs become URL path segments and directory keys â€” keep them conservative.
+# IDs become URL path segments and directory keys — keep them conservative.
 ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,254}$")
 
 MAX_DESCRIPTION_LEN = 5000
@@ -98,6 +100,14 @@ def validate_submission(body: Any) -> SubmissionValidation:
         elif len(value) > MAX_INSTRUCTION_LEN:
             result.fail(fld, f"Instruction field exceeds {MAX_INSTRUCTION_LEN} characters.")
 
+    # Risk fields: optional single-value focus for each arbiter side.
+    for fld in RISK_FIELDS:
+        value = body.get(fld)
+        if value is None:
+            continue
+        if not isinstance(value, str) or value not in RISK_VALUES:
+            result.fail(fld, f"Must be one of: {', '.join(RISK_VALUES)}.")
+
     unknown = set(body) - ALLOWED_FIELDS
     if unknown:
         result.fail("$body", f"Unknown fields are not allowed: {sorted(unknown)}.")
@@ -111,6 +121,7 @@ def validate_submission(body: Any) -> SubmissionValidation:
         "request_schema": body["request_schema"],
         "response_schema": body["response_schema"],
         **{fld: body.get(fld, "") for fld in OPTIONAL_INSTRUCTION_FIELDS},
+        **{fld: body.get(fld, "") for fld in RISK_FIELDS},
     }
     return result
 
@@ -135,7 +146,7 @@ def compile_schemas(submission: dict[str, Any]) -> list[ValidationIssue]:
             continue
         try:
             generate_model(schema)
-        except Exception as exc:  # noqa: BLE001 â€” dydantic surfaces varied pydantic errors
+        except Exception as exc:  # noqa: BLE001 — dydantic surfaces varied pydantic errors
             issues.append(
                 ValidationIssue(
                     field=schema_field, message=f"Schema failed to compile to a model: {exc}"

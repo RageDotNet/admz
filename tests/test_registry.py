@@ -64,7 +64,24 @@ def test_valid_submission_normalizes():
         "id", "description", "request_schema", "response_schema",
         "request_arbiter_instructions", "response_arbiter_instructions",
         "client_instructions", "provider_instructions",
+        "request_risk", "response_risk",
     }
+
+
+def test_risk_fields_validated():
+    import copy
+
+    body = copy.deepcopy(CRM_SEARCH)
+    body["request_risk"] = "injection"
+    body["response_risk"] = "exfiltration"
+    result = validate_submission(body)
+    assert result.ok
+    assert result.normalized is not None
+    assert result.normalized["request_risk"] == "injection"
+    assert result.normalized["response_risk"] == "exfiltration"
+
+    body["request_risk"] = "spam"
+    assert not validate_submission(body).ok
 
 
 def test_missing_required_fields():

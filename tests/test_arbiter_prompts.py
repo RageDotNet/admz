@@ -51,3 +51,80 @@ def test_response_prompt_has_benign_content_guidance():
     assert "AUTHORITATIVE CONTRACT" in REQUEST_BASE_PROMPT
     assert "AUTHORITATIVE CONTRACT" in p
     assert "field descriptions" in p
+
+
+def test_risk_focus_sections_rule_out_false_positive_classes():
+    """Each focus section must name the observed false-positive grounds."""
+    from llmdmz.dispatch.arbiter_prompts import (
+        EXFILTRATION_RISK_FOCUS,
+        INJECTION_RISK_FOCUS,
+    )
+
+    for clause in (
+        "PROMPT INJECTION",
+        "repetit",  # duplicated/repetitive text
+        "could be",  # "could be interpreted" hedging
+        "greetings",
+    ):
+        assert clause in INJECTION_RISK_FOCUS
+    for clause in (
+        "DATA EXFILTRATION",
+        "repetit",  # appended notes repeat text
+        "redundancy",
+        "bulk dumps",
+    ):
+        assert clause in EXFILTRATION_RISK_FOCUS
+
+
+def test_resolve_risk_focus_unknown_is_empty_and_defaults_resolve():
+    from llmdmz.dispatch.arbiter_prompts import resolve_prompts, resolve_risk_focus
+
+    assert resolve_risk_focus("") == ""
+    assert resolve_risk_focus("nonsense") == ""
+    req, resp = resolve_prompts()
+    assert "ONLY valid JSON" in req and "ONLY valid JSON" in resp
+
+
+def test_config_overrides_replace_prompts(monkeypatch):
+    from llmdmz.dispatch import arbiter_prompts as ap
+
+    monkeypatch.setattr(
+        ap, "_config_overrides",
+        lambda: {
+            "arbiter_request_prompt": "CUSTOM REQUEST",
+            "arbiter_response_prompt": "",
+            "arbiter_injection_focus": "CUSTOM INJECTION",
+            "arbiter_exfiltration_focus": "",
+        },
+    )
+    req, resp = ap.resolve_prompts()
+    assert req == "CUSTOM REQUEST"
+    assert resp == ap.RESPONSE_BASE_PROMPT  # empty override falls back
+    assert ap.resolve_risk_focus("injection") == "CUSTOM INJECTION"
+    assert ap.resolve_risk_focus("exfiltration") == ap.EXFILTRATION_RISK_FOCUS
+
+
+def test_arbiter_context_prepends_risk_focus():
+    from llmdmz.core.models import Action
+    from llmdmz.dispatch.pipeline import _arbiter_context
+
+    action = Action(id="crm_add_note", owner_agent_id="a" * 36)
+    ctx = _arbiter_context(
+        action=action,
+        action_description="Append a note.",
+        provider_instructions="",
+        request_schema={"type": "object"},
+        risk="exfiltration",
+    )
+    assert "RISK FOCUS" in ctx
+    assert "DATA EXFILTRATION" in ctx
+    assert ctx.index("RISK FOCUS") < ctx.index("AUTHORITATIVE ACTION CONTRACT")
+    plain = _arbiter_context(
+        action=action,
+        action_description="Append a note.",
+        provider_instructions="",
+        request_schema={"type": "object"},
+    )
+    assert "RISK FOCUS" not in plain
+
+

@@ -9,11 +9,27 @@
   <pre>{{ (req.response_payload | tojson(indent=2)) if req.response_payload else "—" }}</pre>
   <h4>Dispatch attempts ({{ attempts | length }})</h4>
   <table class="table table-sm table-hover table-striped align-middle">
-    <thead><tr><th>#</th><th>Protocol</th><th>Error class</th><th>Detail</th></tr></thead>
+    <thead><tr><th>#</th><th>Protocol</th><th>Error class</th><th>Detail</th><th>Payloads</th></tr></thead>
     <tbody>
     {% for a in attempts %}
-      <tr><td>{{ a.attempt_number }}</td><td>{{ a.framing.protocol }}</td>
-      <td>{{ a.error_class or "—" }}</td><td class="small text-body-secondary">{{ a.error_detail or "" }}</td></tr>
+      <tr>
+        <td>{{ a.attempt_number }}</td><td>{{ a.framing.protocol }}</td>
+        <td>{{ a.error_class or "—" }}</td><td class="small text-body-secondary">{{ a.error_detail or "" }}</td>
+        <td>
+          {% if a.request_payload %}
+          <details>
+            <summary class="small">request</summary>
+            <pre class="small">{{ a.request_payload | tojson(indent=2) }}</pre>
+          </details>
+          {% endif %}
+          {% if a.response_payload %}
+          <details>
+            <summary class="small">response</summary>
+            <pre class="small">{{ a.response_payload | tojson(indent=2) }}</pre>
+          </details>
+          {% endif %}
+        </td>
+      </tr>
     {% endfor %}
     </tbody>
   </table>
