@@ -144,6 +144,7 @@ def sse_merge(patches: list[tuple[str, str]]) -> Response:
         for html_line in html.splitlines() or [""]:
             lines.append(f"data: elements {html_line}")
         lines.append("")
+        lines.append("")
     response = Response("\n".join(lines), mimetype="text/event-stream")
     response.headers["Cache-Control"] = "no-cache"
     return response

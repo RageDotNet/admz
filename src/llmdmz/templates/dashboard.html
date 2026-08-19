@@ -24,15 +24,15 @@
   <h1>LLM DMZ â€” Admin Console</h1>
   <div id="stats-bar">{% include "partials/stats_placeholder.html" %}</div>
   <nav class="z-tab" role="tablist">
-    <a class="z-tab" role="tab" href="#directory" data-on-click="$tab='directory'"
+    <a class="z-tab" role="tab" href="#directory" data-on:click="$tab='directory'"
        data-attr-aria-selected="$tab==='directory' ? 'true' : 'false'">Directory</a>
-    <a class="z-tab" role="tab" href="#enrollments" data-on-click="$tab='enrollments'"
+    <a class="z-tab" role="tab" href="#enrollments" data-on:click="$tab='enrollments'"
        data-attr-aria-selected="$tab==='enrollments' ? 'true' : 'false'">Enrollments</a>
-    <a class="z-tab" role="tab" href="#agents" data-on-click="$tab='agents'"
-       data-attr-aria-selected="$tab==='agents' ? 'true' : 'false'">Agents</a>
-    <a class="z-tab" role="tab" href="#log" data-on-click="$tab='log'"
+    <a class="z-tab" role="tab" href="#agents" data-on:click="$tab='agents'"
+       data-attr-aria-selected="$tab=='agents' ? 'true' : 'false'">Agents</a>
+    <a class="z-tab" role="tab" href="#log" data-on:click="$tab='log'"
        data-attr-aria-selected="$tab==='log' ? 'true' : 'false'">Request log</a>
-    <a class="z-tab" role="tab" href="#audit" data-on-click="$tab='audit'"
+    <a class="z-tab" role="tab" href="#audit" data-on:click="$tab='audit'"
        data-attr-aria-selected="$tab==='audit' ? 'true' : 'false'">Audit trail</a>
     <span class="grow"></span>
     <form class="z-flex z-flex-top" method="post" action="{{ url_for('admin.logout') }}">
@@ -42,22 +42,22 @@
   </nav>
 
   <section id="directory" data-show="$tab==='directory'">
-    <div id="directory-list" data-on-intersect.once="@get('/admin/partials/directory')"></div>
+    <div id="directory-list" data-init="@get('/admin/partials/directory')"></div>
   </section>
   <section id="enrollments" data-show="$tab==='enrollments'">
     <h2>Pending version approvals</h2>
     <div id="pending-versions">{{ pending_versions | safe }}</div>
     <h2>Enrollment requests</h2>
-    <div id="pending-enrollments" data-on-intersect.once="@get('/admin/partials/enrollments')"></div>
+    <div id="pending-enrollments" data-init="@get('/admin/partials/enrollments')"></div>
   </section>
-  <section id="agents" data-show="$tab==='agents'">
-    <div id="agents-list" data-on-intersect.once="@get('/admin/partials/agents', {openWhenHidden: true})"></div>
+  <section id="agents" data-show="$tab=='agents'" xdata-show="true">
+    <div id="agents-list" data-init="@get('/admin/partials/agents', {openWhenHidden: true})"></div>
   </section>
   <section id="log" data-show="$tab==='log'">
-    <div id="log-list" data-on-intersect.once="@get('/admin/partials/log')"></div>
+    <div id="log-list" data-init="@get('/admin/partials/log')"></div>
   </section>
   <section id="audit" data-show="$tab==='audit'">
-    <div id="audit-list" data-on-intersect.once="@get('/admin/partials/audit')"></div>
+    <div id="audit-list" data-init="@get('/admin/partials/audit')"></div>
   </section>
 </div>
 </body>
