@@ -4,16 +4,16 @@
   <h4>Request payload</h4>
   <pre>{{ req.request_payload | tojson(indent=2) }}</pre>
   <h4>Arbiter verdict (request)</h4>
-  <pre>{{ req.request_verdict | tojson(indent=2) if req.request_verdict else &quot;—&quot; }}</pre>
+  <pre>{{ (req.request_verdict | tojson(indent=2)) if req.request_verdict else "—" }}</pre>
   <h4>Response payload</h4>
-  <pre>{{ req.response_payload | tojson(indent=2) if req.response_payload else &quot;—&quot; }}</pre>
+  <pre>{{ (req.response_payload | tojson(indent=2)) if req.response_payload else "—" }}</pre>
   <h4>Dispatch attempts ({{ attempts | length }})</h4>
   <table>
     <thead><tr><th>#</th><th>Protocol</th><th>Error class</th><th>Detail</th></tr></thead>
     <tbody>
     {% for a in attempts %}
       <tr><td>{{ a.attempt_number }}</td><td>{{ a.framing.protocol }}</td>
-      <td>{{ a.error_class or &quot;—&quot; }}</td><td class="small">{{ a.error_detail or &quot;&quot; }}</td></tr>
+      <td>{{ a.error_class or "—" }}</td><td class="small">{{ a.error_detail or "" }}</td></tr>
     {% endfor %}
     </tbody>
   </table>

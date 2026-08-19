@@ -1,6 +1,6 @@
-<div>
+﻿<div>
   <h2>Register agent</h2>
-  <form class="row" data-on-submit="$post('/admin/agents?' + $formData)">
+  <form class="row" data-on-submit="@post('/admin/agents?' + $formData)">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="text" name="name" placeholder="agent name">
     <label class="small"><input type="checkbox" name="is_client"> client</label>
@@ -13,16 +13,16 @@
     <tbody>
     {% for agent in agents %}
       <tr>
-        <td><a href="#" data-on-click="$get('/admin/agents/{{ agent.id }}')">{{ agent.name }}</a></td>
+        <td><a href="#" data-on-click="@get('/admin/agents/{{ agent.id }}')">{{ agent.name }}</a></td>
         <td class="small">{{ 'client' if agent.is_client }}{{ ' provider' if agent.is_provider }}</td>
         <td>{{ 'disabled' if agent.disabled else 'enabled' }}</td>
         <td id="agent-{{ agent.id }}-key-state">{{ 'set' if agent.api_key_hash else 'revoked' }}</td>
         <td>
-          <form class="inline" data-on-submit="$post('/admin/agents/{{ agent.id }}/revoke-key')">
+          <form class="inline" data-on-submit="@post('/admin/agents/{{ agent.id }}/revoke-key')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="danger small">Revoke key</button>
           </form>
-          <form class="inline" data-on-submit="$post('/admin/agents/{{ agent.id }}/new-key')">
+          <form class="inline" data-on-submit="@post('/admin/agents/{{ agent.id }}/new-key')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="small">New key</button>
           </form>
@@ -32,7 +32,7 @@
     </tbody>
   </table>
   <div class="pager">
-    <span class="muted small">{{ total }} total — page {{ page }}</span>
+    <span class="muted small">{{ total }} total â€” page {{ page }}</span>
   </div>
   <div id="agent-detail-region"></div>
 </div>

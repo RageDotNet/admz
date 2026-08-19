@@ -1,5 +1,5 @@
-<div>
-  <form class="row" method="get" data-on-submit="$get('/admin/partials/directory?' + $formData)"
+﻿<div>
+  <form class="row" method="get" data-on-submit="@get('/admin/partials/directory?' + $formData)"
        data-indicator="loading">
     <input type="text" name="q" value="{{ q }}" placeholder="filter by id/state">
     <select name="state">
@@ -15,12 +15,13 @@
     <tbody>
     {% for row in rows %}
       <tr>
-        <td><a href="#" data-on-click="$get('/admin/partials/action/{{ row.action.id }}')" data-on-click-ntl
+        <td><a href="#" data-on-click="@get('/admin/partials/action/{{ row.action.id }}')"
                >{{ row.action.id }}</a></td>
+
         <td>{{ row.owner.name if row.owner }}</td>
         <td id="action-{{ row.action.id }}-state"><span class="badge {{ row.action.state }}">{{ row.action.state }}</span></td>
-        <td>{{ row.action.active_version.version_number if row.action.active_version else '—' }}</td>
-        <td>{{ row.pending_version.version_number if row.pending_version else '—' }}</td>
+        <td>{{ row.action.active_version.version_number if row.action.active_version else 'â€”' }}</td>
+        <td>{{ row.pending_version.version_number if row.pending_version else 'â€”' }}</td>
         <td>{{ row.enrolled_count }}</td>
       </tr>
     {% else %}
@@ -29,9 +30,9 @@
     </tbody>
   </table>
   <div class="pager">
-    <span class="muted small">{{ total }} total — page {{ page }} ({{ per_page }}/page)</span>
-    {% if page > 1 %}<a class="btn" href="#" data-on-click="$get('/admin/partials/directory?page={{ page - 1 }}')">Prev</a>{% endif %}
-    {% if page * per_page < total %}<a class="btn" href="#" data-on-click="$get('/admin/partials/directory?page={{ page + 1 }}')">Next</a>{% endif %}
+    <span class="muted small">{{ total }} total â€” page {{ page }} ({{ per_page }}/page)</span>
+    {% if page > 1 %}<a class="btn" href="#" data-on-click="@get('/admin/partials/directory?page={{ page - 1 }}')">Prev</a>{% endif %}
+    {% if page * per_page < total %}<a class="btn" href="#" data-on-click="@get('/admin/partials/directory?page={{ page + 1 }}')">Next</a>{% endif %}
   </div>
   <div id="action-detail"></div>
 </div>

@@ -1,5 +1,5 @@
 ﻿<div>
-  <form class="row" data-on-submit="$get(&quot;/admin/partials/log?&quot; + $formData)">
+  <form class="row" data-on-submit="@get(&quot;/admin/partials/log?&quot; + $formData)">
     <input type="text" name="action_id" value="{{ action_id }}" placeholder="action id">
     <select name="outcome">
       <option value="">any outcome</option>
@@ -18,7 +18,7 @@
         <td class="small">{{ r.action_id }}</td>
         <td class="small mono">{{ r.agent_id[:8] }}</td>
         <td><span class="badge {{ r.outcome }}">{{ r.outcome }}</span></td>
-        <td><a href="#" data-on-click="$get(&quot;/admin/partials/request/{{ r.id }}&quot;)">detail</a></td>
+        <td><a href="#" data-on-click="@get(&quot;/admin/partials/request/{{ r.id }}&quot;)">detail</a></td>
       </tr>
     {% else %}
       <tr><td colspan="5" class="muted">No requests.</td></tr>
@@ -27,8 +27,8 @@
   </table>
   <div class="pager">
     <span class="muted small">{{ total }} total — page {{ page }}</span>
-    {% if page > 1 %}<a class="btn" href="#" data-on-click="$get(&quot;/admin/partials/log?page={{ page - 1 }}&quot;)">Prev</a>{% endif %}
-    {% if page * per_page < total %}<a class="btn" href="#" data-on-click="$get(&quot;/admin/partials/log?page={{ page + 1 }}&quot;)">Next</a>{% endif %}
+    {% if page > 1 %}<a class="btn" href="#" data-on-click="@get(&quot;/admin/partials/log?page={{ page - 1 }}&quot;)">Prev</a>{% endif %}
+    {% if page * per_page < total %}<a class="btn" href="#" data-on-click="@get(&quot;/admin/partials/log?page={{ page + 1 }}&quot;)">Next</a>{% endif %}
   </div>
   <div id="request-detail"></div>
 </div>
