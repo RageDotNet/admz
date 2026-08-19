@@ -21,11 +21,11 @@
         <td>{{ 'disabled' if agent.disabled else 'enabled' }}</td>
         <td id="agent-{{ agent.id }}-key-state">{{ 'set' if agent.api_key_hash else 'revoked' }}</td>
         <td>
-          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/agents/{{ agent.id }}/revoke-key')">
+          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/agents/{{ agent.id }}/revoke-key', {contentType: 'form'})">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="btn btn-sm btn-danger small text-body-secondary">Revoke key</button>
           </form>
-          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/agents/{{ agent.id }}/new-key')">
+          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/agents/{{ agent.id }}/new-key', {contentType: 'form'})">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="small text-body-secondary">New key</button>
           </form>

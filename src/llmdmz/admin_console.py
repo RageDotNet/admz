@@ -117,6 +117,10 @@ def partial_action(action_id: str):
             session, action_id=action_id, page=1, per_page=20
         )
         owner = storage.get_agent(session, action.owner_agent_id)
+        agent_names = {}
+        for e in enrollments:
+            owner_agent = storage.get_agent(session, e.agent_id)
+            agent_names[e.agent_id] = owner_agent.name if owner_agent else e.agent_id
     return _render_partial(
         "partials/action_detail.html",
         target="#action-detail",
@@ -125,6 +129,7 @@ def partial_action(action_id: str):
         active=active,
         diffs=diffs,
         enrollments=enrollments,
+        agent_names=agent_names,
         requests=requests,
         owner=owner,
     )
