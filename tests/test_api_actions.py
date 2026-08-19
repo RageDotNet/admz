@@ -60,6 +60,75 @@ def _approve_v1(app_fixture):
         s.close()
 
 
+class TestPutNewVersion:
+    def _create(self, app_fixture, client_http):
+        _, provider_key, _ = app_fixture
+        assert client_http.post(
+            "/v2/actions", json=CRM_SEARCH, headers=_hdr(provider_key)
+        ).status_code == 201
+
+    def test_put_pending_version(self, app_fixture, client_http):
+        _, provider_key, _ = app_fixture
+        self._create(app_fixture, client_http)
+        resp = client_http.put(
+            "/v2/actions/crm_search", json=CRM_SEARCH, headers=_hdr(provider_key)
+        )
+        assert resp.status_code == 409
+        assert resp.get_json()["error"]["code"] == "version_pending"
+
+    def test_put_after_approval(self, app_fixture, client_http):
+        _, provider_key, _ = app_fixture
+        self._create(app_fixture, client_http)
+        _approve_v1(app_fixture)
+        updated = {**CRM_SEARCH, "description": "Updated description."}
+        resp = client_http.put("/v2/actions/crm_search", json=updated, headers=_hdr(provider_key))
+        assert resp.status_code == 201
+        body = resp.get_json()
+        assert body["version"]["number"] == 2
+        assert body["version"]["state"] == "submitted"
+        assert body["notice"] == "version_pending"
+
+    def test_put_id_mismatch_422(self, app_fixture, client_http):
+        _, provider_key, _ = app_fixture
+        self._create(app_fixture, client_http)
+        _approve_v1(app_fixture)
+        resp = client_http.put(
+            "/v2/actions/crm_search", json={**CRM_SEARCH, "id": "other"}, headers=_hdr(provider_key)
+        )
+        assert resp.status_code == 422
+
+    def test_put_non_owner_404(self, app_fixture, client_http):
+        self._create(app_fixture, client_http)
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            _, other_key = storage.register_agent(
+                s, name="other-provider", is_client=False, is_provider=True
+            )
+            s.commit()
+            s.close()
+        resp = client_http.put(
+            "/v2/actions/crm_search", json=CRM_SEARCH, headers=_hdr(other_key)
+        )
+        assert resp.status_code == 404
+
+    def test_version_history(self, app_fixture, client_http):
+        _, provider_key, _ = app_fixture
+        self._create(app_fixture, client_http)
+        _approve_v1(app_fixture)
+        client_http.put(
+            "/v2/actions/crm_search", json=CRM_SEARCH, headers=_hdr(provider_key)
+        )
+        resp = client_http.get(
+            "/v2/actions/crm_search/versions", headers=_hdr(provider_key)
+        )
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert [v["number"] for v in body["versions"]] == [1, 2]
+        assert [v["state"] for v in body["versions"]] == ["active", "submitted"]
+
+
+
 class TestGetDetail:
     def test_owner_view(self, app_fixture, client_http):
         _, provider_key, _ = app_fixture

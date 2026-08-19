@@ -1,4 +1,4 @@
-"""Agent-facing REST API v2 (`rest-api-v2.md`)."""
+﻿"""Agent-facing REST API v2 (`rest-api-v2.md`)."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def parse_json_body() -> dict[str, Any]:
         raise ApiError("malformed_json", "Request body must be JSON.", 400)
     try:
         body = request.get_json()
-    except Exception:  # noqa: BLE001 — Flask raises varied parse errors
+    except Exception:  # noqa: BLE001 â€” Flask raises varied parse errors
         raise ApiError("malformed_json", "Request body is not valid JSON.", 400) from None
     if not isinstance(body, dict):
         raise ApiError("malformed_json", "Request body must be a JSON object.", 400)
@@ -198,3 +198,104 @@ def get_action_detail(action_id: str):
         enrollment = storage.find_enrollment(session, agent_id=agent.id, action_id=action.id)
         enrollment_state = enrollment.state if enrollment else "available"
         return jsonify(_client_view(action, active, enrollment_state))
+
+
+# --- T2.6: PUT /v2/actions/<id> (submit new version) + version history ----------
+
+
+@bp.put("/actions/<action_id>")
+def submit_new_version(action_id: str):
+    agent = authenticate_agent()
+    require_provider(agent)
+    body = parse_json_body()
+    if body.get("id") != action_id:
+        raise ApiError(
+            "request_schema_invalid",
+            "The submission id must match the action id in the URL.",
+            422,
+            {"field": "id"},
+        )
+    payload = validate_and_compile(body)
+
+    from llmdmz.core import storage
+    from llmdmz.core.audit import audit
+    from llmdmz.core.models import ActionVersion
+
+    with session_scope(current_app) as session:
+        action = storage.get_action(session, action_id)
+        if action is None or action.owner_agent_id != agent.id:
+            raise ApiError("not_found", "Unknown action.", 404)
+        pending = (
+            session.query(ActionVersion)
+            .filter(ActionVersion.action_id == action.id, ActionVersion.state == "submitted")
+            .one_or_none()
+        )
+        if pending is not None:
+            raise ApiError(
+                "version_pending",
+                "A version is already pending review for this action.",
+                409,
+                {
+                    "pending_version_id": str(pending.id),
+                    "pending_version_number": pending.version_number,
+                },
+            )
+        last = (
+            session.query(ActionVersion)
+            .filter(ActionVersion.action_id == action.id)
+            .order_by(ActionVersion.version_number.desc())
+            .first()
+        )
+        next_number = (last.version_number + 1) if last else 1
+        version = ActionVersion(
+            action_id=action.id, version_number=next_number, state="submitted", payload=payload
+        )
+        session.add(version)
+        session.flush()
+        audit(
+            session,
+            actor_type="agent",
+            actor_id=agent.id,
+            event="action.version_submitted",
+            target_type="action_version",
+            target_id=str(version.id),
+            detail={"action_id": action.id, "version_number": next_number},
+        )
+        return (
+            jsonify(
+                {
+                    "id": action.id,
+                    "state": action.state,
+                    "version": {"number": next_number, "state": "submitted"},
+                    "notice": "version_pending",
+                }
+            ),
+            201,
+        )
+
+
+@bp.get("/actions/<action_id>/versions")
+def list_versions(action_id: str):
+    agent = authenticate_agent()
+    require_provider(agent)
+    with session_scope(current_app) as session:
+        from llmdmz.core import storage
+
+        action = storage.get_action(session, action_id)
+        if action is None or action.owner_agent_id != agent.id:
+            raise ApiError("not_found", "Unknown action.", 404)
+        versions = sorted(action.versions, key=lambda v: v.version_number)
+        return jsonify(
+            {
+                "id": action.id,
+                "versions": [
+                    {
+                        "number": v.version_number,
+                        "state": v.state,
+                        "submitted_at": v.submitted_at.isoformat() if v.submitted_at else None,
+                        "payload": v.payload,
+                    }
+                    for v in versions
+                ],
+            }
+        )
