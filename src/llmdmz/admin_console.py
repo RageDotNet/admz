@@ -1,4 +1,4 @@
-﻿"""Admin console page/fragment/mutation routes (webui-v2.md route table, #27)."""
+"""Admin console page/fragment/mutation routes (webui-v2.md route table, #27)."""
 
 from __future__ import annotations
 
@@ -49,25 +49,7 @@ def dashboard():
 @bp.get("/partials/stats")
 @admin_required(page=False, csrf=False)
 def partial_stats():
-    with _db() as session:
-        agents, agent_total = storage.list_agents(session, page=1, per_page=1)
-        by_state = {"pending": 0, "active": 0, "withdrawn": 0}
-        actions, _ = storage.list_actions(session, page=1, per_page=500)
-        for a in actions:
-            by_state[a.state] = by_state.get(a.state, 0) + 1
-        _, pending_enrollments = storage.list_enrollments(
-            session, state="requested", page=1, per_page=1
-        )
-        outcome_counts = dict(storage.outcome_counts(session))
-        last_24h = storage.requests_last_24h(session)
-    return _render_partial(
-        "partials/stats.html",
-        agent_count=agent_total,
-        actions_by_state=by_state,
-        pending_enrollments=pending_enrollments,
-        outcome_counts=outcome_counts,
-        last_24h=last_24h,
-    )
+    return sse_merge([("#stats-bar", _stats_html())])
 
 
 # --- T4.10: directory tab -------------------------------------------------------
@@ -98,6 +80,7 @@ def partial_directory():
             )
     return _render_partial(
         "partials/directory.html",
+        target="#directory-list",
         rows=rows,
         page=page,
         per_page=per_page,
@@ -132,6 +115,7 @@ def partial_action(action_id: str):
         owner = storage.get_agent(session, action.owner_agent_id)
     return _render_partial(
         "partials/action_detail.html",
+        target="#action-detail",
         action=action,
         versions=versions,
         active=active,
@@ -155,7 +139,25 @@ def _queue_patches(extra: list[tuple[str, str]]) -> Any:
 
 
 def _stats_html() -> str:
-    return partial_stats()
+    with _db() as session:
+        agents, agent_total = storage.list_agents(session, page=1, per_page=1)
+        by_state = {"pending": 0, "active": 0, "withdrawn": 0}
+        actions, _ = storage.list_actions(session, page=1, per_page=500)
+        for a in actions:
+            by_state[a.state] = by_state.get(a.state, 0) + 1
+        _, pending_enrollments = storage.list_enrollments(
+            session, state="requested", page=1, per_page=1
+        )
+        outcome_counts = dict(storage.outcome_counts(session))
+        last_24h = storage.requests_last_24h(session)
+    return _render_partial(
+        "partials/stats.html",
+        agent_count=agent_total,
+        actions_by_state=by_state,
+        pending_enrollments=pending_enrollments,
+        outcome_counts=outcome_counts,
+        last_24h=last_24h,
+    )
 
 
 def _pending_versions_html() -> str:
@@ -254,7 +256,7 @@ def admin_withdraw(action_id: str):
 @bp.get("/partials/enrollments")
 @admin_required(page=False, csrf=False)
 def partial_enrollments():
-    return _pending_enrollments_html()
+    return sse_merge([("#pending-enrollments", _pending_enrollments_html())])
 
 
 def _enrollment_or_404(session, enrollment_id):
@@ -350,7 +352,9 @@ def partial_agents():
     with _db() as session:
         agents, total = storage.list_agents(session, page=page, per_page=per_page)
     return _render_partial(
-        "partials/agents.html", agents=agents, page=page, per_page=per_page, total=total
+        "partials/agents.html",
+        agents=agents, page=page, per_page=per_page, total=total,
+        target="#agents-list",
     )
 
 
@@ -373,7 +377,9 @@ def register_agent():
         agent_id = agent.id
         _audit(session, "agent.registered", "agent", agent_id, {"name": name})
     # Delivery config is accepted but never echoed back in any listing.
-    return _render_partial("partials/key_reveal.html", key=key, agent_id=agent_id)
+    return _render_partial("partials/key_reveal.html", key=key, agent_id=agent_id,
+        target="#agent-detail-region",
+    )
 
 
 @bp.get("/agents/<agent_id>")
@@ -383,7 +389,9 @@ def agent_detail(agent_id: str):
         agent = storage.get_agent(session, agent_id)
         if agent is None:
             abort(404)
-    return _render_partial("partials/agent_detail.html", agent=agent)
+    return _render_partial("partials/agent_detail.html", agent=agent,
+        target="#agent-detail-region",
+    )
 
 
 @bp.post("/agents/<agent_id>")
@@ -436,7 +444,10 @@ def agent_new_key(agent_id: str):
             abort(404)
         key = storage.issue_key(session, agent)
         _audit(session, "agent.key_issued", "agent", agent_id)
-    return _render_partial("partials/key_reveal.html", key=key, agent_id=agent_id)
+    return _render_partial(
+        "partials/key_reveal.html", key=key, agent_id=agent_id,
+        target=f"#agent-{agent_id}-detail",
+    )
 
 
 # --- T4.19: request log ---------------------------------------------------------
@@ -454,6 +465,7 @@ def partial_log():
         )
     return _render_partial(
         "partials/log.html",
+        target="#log-list",
         rows=rows,
         page=page,
         per_page=per_page,
@@ -471,7 +483,8 @@ def partial_request_detail(request_id: str):
         if row is None:
             abort(404)
         attempts = storage.list_attempts(session, request_id)
-    return _render_partial("partials/request_detail.html", req=row, attempts=attempts)
+    return _render_partial("partials/request_detail.html", req=row, attempts=attempts,
+        target="#request-detail",)
 
 
 # --- T4.20: audit trail ---------------------------------------------------------
@@ -489,6 +502,7 @@ def partial_audit():
         )
     return _render_partial(
         "partials/audit.html",
+        target="#audit-list",
         rows=rows,
         page=page,
         per_page=per_page,

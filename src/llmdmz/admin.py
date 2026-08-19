@@ -170,8 +170,18 @@ def _db():
     return session_scope(current_app)
 
 
-def _render_partial(template: str, **ctx):
-    return render_template(template, csrf_token=csrf_token(), **ctx)
+def _render_partial(template: str, target: str | None = None, **ctx):
+    """Render a partial; when a CSS selector is given, wrap as a Datastar SSE
+    merge response so the browser patches it into that target element.
+
+    Datastar actions require `text/event-stream` responses carrying
+    `datastar-merge-fragments` events - a bare text/html body is fetched but
+    never merged.
+    """
+    html = render_template(template, csrf_token=csrf_token(), **ctx)
+    if target is not None:
+        return sse_merge([(target, html)])
+    return html
 
 
 def _actor() -> str:
