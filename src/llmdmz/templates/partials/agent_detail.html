@@ -6,10 +6,10 @@
   <form class="d-flex flex-column gap-2" data-on:submit="@post('/admin/agents/{{ agent.id }}', {contentType: 'form'})">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label class="small text-body-secondary"><input type="checkbox" name="is_client" {% if agent.is_client %}checked{% endif %}> client</label>
-    <label class="small text-body-secondary"><input type="checkbox" name="is_provider" {% if agent.is_provider %}checked{% endif %}> provider</label>
+    <label class="small text-body-secondary"><input type="checkbox" name="is_provider" data-bind="$provider"
+      {% if agent.is_provider %}checked{% endif %}> provider</label>
     <label class="small text-body-secondary"><input type="checkbox" name="enabled" {% if not agent.disabled %}checked{% endif %}> enabled</label>
-    <label class="small text-body-secondary">Delivery config JSON (write-only; protocol/endpoint/command/headers/model/retries/timeout)
-      <textarea name="delivery_json" rows="4" class="form-control font-monospace"></textarea></label>
-    <button type="submit" class="btn btn-sm btn-primary">Save</button>
+    {% include "partials/delivery_fields.html" %}
+    <button type="submit" class="btn btn-sm btn-primary align-self-start">Save</button>
   </form>
 </div>

@@ -1,0 +1,74 @@
+<div>
+  {% set prov = agent.is_provider if agent is defined and agent else false %}
+  {% set proto = (agent.delivery_config.protocol if agent.delivery_config else 'post')
+                 if agent is defined and agent else 'post' %}
+  <div data-signals="{provider: {{ 'true' if prov else 'false' }}, protocol: '{{ proto }}', headerRows: 1}">
+    <div data-show="$provider" class="card bg-body-tertiary border-0">
+      <div class="card-body d-flex flex-column gap-2">
+        <div class="small text-body-secondary">Delivery config — write-only: values are stored but never displayed again.</div>
+        <div>
+          <label class="form-label small mb-1">Delivery method</label>
+          <select name="protocol" class="form-select form-select-sm" data-bind="$protocol">
+            <option value="post">HTTP POST endpoint</option>
+            <option value="exec">Local command (exec)</option>
+            <option value="completions">LLM completions (LiteLLM)</option>
+          </select>
+        </div>
+
+        {# --- post: endpoint + header key/value rows (client-side add/remove) --- #}
+        <div data-show="$protocol==='post'" class="d-flex flex-column gap-2">
+          <div>
+            <label class="form-label small mb-1">Endpoint URL</label>
+            <input type="url" name="endpoint" class="form-control form-control-sm"
+                   placeholder="https://provider.example/hook">
+          </div>
+          <div class="small text-body-secondary mb-0">Headers (added verbatim to every POST)</div>
+          {% for i in range(12) %}
+          <div class="d-flex flex-wrap gap-2 align-items-center" data-show="$headerRows > {{ i }}">
+            <input type="text" name="header_key_{{ i }}" class="form-control form-control-sm"
+                   style="max-width: 14rem" placeholder="Header name">
+            <input type="text" name="header_value_{{ i }}" class="form-control form-control-sm"
+                   style="max-width: 20rem" placeholder="Value (e.g. Bearer &hellip;)">
+            {% if i %}
+            <button type="button" class="btn btn-sm btn-outline-danger"
+                    data-show="$headerRows > {{ i }}" data-on:click="$headerRows={{ i }}">remove</button>
+            {% endif %}
+          </div>
+          {% endfor %}
+          <button type="button" class="btn btn-sm btn-outline-secondary align-self-start"
+                  data-show="$headerRows < 12" data-on:click="$headerRows++">+ header</button>
+        </div>
+
+        {# --- exec: command line; framing on stdin, JSON payload on stdout --- #}
+        <div data-show="$protocol==='exec'">
+          <label class="form-label small mb-1">Command</label>
+          <input type="text" name="command" class="form-control form-control-sm font-monospace"
+                 placeholder="python provider_script.py">
+          <div class="form-text small">Run locally; framing arrives on stdin, JSON payload is read from stdout.</div>
+        </div>
+
+        {# --- completions: LiteLLM model string --- #}
+        <div data-show="$protocol==='completions'">
+          <label class="form-label small mb-1">Model</label>
+          <input type="text" name="model" class="form-control form-control-sm font-monospace"
+                 placeholder="openai/gpt-4o-mini">
+          <div class="form-text small">LiteLLM model string; called with system/user chat framing.</div>
+        </div>
+
+        {# --- common knobs --- #}
+        <div class="d-flex flex-wrap gap-2">
+          <div>
+            <label class="form-label small mb-1">Retries</label>
+            <input type="number" name="retries" min="0" max="9" class="form-control form-control-sm"
+                   style="max-width: 8rem" placeholder="config default">
+          </div>
+          <div>
+            <label class="form-label small mb-1">Timeout (s)</label>
+            <input type="number" name="timeout" min="1" max="600" class="form-control form-control-sm"
+                   style="max-width: 8rem" placeholder="config default">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

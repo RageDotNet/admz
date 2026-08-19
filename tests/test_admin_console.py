@@ -255,6 +255,119 @@ class TestRevealOnce:  # T4.18
         assert "super-secret-provider-token" not in detail
         assert "secret.example" not in detail
 
+    def test_agent_edit_structured_delivery_post(self, app_fixture, client_http):
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            agent = s.scalars(select(Agent).where(Agent.name == "provider")).first()
+            agent_id = agent.id
+            s.close()
+        _login(client_http)
+        resp = client_http.post(
+            f"/admin/agents/{agent_id}",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+            data={
+                "is_client": "", "is_provider": "on", "enabled": "on",
+                "protocol": "post",
+                "endpoint": "https://hook.example/prov",
+                "header_key_0": "Authorization", "header_value_0": "Bearer s3cret",
+                "header_key_1": "X-Tag", "header_value_1": "1",
+                # row 2 left fully empty -> skipped
+                "header_key_3": "", "header_value_3": "orphan",  # empty key -> skipped
+                "retries": "2", "timeout": "45",
+            },
+        )
+        assert resp.status_code == 200
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            agent = s.scalars(select(Agent).where(Agent.id == agent_id)).first()
+            assert agent.delivery_config == {
+                "protocol": "post",
+                "endpoint": "https://hook.example/prov",
+                "headers": {"Authorization": "Bearer s3cret", "X-Tag": "1"},
+                "retries": 2,
+                "timeout": 45,
+            }
+            s.close()
+
+    def test_agent_edit_structured_delivery_exec(self, app_fixture, client_http):
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            agent = s.scalars(select(Agent).where(Agent.name == "provider")).first()
+            agent_id = agent.id
+            s.close()
+        _login(client_http)
+        resp = client_http.post(
+            f"/admin/agents/{agent_id}",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+            data={"is_provider": "on", "protocol": "exec", "command": "python prov.py"},
+        )
+        assert resp.status_code == 200
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            agent = s.scalars(select(Agent).where(Agent.id == agent_id)).first()
+            assert agent.delivery_config == {"protocol": "exec", "command": "python prov.py"}
+            s.close()
+
+    def test_agent_edit_unchecking_provider_clears_config(self, app_fixture, client_http):
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            agent = s.scalars(select(Agent).where(Agent.name == "provider")).first()
+            agent.delivery_config = {"protocol": "post", "endpoint": "https://x.example"}
+            agent_id = agent.id
+            s.commit()
+            s.close()
+        _login(client_http)
+        resp = client_http.post(
+            f"/admin/agents/{agent_id}",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+            data={"is_client": "on", "enabled": "on"},  # provider unchecked
+        )
+        assert resp.status_code == 200
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            agent = s.scalars(select(Agent).where(Agent.id == agent_id)).first()
+            assert agent.delivery_config is None
+            s.close()
+
+    def test_agent_edit_rejects_bad_protocol_and_knobs(self, app_fixture, client_http):
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            agent = s.scalars(select(Agent).where(Agent.name == "provider")).first()
+            agent_id = agent.id
+            s.close()
+        _login(client_http)
+        for bad in ({"protocol": "carrier-pigeon"}, {"protocol": "post", "retries": "many"}):
+            resp = client_http.post(
+                f"/admin/agents/{agent_id}",
+                headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+                data={"is_provider": "on", **bad},
+            )
+            assert resp.status_code == 400
+
+    def test_register_provider_with_delivery(self, app_fixture, client_http):
+        app, _, _ = app_fixture
+        _login(client_http)
+        resp = client_http.post(
+            "/admin/agents",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+            data={
+                "name": "hook-provider", "is_provider": "on",
+                "protocol": "completions", "model": "openai/gpt-4o-mini",
+            },
+        )
+        assert resp.status_code == 200
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            agent = s.scalars(select(Agent).where(Agent.name == "hook-provider")).first()
+            assert agent.delivery_config == {
+                "protocol": "completions", "model": "openai/gpt-4o-mini"
+            }
+            s.close()
+
 
 class TestRouteTable:  # T4.21
     def test_routes_match_webui_prd_exactly(self, app_fixture):

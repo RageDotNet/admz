@@ -344,6 +344,49 @@ def admin_enroll(action_id: str):
 
 # --- T4.17: agents tab ----------------------------------------------------------
 
+_DELIVERY_PROTOCOLS = ("post", "exec", "completions")
+_HEADER_ROWS = 12  # matches the 12 client-side header rows in delivery_fields.html
+
+
+def _compose_delivery(data: dict[str, str]) -> dict[str, Any]:
+    """Structured form fields -> delivery_config dict (write-only, #16).
+
+    Only fields relevant to the chosen protocol are stored; empty optional
+    values are omitted; duplicate header names last-win; unknown protocol or
+    non-numeric retries/timeout is a client error.
+    """
+    protocol = (data.get("protocol") or "post").strip()
+    if protocol not in _DELIVERY_PROTOCOLS:
+        abort(400)
+    cfg: dict[str, Any] = {"protocol": protocol}
+    if protocol == "post":
+        endpoint = (data.get("endpoint") or "").strip()
+        headers: dict[str, str] = {}
+        for i in range(_HEADER_ROWS):
+            key = (data.get(f"header_key_{i}") or "").strip()
+            value = (data.get(f"header_value_{i}") or "").strip()
+            if key:
+                headers[key] = value
+        if endpoint:
+            cfg["endpoint"] = endpoint
+        if headers:
+            cfg["headers"] = headers
+    elif protocol == "exec":
+        command = (data.get("command") or "").strip()
+        if command:
+            cfg["command"] = command
+    else:  # completions
+        model = (data.get("model") or "").strip()
+        if model:
+            cfg["model"] = model
+    for knob in ("retries", "timeout"):
+        raw = (data.get(knob) or "").strip()
+        if raw:
+            if not raw.isdigit():
+                abort(400)
+            cfg[knob] = int(raw)
+    return cfg
+
 
 @bp.get("/partials/agents")
 @admin_required(page=False, csrf=False)
@@ -374,6 +417,8 @@ def register_agent():
         agent, key = storage.register_agent(
             session, name=name, is_client=is_client, is_provider=is_provider
         )
+        if is_provider:
+            agent.delivery_config = _compose_delivery(data)
         agent_id = agent.id
         _audit(session, "agent.registered", "agent", agent_id, {"name": name})
     # Delivery config is accepted but never echoed back in any listing.
@@ -405,13 +450,8 @@ def agent_edit(agent_id: str):
         agent.is_client = data.get("is_client") in ("on", "true", True, 1)
         agent.is_provider = data.get("is_provider") in ("on", "true", True, 1)
         agent.disabled = data.get("enabled") not in ("on", "true", True, 1)
-        if "delivery_json" in data and data.get("delivery_json"):
-            import json as _json
-
-            try:
-                agent.delivery_config = _json.loads(data["delivery_json"])
-            except ValueError:
-                abort(400)
+        # Structured delivery fields; clearing the provider flag clears config.
+        agent.delivery_config = _compose_delivery(data) if agent.is_provider else None
         _audit(session, "agent.edited", "agent", agent_id)
     with _db() as session:
         agent = storage.get_agent(session, agent_id)
