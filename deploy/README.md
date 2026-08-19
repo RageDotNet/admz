@@ -66,3 +66,10 @@ Operational notes for deploying the DMZ container. Read together with
 3. Register a provider agent (reveal-once key), configure its delivery
    config, then submit an action via `POST /v2/actions` with the key.
 4. Approve the version in the console; enroll a client agent; invoke.
+
+## Live smoke script
+
+`scripts/smoke_live.py` exercises the real LiteLLM/OpenRouter arbiter adapter
+(not covered by the offline suite, clarification #31). Run manually with
+`OPENROUTER_API_KEY=... python scripts/smoke_live.py`; it prints the parsed
+verdict and exits non-zero on failure.
