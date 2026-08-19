@@ -21,12 +21,37 @@ target_metadata = Base.metadata
 
 
 def _db_url() -> str:
-    # DSN precedence mirrors the app: env var, else alembic.ini, else default.
+    # DSN precedence mirrors the app: env var, else config.yaml, else alembic.ini.
     url = os.environ.get("DMZ_DATABASE_URL")
+    if not url:
+        # Read just database_url from the YAML (env-var independent); a full
+        # load_config() would hard-require admin accounts, which migrations
+        # should not depend on.
+        cfg_path = os.environ.get("DMZ_CONFIG") or os.path.join(
+            os.path.dirname(__file__), "..", "config.yaml"
+        )
+        if os.path.exists(cfg_path):
+            import yaml
+
+            with open(cfg_path, encoding="utf-8") as fh:
+                raw = yaml.safe_load(fh) or {}
+            if isinstance(raw, dict):
+                url = raw.get("database_url")
+    if not url:
+        # Mirror the app's code default so migrations and server agree.
+        from llmdmz.core.config import _DEFAULTS
+
+        url = _DEFAULTS["database_url"]
     if url:
         config.set_main_option("sqlalchemy.url", url)
         return url
-    return config.get_main_option("sqlalchemy.url")
+    url = config.get_main_option("sqlalchemy.url")
+    if not url:
+        raise RuntimeError(
+            "no database URL configured: set DMZ_DATABASE_URL, put database_url "
+            "in config.yaml, or set sqlalchemy.url in alembic.ini"
+        )
+    return url
 
 
 def run_migrations_offline() -> None:
