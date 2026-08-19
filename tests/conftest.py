@@ -37,3 +37,31 @@ def make_config(**overrides) -> Config:
 @pytest.fixture()
 def config() -> Config:
     return make_config()
+
+
+@pytest.fixture()
+def app_fixture(config):
+    from llmdmz.app import create_app
+    from llmdmz.core import storage
+    from llmdmz.core.models import Base
+
+    app = create_app(config)
+    engine = app.extensions["DMZ_ENGINE"]
+    Base.metadata.create_all(engine)
+    with app.app_context():
+        factory = app.extensions["DMZ_SESSION_FACTORY"]
+        s = factory()
+        _, provider_key = storage.register_agent(
+            s, name="provider", is_client=False, is_provider=True
+        )
+        _, client_key = storage.register_agent(s, name="client", is_client=True, is_provider=False)
+        s.commit()
+        s.close()
+    return app, provider_key, client_key
+
+
+@pytest.fixture()
+def client_http(app_fixture):
+    app, _, _ = app_fixture
+    app.config["TESTING"] = True
+    return app.test_client()

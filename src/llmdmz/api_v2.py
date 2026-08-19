@@ -11,6 +11,7 @@ from sqlalchemy import select
 from llmdmz.core.auth import Identity, bearer_token, resolve_bearer
 from llmdmz.core.db import session_scope
 from llmdmz.core.models import Action, ActionVersion, Agent, Enrollment
+from llmdmz.dispatch.interfaces import ProviderTransport
 
 bp = Blueprint("api_v2", __name__, url_prefix="/v2")
 
@@ -517,3 +518,86 @@ def skill():
             "skill": "\n\n---\n\n".join(documents),
         }
     )
+
+
+# --- T3.11+: POST /v2/actions/<id>/invoke (synchronous dispatch pipeline) ----
+
+
+def _production_transport(delivery: dict) -> ProviderTransport:
+    from llmdmz.dispatch.adapters import CompletionsTransport, ExecTransport, PostTransport
+
+    protocol = delivery.get("protocol", "post")
+    if protocol == "exec":
+        return ExecTransport()
+    if protocol == "completions":
+        from llmdmz.dispatch.adapters import _litellm_completer
+
+        return CompletionsTransport(_litellm_completer)
+    return PostTransport()
+
+
+@bp.post("/actions/<action_id>/invoke")
+def invoke_action(action_id: str):
+    agent = authenticate_agent()
+    require_client(agent)
+    body = parse_json_body()
+
+    from llmdmz.core import storage
+    from llmdmz.core.audit import audit
+    from llmdmz.dispatch.adapters import LiteLLMArbiterClient
+    from llmdmz.dispatch.pipeline import run_invoke
+
+    config = current_app.config["DMZ"]
+    with session_scope(current_app) as session:
+        action = storage.get_action(session, action_id)
+        # Withdrawn/pending actions are invisible to invocation (#10).
+        if action is None or action.state != "active" or action.active_version is None:
+            raise ApiError("not_found", "Unknown action.", 404)
+        enrollment = storage.find_enrollment(session, agent_id=agent.id, action_id=action.id)
+        if enrollment is None or enrollment.state != "enrolled":
+            raise ApiError("not_enrolled", "You are not enrolled in this action.", 403)
+
+        # DI seam: tests override these app extensions with fakes (#31).
+        arbiter = current_app.extensions.get("DMZ_ARBITER") or LiteLLMArbiterClient(config)
+        transport = current_app.extensions.get("DMZ_TRANSPORT")
+        if transport is None:
+            transport = _production_transport(agent.delivery_config or {})
+
+        outcome = run_invoke(
+            session,
+            config,
+            action=action,
+            active=action.active_version,
+            agent=agent,
+            request_payload=body,
+            arbiter=arbiter,
+            transport=transport,
+        )
+        audit(
+            session,
+            actor_type="agent",
+            actor_id=agent.id,
+            event="request.invoked",
+            target_type="action",
+            target_id=action.id,
+            detail={"status": outcome.status, "code": outcome.code},
+        )
+        if outcome.status == 200:
+            return jsonify(outcome.result), 200
+        failure = ApiError(
+            outcome.code or "provider_failed",
+            _message_for(outcome.code),
+            outcome.status,
+            outcome.detail,
+        )
+    # Raise outside the session scope so logged rows commit first.
+    raise failure
+
+
+def _message_for(code: str | None) -> str:
+    return {
+        "request_schema_invalid": "Request payload failed validation against the action\'s request schema.",
+        "arbiter_rejected": "The security arbiter rejected the payload.",
+        "arbiter_unavailable": "The security arbiter is unavailable; retry later.",
+        "provider_failed": "Dispatch retries exhausted without a valid response.",
+    }.get(code or "", "Request failed.")

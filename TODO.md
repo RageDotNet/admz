@@ -69,11 +69,11 @@
 - [x] T3.8 Implement `exec` transport adapter (subprocess, timeout, exit code/stderr capture)
 - [x] T3.9 Implement `completions` transport adapter (chat-completions body with `model`, system/user framing)
 - [x] T3.10 **Validate:** transport unit tests with fake HTTP/subprocess â€” framing exact-match, timeout, per-provider retry/timeout override of defaults (#28)
-- [ ] T3.11 Implement invoke pipeline happy path: validate â†’ request arbiter â†’ dispatch â†’ response validate â†’ response arbiter â†’ 200 result
-- [ ] T3.12 Implement failure mapping: 4xx rejections (verbatim detail), `503 arbiter_unavailable` (request side), `500 internal_error` (config faults, #1/#6)
-- [ ] T3.13 Implement retry loop: response-side validation/arbitration per attempt, error injection, exhaustion â†’ `502 provider_failed`; request-side check runs exactly once (#4)
-- [ ] T3.14 Implement `requests` + `dispatch_attempts` logging (framing, timestamps, `error_class`/`detail` per attempt, #13)
-- [ ] T3.15 **Validate:** integration tests with injected fakes â€” every outcome path, retry-injection content, retry exhaustion, arbiter outage on both sides, immutable request verdict across retries
+- [x] T3.11 Implement invoke pipeline happy path: validate â†’ request arbiter â†’ dispatch â†’ response validate â†’ response arbiter â†’ 200 result
+- [x] T3.12 Implement failure mapping: 4xx rejections (verbatim detail), `503 arbiter_unavailable` (request side), `500 internal_error` (config faults, #1/#6)
+- [x] T3.13 Implement retry loop: response-side validation/arbitration per attempt, error injection, exhaustion â†’ `502 provider_failed`; request-side check runs exactly once (#4)
+- [x] T3.14 Implement `requests` + `dispatch_attempts` logging (framing, timestamps, `error_class`/`detail` per attempt, #13)
+- [x] T3.15 **Validate:** integration tests with injected fakes â€” every outcome path, retry-injection content, retry exhaustion, arbiter outage on both sides, immutable request verdict across retries
 - [ ] T3.16 Write manually-run smoke script (real OpenRouter + live provider); document in README
 
 ## Phase 4 â€” Admin Console
