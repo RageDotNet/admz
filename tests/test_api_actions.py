@@ -129,6 +129,63 @@ class TestPutNewVersion:
 
 
 
+class TestWithdraw:
+    def test_withdraw_soft(self, app_fixture, client_http):
+        _, provider_key, client_key = app_fixture
+        client_http.post("/v2/actions", json=CRM_SEARCH, headers=_hdr(provider_key))
+        _approve_v1(app_fixture)
+        resp = client_http.delete("/v2/actions/crm_search", headers=_hdr(provider_key))
+        assert resp.status_code == 200
+        assert resp.get_json() == {"id": "crm_search", "state": "withdrawn"}
+        # History retained: versions still there; client now sees 404 (#10).
+        hist = client_http.get(
+            "/v2/actions/crm_search/versions", headers=_hdr(provider_key)
+        )
+        assert hist.status_code == 200 and len(hist.get_json()["versions"]) == 1
+        assert client_http.get(
+            "/v2/actions/crm_search", headers=_hdr(client_key)
+        ).status_code == 404
+        # Audit row written.
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            from sqlalchemy import select
+
+            from llmdmz.core.models import AuditEvent
+
+            events = s.scalars(
+                select(AuditEvent).where(AuditEvent.event == "action.withdrawn")
+            ).all()
+            assert len(events) == 1
+            s.close()
+
+    def test_withdraw_non_owner_404(self, app_fixture, client_http):
+        _, provider_key, _ = app_fixture
+        client_http.post("/v2/actions", json=CRM_SEARCH, headers=_hdr(provider_key))
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            _, other_key = storage.register_agent(
+                s, name="other-provider", is_client=False, is_provider=True
+            )
+            s.commit()
+            s.close()
+        assert client_http.delete(
+            "/v2/actions/crm_search", headers=_hdr(other_key)
+        ).status_code == 404
+
+    def test_reactivation_after_withdraw(self, app_fixture, client_http):
+        # #8: withdrawn is owner-reversible via new version + approval.
+        _, provider_key, client_key = app_fixture
+        client_http.post("/v2/actions", json=CRM_SEARCH, headers=_hdr(provider_key))
+        _approve_v1(app_fixture)
+        client_http.delete("/v2/actions/crm_search", headers=_hdr(provider_key))
+        resp = client_http.put(
+            "/v2/actions/crm_search", json=CRM_SEARCH, headers=_hdr(provider_key)
+        )
+        assert resp.status_code == 201 and resp.get_json()["version"]["number"] == 2
+
+
 class TestGetDetail:
     def test_owner_view(self, app_fixture, client_http):
         _, provider_key, _ = app_fixture

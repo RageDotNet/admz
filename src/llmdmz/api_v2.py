@@ -192,7 +192,7 @@ def get_action_detail(action_id: str):
         if not agent.is_client:
             # A provider looking at someone else's action: not visible.
             raise ApiError("not_found", "Unknown action.", 404)
-        if active is None:
+        if active is None or action.state != "active":
             # Never-approved / withdrawn actions are hidden from clients (404, #10).
             raise ApiError("not_found", "Unknown action.", 404)
         enrollment = storage.find_enrollment(session, agent_id=agent.id, action_id=action.id)
@@ -299,3 +299,30 @@ def list_versions(action_id: str):
                 ],
             }
         )
+
+
+# --- T2.7: DELETE /v2/actions/<id> (soft withdraw) -------------------------------
+
+
+@bp.delete("/actions/<action_id>")
+def withdraw_action(action_id: str):
+    agent = authenticate_agent()
+    require_provider(agent)
+    with session_scope(current_app) as session:
+        from llmdmz.core import storage
+        from llmdmz.core.audit import audit
+
+        action = storage.get_action(session, action_id)
+        if action is None or action.owner_agent_id != agent.id:
+            raise ApiError("not_found", "Unknown action.", 404)
+        action.state = "withdrawn"
+        session.flush()
+        audit(
+            session,
+            actor_type="agent",
+            actor_id=agent.id,
+            event="action.withdrawn",
+            target_type="action",
+            target_id=action.id,
+        )
+        return jsonify({"id": action.id, "state": action.state})
