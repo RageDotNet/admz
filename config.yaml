@@ -1,0 +1,5 @@
+admins:
+  - username: admin
+    password: "changeme"  # replace with a pbkdf2:sha256 hash in production (#23)
+    token: null  # optional admin bearer token (dmzadm_...)
+secret_key: "dev-secret-change-me"

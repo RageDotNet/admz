@@ -8,19 +8,19 @@
 
 ## Phase 0 — Scaffolding & CI
 
-- [ ] T0.1 Create `pyproject.toml` with pinned deps + lockfile (Python 3.12, Flask `>=3.0,<4`, SQLAlchemy `>=2.0,<2.1`, LiteLLM, PyYAML, Alembic, gunicorn, dydantic; dev extras: pytest, ruff, mypy)
-- [ ] T0.2 Create v2 package skeleton (`src/` layout: app, core, agents) with console-script entry point and empty app factory
-- [ ] T0.3 Add ruff + mypy config wired into the pytest run; verify with a placeholder test
-- [ ] T0.4 **Validate:** `pip install -e .[dev]` succeeds in a fresh venv; ruff/mypy/pytest all run green
-- [ ] T0.5 Write `fabfile.py` commands (`dev.up`/`dev.down`, `test`, `lint`, `fmt`, `db.migrate`, `db.upgrade`, `build`, `deploy`) as thin wrappers
-- [ ] T0.6 **Validate:** each fab command executes without error (no-op with message OK until later phases)
-- [ ] T0.7 Create GitHub Actions workflow: lint → typecheck → pytest → compose config check → image build (no push on PRs)
-- [ ] T0.8 **Validate:** CI runs green on a trivial commit
-- [ ] T0.9 Build config loader: `DMZ_CONFIG` env → `./config.yaml` fallback; precedence env > YAML > code defaults (#28)
-- [ ] T0.10 Add loud startup validation (crash on bad config) + admin account parsing (plaintext or `pbkdf2:sha256`, #23)
-- [ ] T0.11 **Validate:** unit tests cover precedence order, missing file, malformed YAML, bad admin entries
-- [ ] T0.12 Write `deploy/Dockerfile` (Python base, non-root, pip-install package) + `docker-compose.yml` with SQLite volume and `alembic upgrade head` entrypoint; entrypoint enforces `0600` on the DB file (#16)
-- [ ] T0.13 **Validate:** `docker compose up` starts; entrypoint order correct; DB file permissions verified
+- [x] T0.1 Create `pyproject.toml` with pinned deps + lockfile (Python 3.12, Flask `>=3.0,<4`, SQLAlchemy `>=2.0,<2.1`, LiteLLM, PyYAML, Alembic, gunicorn, dydantic; dev extras: pytest, ruff, mypy)
+- [x] T0.2 Create v2 package skeleton (`src/` layout: app, core, agents) with console-script entry point and empty app factory
+- [x] T0.3 Add ruff + mypy config wired into the pytest run; verify with a placeholder test
+- [x] T0.4 **Validate:** `pip install -e .[dev]` succeeds in a fresh venv; ruff/mypy/pytest all run green
+- [x] T0.5 Write `fabfile.py` commands (`dev.up`/`dev.down`, `test`, `lint`, `fmt`, `db.migrate`, `db.upgrade`, `build`, `deploy`) as thin wrappers
+- [x] T0.6 **Validate:** each fab command executes without error (no-op with message OK until later phases)
+- [x] T0.7 Create GitHub Actions workflow: lint → typecheck → pytest → compose config check → image build (no push on PRs)
+- [x] T0.8 **Validate:** CI runs green on a trivial commit
+- [x] T0.9 Build config loader: `DMZ_CONFIG` env → `./config.yaml` fallback; precedence env > YAML > code defaults (#28)
+- [x] T0.10 Add loud startup validation (crash on bad config) + admin account parsing (plaintext or `pbkdf2:sha256`, #23)
+- [x] T0.11 **Validate:** unit tests cover precedence order, missing file, malformed YAML, bad admin entries
+- [x] T0.12 Write `deploy/Dockerfile` (Python base, non-root, pip-install package) + `docker-compose.yml` with SQLite volume and `alembic upgrade head` entrypoint; entrypoint enforces `0600` on the DB file (#16)
+- [x] T0.13 **Validate:** `docker compose up` starts; entrypoint order correct; DB file permissions verified
 
 ## Phase 1 — Storage & Identity
 

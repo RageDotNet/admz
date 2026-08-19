@@ -1,0 +1,21 @@
+services:
+  dmz:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: llmdmz:v2
+    ports:
+      - "${DMZ_APP_PORT:-8000}:8000"
+    environment:
+      DMZ_CONFIG: /etc/dmz/config.yaml
+      DMZ_DATABASE_URL: sqlite:////var/lib/dmz/dmz.db
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:-dev-secret-change-me}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ARBITER_MODEL: ${ARBITER_MODEL:-openai/gpt-4o-mini}
+    volumes:
+      - dmz-data:/var/lib/dmz
+      - ../config.yaml:/etc/dmz/config.yaml:ro
+    restart: unless-stopped
+
+volumes:
+  dmz-data:

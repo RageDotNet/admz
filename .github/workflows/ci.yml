@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e .[dev]
+      - name: Lint (ruff)
+        run: ruff check src tests fabfile.py
+      - name: Typecheck (mypy)
+        run: mypy
+      - name: Tests (pytest, offline)
+        run: pytest -q
+      - name: Compose config check
+        run: docker compose -f deploy/docker-compose.yml config >/dev/null
+      - name: Image build (no push)
+        run: docker build -t llmdmz:ci -f deploy/Dockerfile .

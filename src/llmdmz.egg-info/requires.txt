@@ -1,0 +1,13 @@
+Flask<4,>=3.0
+SQLAlchemy<2.1,>=2.0
+alembic<2,>=1.13
+litellm<2,>=1.40
+PyYAML<7,>=6.0
+dydantic<0.1,>=0.0.8
+jsonschema<5,>=4.21
+gunicorn<24,>=21.2
+
+[dev]
+pytest<10,>=8
+ruff>=0.4
+mypy>=1.8

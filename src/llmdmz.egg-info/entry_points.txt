@@ -1,0 +1,2 @@
+[console_scripts]
+dmz-serve = llmdmz.app:main
