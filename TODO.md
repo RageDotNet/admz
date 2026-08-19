@@ -47,7 +47,7 @@
 - [x] T2.6 Implement `PUT /v2/actions/{id}` new version (monotonic numbering; `409 version_pending` while one submitted, #9; audit)
 - [x] T2.7 Implement `DELETE` withdraw (soft, reversible, `withdrawn_by` recorded, #8/#12; audit) and `GET /v2/actions/{id}/versions`
 - [ ] T2.8 **Validate:** API tests â€” full lifecycle (pending accepts PUT after rejection #7, withdrawn reversible, supersede flow, ownership 403s, hidden-action 404s)
-- [ ] T2.9 Implement error-envelope middleware (all `rest-api-v2.md` codes incl. `arbiter_unavailable`)
+- [x] T2.9 Implement error-envelope middleware (all `rest-api-v2.md` codes incl. `arbiter_unavailable`)
 - [ ] T2.10 Implement `GET /v2/actions` directory: `page`/`per_page` (clamp), `q` substring, `enrollment` filter, alphabetical order (#18)
 - [ ] T2.11 Implement client-projection base + provider overlay on owned rows for dual-role agents (#19, #20)
 - [ ] T2.12 **Validate:** API tests for filters/pagination/projections per #18â€“20

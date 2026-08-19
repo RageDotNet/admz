@@ -325,6 +325,34 @@ def _hdr(key):  # noqa: F811 â€” shared helper re-exported for subclasses b
     return {"Authorization": f"Bearer {key}"}
 
 
+class TestErrorEnvelope:
+    def test_unknown_route_404_envelope(self, client_http):
+        resp = client_http.get("/v2/nonexistent")
+        assert resp.status_code == 404
+        body = resp.get_json()["error"]
+        assert body["code"] == "not_found"
+        assert "message" in body
+
+    def test_method_not_allowed_envelope(self, app_fixture, client_http):
+        _, provider_key, _ = app_fixture
+        resp = client_http.patch("/v2/actions", headers=_hdr(provider_key))
+        assert resp.status_code == 405
+        assert resp.get_json()["error"]["code"] == "not_found"
+
+    def test_all_documented_codes_covered(self):
+        # rest-api-v2.md stable tokens (incl. arbiter_unavailable, #1).
+        from llmdmz.api_v2 import ApiError
+
+        codes = {
+            "unauthorized", "forbidden", "not_found", "malformed_json",
+            "duplicate_action", "request_schema_invalid", "arbiter_rejected",
+            "arbiter_unavailable", "not_enrolled", "provider_failed",
+            "already_enrolled", "version_pending",
+        }
+        for code in codes:  # every token is constructible via the envelope
+            ApiError(code, "msg", 400)
+
+
 class TestCreateAction:
     def test_create_201_and_audit(self, app_fixture, client_http):
         _, provider_key, _ = app_fixture

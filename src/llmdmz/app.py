@@ -1,10 +1,10 @@
-"""Flask application factory for the LLM DMZ v2."""
+﻿"""Flask application factory for the LLM DMZ v2."""
 
 from __future__ import annotations
 
 import os
 
-from flask import Flask
+from flask import Flask, request
 
 from llmdmz.core.config import Config, load_config
 
@@ -38,14 +38,45 @@ def create_app(config: Config | None = None) -> Flask:
 
     from llmdmz.api_v2 import ApiError
     from llmdmz.api_v2 import bp as api_v2_bp
+    from llmdmz.api_v2 import error as api_error
 
     app.register_blueprint(api_v2_bp)
-
-    from llmdmz.api_v2 import error as api_error
 
     @app.errorhandler(ApiError)
     def _api_error(exc: ApiError):
         return api_error(exc.code, exc.message, exc.status, exc.detail)
+
+    from werkzeug.exceptions import HTTPException
+
+    @app.errorhandler(HTTPException)
+    def _http_error(exc: HTTPException):
+        """Every /v2 error uses the rest-api-v2.md envelope (T2.9)."""
+        if request.path.startswith("/v2/"):
+            code_by_status = {
+                400: "malformed_json",
+                401: "unauthorized",
+                403: "forbidden",
+                404: "not_found",
+                405: "not_found",
+                409: "forbidden",
+                422: "request_schema_invalid",
+                429: "forbidden",
+                503: "arbiter_unavailable",
+            }
+            assert exc.code is not None
+            code = code_by_status.get(exc.code)
+            if code is None:
+                code = "not_found" if exc.code < 500 else "internal_error"
+            return api_error(code, exc.description or exc.name, exc.code)
+        return exc
+
+    @app.errorhandler(Exception)
+    def _unhandled(exc: Exception):
+        """Fail closed with the envelope on /v2; logged at ERROR (#6)."""
+        if request.path.startswith("/v2/"):
+            app.logger.exception("internal_error")
+            return api_error("internal_error", "Internal server error.", 500)
+        raise exc
 
     return app
 
