@@ -253,6 +253,9 @@ class TestRevealOnce:  # T4.18
             s.close()
         _login(client_http)
         detail = client_http.get(f"/admin/agents/{agent_id}").get_data(as_text=True)
+        # stale edit_* signals from a previously-viewed agent must be nulled first
+        assert "event: datastar-patch-signals" in detail
+        assert '"edit_hk0":null' in detail
         assert "super-secret-provider-token" in detail
         assert "secret.example" in detail
         # data-signals attribute must stay intact (JSON quotes escaped) or Datastar hides nothing
@@ -291,6 +294,8 @@ class TestRevealOnce:  # T4.18
         body = resp.get_data(as_text=True)
         assert "data: selector #agent-detail-region" in body
         assert f"data: selector #agent-{agent_id}-detail" not in body
+        assert "event: datastar-patch-signals" in body
+        assert '"edit_protocol":null' in body
         with app.app_context():
             s = app.extensions["DMZ_SESSION_FACTORY"]()
             agent = s.scalars(select(Agent).where(Agent.id == agent_id)).first()

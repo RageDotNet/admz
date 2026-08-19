@@ -127,7 +127,7 @@ def csrf_token() -> str:
 # --- T4.6: multi-patch SSE merge responses (#25) -------------------------------
 
 
-def sse_merge(patches: list[tuple[str, str]]) -> Response:
+def sse_merge(patches: list[tuple[str, str]], remove_signals: list[str] | None = None) -> Response:
     """Datastar SSE merge response: one event per (selector, html) patch.
 
     Event formatting is delegated to the official ``datastar-py`` SDK
@@ -136,8 +136,18 @@ def sse_merge(patches: list[tuple[str, str]]) -> Response:
     works with Flask). We use ``mode inner`` because the partial HTML is
     content for the target element, not a replacement carrying the target's
     own id.
+
+    ``remove_signals`` optionally precedes the patches with a
+    ``datastar-patch-signals`` event nulling those signal names (Datastar's
+    mergePatch deletes a signal when a patch sets it to null). Needed when a
+    patched form re-declares ``data-signals``: signals are a global store and
+    are NOT removed when their element is replaced, so values from a previous
+    agent's form would otherwise leak into the new one.
     """
-    body = "".join(
+    body = ""
+    if remove_signals:
+        body += SSE.patch_signals({name: None for name in remove_signals})
+    body += "".join(
         SSE.patch_elements(html, selector=selector, mode=ElementPatchMode.INNER)
         for selector, html in patches
     )
@@ -201,7 +211,7 @@ def _db():
     return session_scope(current_app)
 
 
-def _render_partial(template: str, target: str | None = None, **ctx):
+def _render_partial(template: str, target: str | None = None, remove_signals: list[str] | None = None, **ctx):
     """Render a partial; when a CSS selector is given, wrap as a Datastar SSE
     merge response so the browser patches it into that target element.
 
@@ -211,7 +221,7 @@ def _render_partial(template: str, target: str | None = None, **ctx):
     """
     html = render_template(template, csrf_token=csrf_token(), **ctx)
     if target is not None:
-        return sse_merge([(target, html)])
+        return sse_merge([(target, html)], remove_signals=remove_signals)
     return html
 
 

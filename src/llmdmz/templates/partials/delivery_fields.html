@@ -5,6 +5,8 @@
 {% set hrows = [1, hdrs | length] | max %}
 {% set sig = sig if sig is defined else 'delivery' %}
   {% set signals = {sig ~ '_provider': prov, sig ~ '_protocol': proto, sig ~ '_headerRows': hrows} %}
+  {# pre-seed every header row to '' so data-bind inputs always have a signal #}
+  {% for i in range(5) %}{% if signals.update({(sig ~ '_hk' ~ i): '', (sig ~ '_hv' ~ i): ''}) %}{% endif %}{% endfor %}
   {% for k, v in hdrs.items() %}{% if signals.update({(sig ~ '_hk' ~ loop.index0): k, (sig ~ '_hv' ~ loop.index0): v}) %}{% endif %}{% endfor %}
   <div data-signals="{{ signals | tojson | forceescape }}">
     <div data-show="${{ sig }}_provider" class="card bg-body-tertiary border-0">

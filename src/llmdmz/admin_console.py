@@ -347,6 +347,13 @@ def admin_enroll(action_id: str):
 _DELIVERY_PROTOCOLS = ("post", "exec", "completions")
 _HEADER_ROWS = 5  # matches the 5 client-side header rows in delivery_fields.html
 
+# Every `edit_*` signal delivery_fields.html can declare (sig='edit'). Sent as
+# remove_signals when the agent-detail form is patched so a previous agent's
+# values don't leak into the next one (signals are a global browser-side store).
+_EDIT_SIGNALS = ["edit_provider", "edit_protocol", "edit_headerRows"] + [
+    f"edit_{k}{i}" for i in range(_HEADER_ROWS) for k in ("hk", "hv")
+]
+
 
 def _compose_delivery(data: dict[str, str]) -> dict[str, Any]:
     """Structured form fields -> delivery_config dict (write-only, #16).
@@ -435,7 +442,7 @@ def agent_detail(agent_id: str):
         if agent is None:
             abort(404)
     return _render_partial("partials/agent_detail.html", agent=agent,
-        target="#agent-detail-region",
+        target="#agent-detail-region", remove_signals=_EDIT_SIGNALS,
     )
 
 
@@ -460,7 +467,8 @@ def agent_edit(agent_id: str):
     # partial's root carries the card's own id, and morphing an element that
     # contains the patch target into that target throws HierarchyRequestError.
     return _render_partial(
-        "partials/agent_detail.html", agent=agent, saved=True, target="#agent-detail-region"
+        "partials/agent_detail.html", agent=agent, saved=True, target="#agent-detail-region",
+        remove_signals=_EDIT_SIGNALS,
     )
 
 
