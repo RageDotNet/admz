@@ -6,10 +6,10 @@
   <form class="d-flex flex-column gap-2" data-on:submit="@post('/admin/agents/{{ agent.id }}', {contentType: 'form'})">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label class="small text-body-secondary"><input type="checkbox" name="is_client" {% if agent.is_client %}checked{% endif %}> client</label>
-    <label class="small text-body-secondary"><input type="checkbox" name="is_provider" data-bind="$provider"
+    <label class="small text-body-secondary"><input type="checkbox" name="is_provider" data-bind="$edit_provider"
       {% if agent.is_provider %}checked{% endif %}> provider</label>
     <label class="small text-body-secondary"><input type="checkbox" name="enabled" {% if not agent.disabled %}checked{% endif %}> enabled</label>
-    {% include "partials/delivery_fields.html" %}
+    {% with sig = 'edit' %}{% include "partials/delivery_fields.html" %}{% endwith %}
     <button type="submit" class="btn btn-sm btn-primary align-self-start">Save</button>
   </form>
 </div>

@@ -5,10 +5,10 @@
     <div class="d-flex flex-wrap gap-2 align-items-center">
       <input type="text" name="name" class="form-control form-control-sm" style="max-width: 16rem" placeholder="agent name">
       <label class="small text-body-secondary"><input type="checkbox" name="is_client"> client</label>
-      <label class="small text-body-secondary"><input type="checkbox" name="is_provider" data-bind="$provider"> provider</label>
+      <label class="small text-body-secondary"><input type="checkbox" name="is_provider" data-bind="$reg_provider"> provider</label>
       <button class="btn btn-sm btn-primary" type="submit">Register</button>
     </div>
-    {% include "partials/delivery_fields.html" %}
+    {% with sig = 'reg' %}{% include "partials/delivery_fields.html" %}{% endwith %}
   </form>
 
   <table class="table table-sm table-hover table-striped align-middle">

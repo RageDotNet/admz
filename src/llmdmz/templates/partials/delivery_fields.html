@@ -1,14 +1,17 @@
 {% set cfg = (agent.delivery_config or {}) if agent is defined and agent else {} %}
 {% set prov = agent.is_provider if agent is defined and agent else false %}
 {% set proto = cfg.get('protocol', 'post') if cfg else 'post' %}
-{% set hrows = [1, cfg.headers | length if cfg.headers else 1] | max %}
-<div>
-  <div data-signals="{provider: {{ 'true' if prov else 'false' }}, protocol: '{{ proto }}', headerRows: {{ hrows }}{% if cfg.headers %}{% for k, v in cfg.headers.items() %}, hk{{ loop.index0 }}: {{ k | tojson }}, hv{{ loop.index0 }}: {{ v | tojson }}{% endfor %}{% endif %}}">
-    <div data-show="$provider" class="card bg-body-tertiary border-0">
+{% set hdrs = cfg.headers or {} %}
+{% set hrows = [1, hdrs | length] | max %}
+{% set sig = sig if sig is defined else 'delivery' %}
+  {% set signals = {sig ~ '_provider': prov, sig ~ '_protocol': proto, sig ~ '_headerRows': hrows} %}
+  {% for k, v in hdrs.items() %}{% if signals.update({(sig ~ '_hk' ~ loop.index0): k, (sig ~ '_hv' ~ loop.index0): v}) %}{% endif %}{% endfor %}
+  <div data-signals="{{ signals | tojson | forceescape }}">
+    <div data-show="${{ sig }}_provider" class="card bg-body-tertiary border-0">
       <div class="card-body d-flex flex-column gap-2">
         <div>
           <label class="form-label small mb-1">Delivery method</label>
-          <select name="protocol" class="form-select form-select-sm" data-bind="$protocol">
+          <select name="protocol" class="form-select form-select-sm" data-bind="${{ sig }}_protocol">
             <option value="post"{% if proto == 'post' %} selected{% endif %}>HTTP POST endpoint</option>
             <option value="exec"{% if proto == 'exec' %} selected{% endif %}>Local command (exec)</option>
             <option value="completions"{% if proto == 'completions' %} selected{% endif %}>LLM completions (LiteLLM)</option>
@@ -16,7 +19,7 @@
         </div>
 
         {# --- post: endpoint + header key/value rows (client-side add/remove) --- #}
-        <div data-show="$protocol==='post'" class="d-flex flex-column gap-2">
+        <div data-show="${{ sig }}_protocol==='post'" class="d-flex flex-column gap-2">
           <div>
             <label class="form-label small mb-1">Endpoint URL</label>
             <input type="url" name="endpoint" class="form-control form-control-sm"
@@ -25,24 +28,24 @@
           </div>
           <div class="small text-body-secondary mb-0">Headers (added verbatim to every POST)</div>
           {% for i in range(12) %}
-          <div class="d-flex flex-wrap gap-2 align-items-center" data-show="$headerRows > {{ i }}">
+          <div class="d-flex flex-wrap gap-2 align-items-center" data-show="${{ sig }}_headerRows > {{ i }}">
             <input type="text" name="header_key_{{ i }}" class="form-control form-control-sm"
-                   style="max-width: 14rem" placeholder="Header name" data-bind="$hk{{ i }}">
+                   style="max-width: 14rem" placeholder="Header name" data-bind="${{ sig }}_hk{{ i }}">
             <input type="text" name="header_value_{{ i }}" class="form-control form-control-sm"
-                   style="max-width: 20rem" placeholder="Value (e.g. Bearer &hellip;)" data-bind="$hv{{ i }}">
+                   style="max-width: 20rem" placeholder="Value (e.g. Bearer &hellip;)" data-bind="${{ sig }}_hv{{ i }}">
             {% if i %}
             <button type="button" class="btn btn-sm btn-outline-danger"
-                    data-show="$headerRows > {{ i }}"
-                    data-on:click="$headerRows={{ i }};{% for j in range(i, 12) %} $hk{{ j }}=null; $hv{{ j }}=null;{% endfor %}">remove</button>
+                    data-show="${{ sig }}_headerRows > {{ i }}"
+                    data-on:click="${{ sig }}_headerRows={{ i }};{% for j in range(i, 12) %} ${{ sig }}_hk{{ j }}=null; ${{ sig }}_hv{{ j }}=null;{% endfor %}">remove</button>
             {% endif %}
           </div>
           {% endfor %}
           <button type="button" class="btn btn-sm btn-outline-secondary align-self-start"
-                  data-show="$headerRows < 12" data-on:click="$headerRows++">+ header</button>
+                  data-show="${{ sig }}_headerRows < 12" data-on:click="${{ sig }}_headerRows++">+ header</button>
         </div>
 
         {# --- exec: command line; framing on stdin, JSON payload on stdout --- #}
-        <div data-show="$protocol==='exec'">
+        <div data-show="${{ sig }}_protocol==='exec'">
           <label class="form-label small mb-1">Command</label>
           <input type="text" name="command" class="form-control form-control-sm font-monospace"
                  value="{{ cfg.get('command', '') }}"
@@ -51,7 +54,7 @@
         </div>
 
         {# --- completions: LiteLLM model string --- #}
-        <div data-show="$protocol==='completions'">
+        <div data-show="${{ sig }}_protocol==='completions'">
           <label class="form-label small mb-1">Model</label>
           <input type="text" name="model" class="form-control form-control-sm font-monospace"
                  value="{{ cfg.get('model', '') }}"
@@ -74,5 +77,4 @@
         </div>
       </div>
     </div>
-  </div>
 </div>

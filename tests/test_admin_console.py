@@ -255,6 +255,11 @@ class TestRevealOnce:  # T4.18
         detail = client_http.get(f"/admin/agents/{agent_id}").get_data(as_text=True)
         assert "super-secret-provider-token" in detail
         assert "secret.example" in detail
+        # data-signals attribute must stay intact (JSON quotes escaped) or Datastar hides nothing
+        q = '"edit_provider": true'.replace('"', "&#34;")
+        hk = '"edit_hk0": "Authorization"'.replace('"', "&#34;")
+        assert q in detail
+        assert hk in detail
 
     def test_agent_edit_structured_delivery_post(self, app_fixture, client_http):
         app, _, _ = app_fixture
