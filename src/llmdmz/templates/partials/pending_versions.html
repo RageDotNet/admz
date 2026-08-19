@@ -8,12 +8,12 @@
       <td class="small">{{ row.version.submitted_at }}</td>
       <td class="small">{{ row.version.payload.description[:120] }}</td>
       <td>
-        <form class="inline row" data-on-submit="@post(&quot;/admin/action-version/{{ row.version.id }}/approve?&quot; + $formData)">
+        <form class="inline row" data-on-submit="@post(&quot;/admin/action-version/{{ row.version.id }}/approve&quot;, {contentType: &quot;form&quot;})">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <input type="text" name="notes" placeholder="notes" class="small">
           <button class="primary" type="submit">Approve</button>
         </form>
-        <form class="inline" data-on-submit="@post(&quot;/admin/action-version/{{ row.version.id }}/reject?&quot; + $formData)">
+        <form class="inline" data-on-submit="@post(&quot;/admin/action-version/{{ row.version.id }}/reject&quot;, {contentType: &quot;form&quot;})">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <input type="text" name="notes" placeholder="notes" class="small">
           <button class="danger" type="submit">Reject</button>

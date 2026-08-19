@@ -1,6 +1,6 @@
 <div>
   <h2>Register agent</h2>
-  <form class="row" data-on-submit="@post('/admin/agents?' + $formData)">
+  <form class="row" data-on-submit="@post('/admin/agents', {contentType: 'form'})">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="text" name="name" placeholder="agent name">
     <label class="small"><input type="checkbox" name="is_client"> client</label>

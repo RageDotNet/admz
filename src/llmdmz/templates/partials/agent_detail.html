@@ -3,7 +3,7 @@
   <h3>{{ agent.name }} <span class="muted small mono">{{ agent.id }}</span></h3>
   <!-- Delivery config is never echoed back (#16): show protocol presence only. -->
   <p class="small muted">Delivery config: {{ 'configured (' ~ (agent.delivery_config.protocol if agent.delivery_config else '') ~ ')' if agent.delivery_config else 'not configured' }}</p>
-  <form class="col" data-on-submit="@post('/admin/agents/{{ agent.id }}?' + $formData)">
+  <form class="col" data-on-submit="@post('/admin/agents/{{ agent.id }}', {contentType: 'form'})">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label class="small"><input type="checkbox" name="is_client" {% if agent.is_client %}checked{% endif %}> client</label>
     <label class="small"><input type="checkbox" name="is_provider" {% if agent.is_provider %}checked{% endif %}> provider</label>

@@ -29,12 +29,12 @@
         </td>
         <td>
           {% if v.state == 'submitted' %}
-          <form class="inline" data-on-submit="@post('/admin/action-version/{{ v.id }}/approve?' + $formData)">
+          <form class="inline" data-on-submit="@post('/admin/action-version/{{ v.id }}/approve', {contentType: 'form'})">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <input type="text" name="notes" placeholder="optional notes" class="small">
             <button class="primary" type="submit">Approve</button>
           </form>
-          <form class="inline" data-on-submit="@post('/admin/action-version/{{ v.id }}/reject?' + $formData)">
+          <form class="inline" data-on-submit="@post('/admin/action-version/{{ v.id }}/reject', {contentType: 'form'})">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button class="danger" type="submit">Reject</button>
           </form>

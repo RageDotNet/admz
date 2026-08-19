@@ -1,5 +1,5 @@
 <div>
-  <form class="row" data-on-submit="@get(&quot;/admin/partials/audit?&quot; + $formData)">
+  <form class="row" data-on-submit="@get(&quot;/admin/partials/audit&quot;, {contentType: &quot;form&quot;})">
     <input type="text" name="actor_id" value="{{ actor_id }}" placeholder="actor id">
     <select name="target_type">
       <option value="">any target</option>

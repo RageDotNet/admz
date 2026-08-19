@@ -98,20 +98,21 @@ def csrf_token() -> str:
 def sse_merge(patches: list[tuple[str, str]]) -> Response:
     """Datastar SSE merge response: one event per (selector, html) patch.
 
-    Follows the reference pattern in clarification #25 â€” named target
-    elements, mode morph (Datastar merge modes are morph/upsert/prepend/append).
+    Protocol (datastar v1.0.2, verified against the vendored bundle's SSE
+    parser): each data line is "key value" split at the FIRST space; duplicate
+    keys are rejoined with newline, so the `elements` key must be repeated on
+    every HTML line. The `datastar-patch-elements` handler reads `selector`,
+    `mode` (one of remove/outer/inner/replace/prepend/append/before/after),
+    and `elements`. We use `mode inner` because the partial HTML is content
+    for the target element, not a replacement carrying the target's own id.
     """
     lines: list[str] = []
     for selector, html in patches:
-        lines.append("event: datastar-merge-fragments")
+        lines.append("event: datastar-patch-elements")
         lines.append(f"data: selector {selector}")
-        lines.append("data: mergeMode morph")
-        # Protocol (datastar v1.0.0-beta.11): each data line is "key value"
-        # split at the FIRST space; duplicate keys are rejoined with newline.
-        # So a bare "data: fragments" line parses as key "fragment" and the
-        # HTML is dropped -- the key must be repeated on every line.
+        lines.append("data: mode inner")
         for html_line in html.splitlines() or [""]:
-            lines.append(f"data: fragments {html_line}")
+            lines.append(f"data: elements {html_line}")
         lines.append("")
     response = Response("\n".join(lines), mimetype="text/event-stream")
     response.headers["Cache-Control"] = "no-cache"
