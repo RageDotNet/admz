@@ -25,6 +25,7 @@ Each provider agent record carries a **delivery configuration**, set by an admin
 | `endpoint` | `post`, `completions` | URL the DMZ calls |
 | `command` | `exec` | Command line the DMZ runs as a local subprocess |
 | `headers` | `post`, `completions` | Arbitrary HTTP headers passed through verbatim (e.g. `Authorization: Bearer ...` or any provider-specific auth) |
+| `model` | `completions` | Model name sent in the chat-completions request body |
 | `timeout` | all | Per-attempt timeout in seconds; **default 180** |
 | `retries` | all | Maximum retries after a failed attempt; **default 2** |
 
@@ -84,7 +85,19 @@ The DMZ runs the configured `command` as a **local subprocess on the DMZ host** 
 
 ### `completions`
 
-The DMZ calls the configured `endpoint` (an OpenAI-style chat-completions API) with the structured framing above. The candidate response is extracted from the completion's message content and must parse as JSON satisfying the action's response schema.
+The configured `endpoint` must be an **OpenAI-compatible chat-completions URL** (i.e. the full path ending in `/chat/completions`). The DMZ sends a POST with the configured `headers` and this request body:
+
+```json
+{
+  "model": "<configured model>",
+  "messages": [
+    { "role": "system", "content": "<instructions + response schema>" },
+    { "role": "user", "content": "<request JSON>" }
+  ]
+}
+```
+
+Retry turns are appended to `messages` as described under structured framing. The candidate response is the first choice's `message.content` from the completions response, which must parse as JSON satisfying the action's response schema.
 
 ## Timeouts, retries, and failure taxonomy
 

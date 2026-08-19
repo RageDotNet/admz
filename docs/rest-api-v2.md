@@ -57,7 +57,7 @@ Goals:
 | `POST /v2/actions` | provider | Create a new action (submit a schema package) |
 | `GET /v2/actions/{id}` | client / owner | Action detail (projection depends on caller) |
 | `PUT /v2/actions/{id}` | provider (owner) | Submit a new version of the action |
-| `DELETE /v2/actions/{id}` | provider (owner) | Withdraw / deactivate the action |
+| `DELETE /v2/actions/{id}` | provider (owner) | Withdraw the action (soft delete) |
 | `GET /v2/actions/{id}/versions` | provider (owner) | Version history including superseded |
 | `POST /v2/actions/{id}/invoke` | client | Invoke the action (synchronous) |
 | `POST /v2/actions/{id}/enroll` | client | Request enrollment in the action |
@@ -75,16 +75,16 @@ Lists all actions visible to the caller, each with its state relative to that ca
   - `available` — open, but no enrollment yet
   - `requested` — enrollment pending admin approval
   - `enrolled` — may be invoked now
-  - `unavailable` — the action exists but is withdrawn, rejected, or otherwise not open (shown for directory completeness; invoking returns `not_found`)
-- **Provider projection** — the caller's own actions only, each with its lifecycle state (`submitted`, `approved`, `rejected`, `withdrawn`) and the active version's number.
+  - `unavailable` — the action exists but is withdrawn or has never been approved (shown for directory completeness; invoking returns `not_found`)
+- **Provider projection** — the caller's own actions only, each with its action state (`pending`, `active`, `withdrawn` — canonical states in `system-prd-v2.md`), any non-terminal version states, and the active version's number.
 
 ### POST /v2/actions
 
-Provider submits a new action. The body is the schema package defined in `schemas-v2.md` (`id`, `description`, `request_schema`, `response_schema`, optional instruction fields). Automated checks run synchronously: duplicate `id` returns `409 duplicate_action`; schemas that fail to compile return `422` with detail. On success: `201` with the action in state `submitted`, awaiting admin approval. The action is not callable until an admin approves it (approval happens in the admin console, not this API).
+Provider submits a new action. The body is the schema package defined in `schemas-v2.md` (`id`, `description`, `request_schema`, `response_schema`, optional instruction fields). Automated checks run synchronously: duplicate `id` returns `409 duplicate_action`; schemas that fail to compile return `422` with detail. On success: `201` — the first version is stored in state `submitted` (action state `pending`), awaiting admin approval. The action is not callable until an admin approves it (approval happens in the admin console, not this API).
 
 ### GET /v2/actions/{id}
 
-Action detail. **Client view**: `id`, `description`, active version number, `client_instructions`, `request_schema` (what to send), `response_schema` (what comes back), and the caller's enrollment state. **Owner (provider) view**: additionally the full instruction fields, lifecycle state, and version summary. Actions the caller cannot see (withdrawn, never approved, not owned) return `404`.
+Action detail. **Client view**: `id`, `description`, active version number, `client_instructions`, `request_schema` (what to send), `response_schema` (what comes back), and the caller's enrollment state. **Owner (provider) view**: additionally the full instruction fields, action state, and version summary. Actions the caller cannot see (withdrawn, never approved, not owned) return `404`.
 
 ### PUT /v2/actions/{id}
 

@@ -28,7 +28,8 @@ The admin webui is the browser-based operational surface for the DMZ, mounted un
 | Webui auth | Username + password against config-defined accounts |
 | Session | Flask signed-cookie session; login required before any console access |
 | Unauthenticated behavior | Page requests redirect to login; fragment (Datastar) requests return `401` |
-| API equivalence | Console actions that admins can also perform by API (approvals, enrollments, revocations) accept the admin bearer token |
+| API equivalence | **Every mutating `POST /admin/...` endpoint accepts the admin bearer token** — the full console decision surface (approvals, enrollment management, withdraw, agent/key management) is scriptable. Read routes (pages, fragments, log/audit views) are session-only |
+| Auth precedence | If an `Authorization: Bearer` header is present it is validated first and exclusively; otherwise the admin session is checked. Neither present/valid → page routes redirect to login, fragment/mutating routes return `401` |
 
 ## Console structure
 
@@ -47,10 +48,10 @@ A single dashboard: a **stats bar** on top (agent count, action counts by state,
 
 ### Directory list
 
-- All actions (active and deactivated), with owner, current active version, state of any pending version, per-action enrollment count, and recent invocation count.
+- All actions (active and withdrawn), with owner, current active version, state of any pending version, per-action enrollment count, and recent invocation count.
 - Filterable by provider and state; sortable by name/recent activity; paginated (no hard row caps).
 - Pending submitted versions are visually flagged; inline **Approve / Reject** actions are available directly from the list row.
-- **Deactivated (soft-deleted)** actions shown in a distinguishable style with their history retained.
+- **Withdrawn** (soft-deleted) actions shown in a distinguishable style with their history retained. Withdraw is the provider-side operation (`DELETE /v2/actions/{id}`); the console reflects it and admins may also trigger it.
 
 ### Per-action detail (expanded inline or drill-in from a row)
 
@@ -95,7 +96,7 @@ The admin's "one place to understand one capability," with three sections:
 ## Audit trail tab
 
 - Chronological record of every **state change** in the system:
-  - Action lifecycle: version submitted / approved / rejected / superseded; action deactivated — with deciding admin and notes
+  - Action lifecycle: version submitted / active / rejected / superseded; action withdrawn — with deciding admin and notes
   - Enrollment: request submitted / approved / rejected; enrollment revoked; admin-initiated enrollment
   - Agents: registered, capability flags changed, endpoint config changed, key issued / revoked, disabled
 - Filterable by admin actor, object type, and time range; paginated.
@@ -114,7 +115,7 @@ The admin's "one place to understand one capability," with three sections:
 | GET | `/admin/partials/action/<action_id>` | Per-action detail fragment (versions / access / invocations sub-sections) | session |
 | POST | `/admin/action-version/<version_id>/approve` | Approve a submitted version | session / admin token |
 | POST | `/admin/action-version/<version_id>/reject` | Reject a submitted version | session / admin token |
-| POST | `/admin/action/<action_id>/deactivate` | Soft-delete (deactivate) an action | session / admin token |
+| POST | `/admin/action/<action_id>/withdraw` | Withdraw (soft-delete) an action | session / admin token |
 | GET | `/admin/partials/enrollments` | Enrollment request queue fragment | session |
 | POST | `/admin/enrollment/<request_id>/approve` | Approve an enrollment request | session / admin token |
 | POST | `/admin/enrollment/<request_id>/reject` | Reject an enrollment request | session / admin token |
@@ -143,7 +144,7 @@ Action endpoints that mutate state return **multi-patch responses** (e.g. affect
 ## Technical design
 
 - **Mounting**: the console is registered on the single Flask application under `/admin` at startup; it shares the app's storage, agent, and registry layers, so the console is always consistent with API state.
-- **Auth guard**: a decorator checks the admin session; page routes redirect to login, fragment routes return `401`. Mutating endpoints also accept admin bearer-token auth for automation.
+- **Auth guard**: a decorator checks admin auth — `Authorization: Bearer <admin-token>` first (required for token-based mutation), otherwise the admin session; page routes redirect to login, fragment routes return `401`. Mutating endpoints accept either, so the full decision surface is automatable.
 - **Data**: all content comes from the shared storage layer (agents, actions/versions, enrollments, request log, audit events) via the same queries the API uses — the console never keeps its own copy of state.
 - **Key handling**: bearer keys are generated server-side and stored only as hashes; the plaintext is returned exactly once (registration or re-issue).
 - **Templates**: Jinja2 templates ship as package data (dashboard shell, login, tab partials, macros for shared row/detail rendering).

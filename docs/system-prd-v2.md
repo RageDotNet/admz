@@ -64,7 +64,7 @@ One synchronous REST application: agent identity, action directory with versioni
 - An agent has a role: **client**, **provider**, or **both**. Roles are stored as **independent capability flags** (e.g. `is_client`, `is_provider`) — "both" is not a stored value but simply the state where both flags are true. Every endpoint checks only the capability it requires (invoking actions requires client capability; registering actions requires provider capability) — there is no `role == "both"`-style conditional anywhere. This keeps roles non-brittle: new capabilities become new flags, and an admin can revoke one capability (e.g. provider duty) independently of the other.
 - **Providers have exactly one endpoint configuration** (endpoint-per-provider, not endpoint-per-action). All of a provider's actions are served through that endpoint. The endpoint specifies:
   - **Protocol** — how the DMZ invokes the provider. Supported protocols:
-    - **`completions`** — an LLM completions endpoint; config includes the URL to hit and an array of header/value pairs to send.
+    - **`completions`** — an OpenAI-compatible chat-completions endpoint; config includes the endpoint URL, header/value pairs, and the model name (`dispatch-v2.md`).
     - **`exec`** — a local program; the DMZ opens a pipe to the configured program, writes the request input to stdin, and reads the response from stdout until the program exits.
     - **`post`** — a plain HTTP endpoint; config includes a URL and headers; the DMZ posts the input and reads the output.
   - **Protocol config** — the protocol-specific settings above (URL, headers, program).
@@ -78,7 +78,7 @@ One synchronous REST application: agent identity, action directory with versioni
 - Providers manage their actions via a **REST CRUD API** (authenticated with their bearer key).
 - An action version's lifecycle: **`submitted` → `active`** (approved by an admin) **or `rejected`**.
 - **Versioning rule**: when a provider edits an action, a *new version* is created in `submitted` state; the previously approved version remains active and callable until the new version is approved. Approval swaps the active version atomically.
-- **Deletion is immediate** but soft: deleting an action deactivates it — it disappears from discovery and becomes non-invokable — while its history and logs are retained.
+- **Withdrawal is immediate** but soft: withdrawing an action (`DELETE /v2/actions/{id}`, called *withdraw*) takes it out of service — it disappears from discovery and becomes non-invokable — while its history and logs are retained.
 - Each action version carries (per the schema registry design in `schemas-v2.md`): a JSON request schema, a JSON response schema (draft 2020-12), per-schema **arbiter instructions**, and **client instructions** (what calling agents see, e.g. how to format inputs) and **provider instructions** (what the provider should know about serving the action). Schema documents themselves remain JSON — they are wire-format contracts.
 
 ### Client directory views
@@ -112,6 +112,38 @@ One request, one response — no intermediate states a client must poll:
 6. **Deliver** — the validated response is returned to the client immediately.
 7. **Log** — the request (payloads, validation/arbitration outcomes, retries, final result) is persisted for admin review. Logging is observational; nothing waits on a human.
 
+## State models (canonical)
+
+These are the authoritative state vocabularies for the whole system; every document and UI badge uses these exact tokens.
+
+**Version states** (each submitted schema package is a version):
+
+| State | Meaning |
+|---|---|
+| `submitted` | Stored, automated checks passed, awaiting admin decision |
+| `active` | Approved and currently serving; exactly one per action |
+| `superseded` | Was active; replaced by a newer approved version |
+| `rejected` | Admin rejected the submission; terminal for that version |
+
+**Action states** (derived from the action's versions):
+
+| State | Meaning |
+|---|---|
+| `pending` | Exists but has never had an approved version (first version `submitted` or `rejected`) |
+| `active` | Has an `active` version; callable by enrolled clients |
+| `withdrawn` | Provider withdrew it (soft delete); not discoverable or invokeable, history retained |
+
+**Enrollment states** (per client + action):
+
+| State | Meaning |
+|---|---|
+| `requested` | Client asked to enroll; awaiting admin decision |
+| `enrolled` | Admin approved; the client may invoke the action |
+| `rejected` | Admin rejected the request; the client may not re-request without admin action |
+| `revoked` | Admin revoked a previously granted enrollment; immediate effect |
+
+The client directory's `available` / `requested` / `enrolled` / `unavailable` annotations (`rest-api-v2.md`) are a **projection** of enrollment + action state, not separate entity states: `available` = no enrollment + action `active`; `unavailable` = action `withdrawn` or `pending`.
+
 ## `/skill` endpoints
 
 The DMZ exposes a `/skill` endpoint with **two skill documents**:
@@ -123,7 +155,7 @@ Skills are returned in a form an LLM agent can consume directly (the point being
 
 ## Admin capabilities
 
-Administrators, via the webui (and API where noted):
+Administrators, via the webui. Every **mutating** console endpoint (`POST /admin/...`) also accepts the admin bearer token, so the full decision surface — approvals, enrollment management, withdraw, agent registration — is scriptable; read/fragment/page routes are session-only (auth rules in `webui-v2.md`).
 
 - Register agents, issue/revoke bearer keys, assign roles, configure provider endpoints
 - Approve or reject **new action versions** (activating them on approval)

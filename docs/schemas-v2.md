@@ -11,7 +11,7 @@ This document describes the v2 schema system, in which **providers submit their 
 
 ## Submission Format
 
-A provider submits a single JSON document to the schema submission endpoint:
+A provider submits a single JSON document to the action-creation endpoint (`POST /v2/actions`, specified in `rest-api-v2.md`):
 
 ```json
 {
@@ -30,7 +30,7 @@ A provider submits a single JSON document to the schema submission endpoint:
 
 | Field | Required | Description |
 |---|---|---|
-| `id` | ✅ | Unique, stable identifier for the action. Becomes the `schema_id` clients use to invoke the action. |
+| `id` | ✅ | Unique, stable identifier for the action. Becomes the action `id` clients use to invoke it. |
 | `description` | ✅ | **Overall description of the capability** — what it does, when to use it, what kind of data it returns. This is the discovery text shown to **clients looking for the right action to use**, so it should be written for that audience. |
 | `request_schema` | ✅ | JSON Schema (draft 2020-12) describing the request payload (see "Schema format"). |
 | `response_schema` | ✅ | JSON Schema (draft 2020-12) describing the response payload (see "Schema format"). |
@@ -93,8 +93,10 @@ Both sets of instructions are part of the reviewed submission: like the arbiter 
 
 ## Submission & Review Lifecycle
 
+Every submission (create or new version via `PUT`) is a **version**; states are the canonical version states defined in `system-prd-v2.md`:
+
 ```
-provider ──POST /schemas──► [submitted]
+provider ──POST /v2/actions (create) or PUT /v2/actions/{id} (new version)──► [submitted]
                                 │
                                 ▼
                      automated checks (id uniqueness, JSON Schema
@@ -104,16 +106,19 @@ provider ──POST /schemas──► [submitted]
                     human reviewer (admin UI)
                        approve │      │ reject
                               ▼      ▼
-                         [approved] [rejected]
+                version [active]   [rejected]
                               │
                               ▼
                  action becomes callable on the DMZ
-                 (listed to clients, accepts requests)
+                 (listed to clients, accepts requests;
+                 the previous active version, if any, becomes [superseded])
 ```
 
-- **`submitted`** — the POST is accepted and stored; it awaits a human reviewer's decision (admin UI). Automated validation runs at submission time (unknown/duplicate `id`, malformed JSON Schema, schemas that fail to compile to Pydantic models via `dydantic` are rejected immediately with a 4xx). Reviewers see the full submission: description, both schemas, and both arbiter instruction blocks.
-- **`approved`** — the schema becomes a **live action** on the DMZ. Clients can discover it (by `id`/`description`) and invoke it.
-- **`rejected`** — terminal state (or may be revised and resubmitted as a new version).
+- **`submitted`** — the submission is accepted and stored; it awaits a human reviewer's decision (admin UI). Automated validation runs at submission time (unknown/duplicate `id`, malformed JSON Schema, schemas that fail to compile to Pydantic models via `dydantic` are rejected immediately with a 4xx). Reviewers see the full submission: description, both schemas, and both arbiter instruction blocks.
+- **`active`** — the version serves live traffic for the action. Clients can discover the action (by `id`/`description`) and invoke it. Exactly one version is active at a time; approval swaps atomically and the prior active version becomes `superseded`.
+- **`rejected`** — terminal for that version (a revision can be submitted as a new version).
+
+Endpoint paths, auth, and version-swap semantics are specified in `rest-api-v2.md`; this document defines the submission's *content* and the validation rules.
 
 ### Provider identity
 
@@ -147,7 +152,7 @@ Conceptually the prompt becomes:
 Additional instructions for this action (provider-supplied, reviewed):
 <request_arbiter_instructions or response_arbiter_instructions>
 
-Schema ID: {schema_id}
+Action: {action_id}
 <payload(s)>
 Reply with ONLY valid JSON: {"approved": ..., "reason": ...}
 ```
@@ -174,7 +179,7 @@ The arbiter's reply is parsed as JSON (with a fallback that extracts the first `
 
 Once approved, an action enforces its schemas on every message:
 
-1. **Structural validation** — each payload is validated twice against the action's declared schemas: first with a JSON Schema validator, then with a Pydantic model generated from the schema (via `dydantic`). Unknown `schema_id` values are rejected.
+1. **Structural validation** — each payload is validated twice against the action's declared schemas: first with a JSON Schema validator, then with a Pydantic model generated from the schema (via `dydantic`). Unknown action `id` values are rejected.
 2. **Arbiter check** — base prompts + the action's provider-supplied instruction blocks ("Per-Schema Arbiter Instructions").
 3. **Immediate feedback** — every failure is terminal for that message: request-side failures reject the client's call immediately; response-side failures trigger the configured provider retries, after which the client receives a provider-failure error. Failures are logged (with full payloads, validation errors, and arbiter verdicts) for after-the-fact admin inspection — but no failure ever waits on a human.
 
@@ -206,6 +211,5 @@ response → client
 
 ## Beyond the scope of this document
 
-- Endpoint paths, authentication mechanism, and API shapes (submission, discovery/listing for clients, review actions) are not yet specified.
-- Versioning: what happens when a provider updates an approved schema — new submission + re-review, or in-place edit with history
-- Client-approval system design (controlling which clients may invoke actions) is out of scope for this document.
+- Endpoint paths, authentication, and API shapes (submission, discovery/listing for clients, review actions) — specified in `rest-api-v2.md` and `webui-v2.md`.
+- Enrollment system design (controlling which clients may invoke actions) — covered by `rest-api-v2.md` and `system-prd-v2.md`.
