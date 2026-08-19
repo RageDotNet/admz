@@ -11,6 +11,7 @@ a retryable attempt; arbiter configuration faults â†’ 500 internal_error.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -40,6 +41,26 @@ class InvokeResult:
     detail: Any = field(default=None)
 
 
+_log = logging.getLogger("llmdmz.dispatch")
+
+
+def _log_step(event: str, request_id: str | None = None, **fields: Any) -> None:
+    """Log a pipeline step. Uses the Flask app logger when in an app context
+    (so lines appear in the flask server logs), else a module logger."""
+    rid = f" req={request_id[:8]}" if request_id else ""
+    extra = "".join(f" {k}={v}" for k, v in fields.items())
+    msg = f"[dispatch] {event}{rid}{extra}"
+    try:
+        from flask import current_app, has_app_context
+
+        if has_app_context():
+            current_app.logger.info(msg)
+            return
+    except Exception:  # pragma: no cover - logging must never break dispatch
+        pass
+    _log.info(msg)
+
+
 def run_invoke(
     session: Session,
     config: Config,
@@ -57,12 +78,28 @@ def run_invoke(
     response_arbiter_instructions = payload.get("response_arbiter_instructions", "")
     response_schema = payload["response_schema"]
 
+    # 0. Log the request the moment it arrives so it shows in-flight in the
+    # console request log while the pipeline works on it.
+    request_row = storage.log_request(
+        session,
+        action_id=action.id,
+        agent_id=agent.id,
+        active_version_id=active.id,
+        request_payload=request_payload,
+        outcome="received",
+        finished=False,
+    )
+    _log_step("received request", request_row.id, action=action.id, agent=agent.id)
     # 1. Structural request validation (terminal, transparent detail).
     errors = validate_payload(payload["request_schema"], request_payload)
     if errors:
+        storage.finish_request(session, request_row, outcome="request_schema_invalid")
+        _log_step("request schema invalid", request_row.id, errors=errors)
         return InvokeResult(422, "request_schema_invalid", detail={"errors": errors})
 
     # 2. Request arbiter check â€” runs exactly once (#4).
+    storage.set_request_state(session, request_row, outcome="arbiter_reviewing_request")
+    _log_step("arbiter reviewing request", request_row.id, action=action.id)
     try:
         verdict = arbiter.check(
             side="request",
@@ -71,23 +108,19 @@ def run_invoke(
             extra_instructions=request_arbiter_instructions,
         )
     except ArbiterTransportError as exc:
+        storage.finish_request(session, request_row, outcome="arbiter_unavailable")
+        _log_step("request arbiter unavailable", request_row.id, reason=str(exc))
         return InvokeResult(503, "arbiter_unavailable", detail={"reason": str(exc)})
     # ArbiterConfigFault propagates -> 500 internal_error (app error handler).
     verdict_dict = {"approved": verdict.approved, "reason": verdict.reason}
     if not verdict.approved:
+        storage.finish_request(
+            session, request_row, outcome="arbiter_rejected", request_verdict=verdict_dict
+        )
+        _log_step("arbiter rejected request", request_row.id, reason=verdict.reason)
         return InvokeResult(422, "arbiter_rejected", detail=verdict_dict)
-
-    # Request accepted â€” log it, then dispatch.
-    request_row = storage.log_request(
-        session,
-        action_id=action.id,
-        agent_id=agent.id,
-        active_version_id=active.id,
-        request_payload=request_payload,
-        outcome="completed",
-        request_verdict=verdict_dict,
-        finished=False,
-    )
+    _log_step("arbiter approved request", request_row.id)
+    request_row.request_verdict = verdict_dict
 
     delivery = agent.delivery_config or {}
     retries = int(delivery.get("retries", config.dispatch_retries))
@@ -97,6 +130,8 @@ def run_invoke(
     previous_error: str | None = None
     total_attempts = retries + 1
     for attempt_number in range(1, total_attempts + 1):
+        storage.set_request_state(session, request_row, outcome="dispatching")
+        _log_step("dispatching to provider", request_row.id, attempt=attempt_number, protocol=protocol)
         framing = _build_framing(
             protocol=protocol,
             instructions=instructions,
@@ -124,6 +159,7 @@ def run_invoke(
             response_arbiter_instructions=response_arbiter_instructions,
         )
         if previous_error is None:
+            _log_step("request completed", request_row.id)
             return InvokeResult(
                 200,
                 result={
@@ -134,6 +170,7 @@ def run_invoke(
             )
 
     storage.finish_request(session, request_row, outcome="provider_failed")
+    _log_step("provider failed (retries exhausted)", request_row.id, attempts=total_attempts)
     # The client is told the provider failed, not why (dispatch-v2.md).
     return InvokeResult(502, "provider_failed")
 
@@ -151,10 +188,12 @@ def _run_attempt(
     response_arbiter_instructions: str,
 ) -> str | None:
     """One dispatch attempt. Returns None on success, else the retry-injected error."""
+    _log_step("delivery to provider", request_row.id, attempt=attempt_row.attempt_number)
     outcome = transport.deliver(framing)
     if outcome.error_class is not None or outcome.payload is None:
         attempt_row.error_class = outcome.error_class or "protocol"
         attempt_row.error_detail = outcome.error_detail
+        _log_step("transport error", request_row.id, attempt=attempt_row.attempt_number, error=attempt_row.error_class)
         return f"transport error ({attempt_row.error_class}): {outcome.error_detail}"
 
     candidate = outcome.payload
@@ -162,8 +201,11 @@ def _run_attempt(
     if errors:
         attempt_row.error_class = "response_schema_invalid"
         attempt_row.error_detail = "; ".join(errors)
+        _log_step("response schema violations", request_row.id, attempt=attempt_row.attempt_number)
         return "response schema violations: " + "; ".join(errors)
 
+    storage.set_request_state(session, request_row, outcome="arbiter_reviewing_response")
+    _log_step("arbiter reviewing response", request_row.id, attempt=attempt_row.attempt_number)
     try:
         r_verdict = arbiter.check(
             side="response",

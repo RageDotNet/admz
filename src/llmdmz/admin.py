@@ -43,13 +43,18 @@ STATE_TAG = {
     "requested": "info",
     "enrolled": "success",
     "revoked": "secondary",
-    # request outcomes
+    # request outcomes (terminal)
     "completed": "success",
     "request_schema_invalid": "warning",
     "arbiter_rejected": "danger",
     "provider_failed": "danger",
     "arbiter_unavailable": "warning",
     "internal_error": "danger",
+    # request outcomes (in-flight progress)
+    "received": "info",
+    "arbiter_reviewing_request": "info",
+    "dispatching": "primary",
+    "arbiter_reviewing_response": "info",
 }
 
 

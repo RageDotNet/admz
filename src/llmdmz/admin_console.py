@@ -519,10 +519,15 @@ def agent_new_key(agent_id: str):
 def partial_log():
     page, per_page = _paged()
     outcome = request.args.get("outcome") or None
+    outcomes = None
+    if outcome == "in_flight":
+        # Pseudo-filter: any of the in-flight progress states.
+        outcomes = ["received", "arbiter_reviewing_request", "dispatching", "arbiter_reviewing_response"]
+        outcome = None
     action_id = request.args.get("action_id") or None
     with _db() as session:
         rows, total = storage.list_requests(
-            session, action_id=action_id, outcome=outcome, page=page, per_page=per_page
+            session, action_id=action_id, outcome=outcome, outcomes=outcomes, page=page, per_page=per_page
         )
     return _render_partial(
         "partials/log.html",

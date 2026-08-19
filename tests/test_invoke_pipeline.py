@@ -164,6 +164,35 @@ class TestInvokeHappyPath:
 
 
 class TestInvokeRejections:
+    def test_in_flight_states_visible_during_dispatch(self, app_fixture, client_http):
+        """The request row is committed at each pipeline step so the admin
+        console's request log shows live progress (received → ... → completed)."""
+        key = _enrolled_action(app_fixture, client_http)
+        app, _, _ = app_fixture
+        observed = {}
+
+        class ObservingTransport(ScriptedTransport):
+            def deliver(self, framing):
+                with app.app_context():
+                    s = app.extensions["DMZ_SESSION_FACTORY"]()
+                    row = s.scalars(
+                        select(Request).where(Request.action_id == "crm_search")
+                    ).first()
+                    observed["during_dispatch"] = row.outcome
+                    s.close()
+                return super().deliver(framing)
+
+        resp = _invoke(
+            client_http, key, arbiter=ApprovingArbiter(), transport=ObservingTransport([GOOD_RESPONSE])
+        )
+        assert resp.status_code == 200
+        assert observed["during_dispatch"] == "dispatching"
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            req = s.scalars(select(Request).where(Request.action_id == "crm_search")).first()
+            assert req.outcome == "completed" and req.finished_at is not None
+            s.close()
+
     def test_request_schema_invalid(self, app_fixture, client_http):
         key = _enrolled_action(app_fixture, client_http)
         resp = _invoke(
@@ -196,7 +225,9 @@ class TestInvokeRejections:
         app, _, _ = app_fixture
         with app.app_context():
             s = app.extensions["DMZ_SESSION_FACTORY"]()
-            assert s.scalars(select(Request)).all() == []
+            rows = s.scalars(select(Request)).all()
+            # Logged as a terminal arbiter_unavailable request (in-flight logging).
+            assert len(rows) == 1 and rows[0].outcome == "arbiter_unavailable"
             s.close()
 
     def test_not_enrolled(self, app_fixture, client_http):

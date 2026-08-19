@@ -3,7 +3,7 @@
     <input type="text" name="action_id" class="form-control form-control-sm" value="{{ action_id }}" placeholder="action id">
     <select name="outcome" class="form-select form-select-sm">
       <option value="">any outcome</option>
-      {% for o in ("completed", "request_schema_invalid", "arbiter_rejected", "provider_failed", "arbiter_unavailable", "internal_error") %}
+      {% for o in ("in_flight", "received", "arbiter_reviewing_request", "dispatching", "arbiter_reviewing_response", "completed", "request_schema_invalid", "arbiter_rejected", "provider_failed", "arbiter_unavailable", "internal_error") %}
       <option value="{{ o }}" {% if outcome == o %}selected{% endif %}>{{ o }}</option>
       {% endfor %}
     </select>

@@ -218,6 +218,17 @@ def log_request(
     return row
 
 
+def set_request_state(session: Session, request_row: Request, *, outcome: str) -> None:
+    """Update an in-flight request's outcome and commit it immediately.
+
+    In-flight progress states (`received`, `arbiter_reviewing_request`,
+    `dispatching`, `arbiter_reviewing_response`) are committed as they happen
+    so the admin console's request log reflects live progress.
+    """
+    request_row.outcome = outcome
+    session.commit()
+
+
 def finish_request(
     session: Session,
     request_row: Request,
@@ -268,6 +279,7 @@ def list_requests(
     action_id: str | None = None,
     agent_id: str | None = None,
     outcome: str | None = None,
+    outcomes: list[str] | None = None,
     page: int = 1,
     per_page: int = 50,
 ) -> tuple[list[Request], int]:
@@ -278,6 +290,8 @@ def list_requests(
         stmt = stmt.where(Request.agent_id == agent_id)
     if outcome:
         stmt = stmt.where(Request.outcome == outcome)
+    if outcomes:
+        stmt = stmt.where(Request.outcome.in_(outcomes))
     total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     rows = (
         session.scalars(
