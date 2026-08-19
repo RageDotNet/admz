@@ -373,3 +373,40 @@ def clamp_page(
     per_page_n = min(max(1, _int(per_page, default_per_page)), max_per_page)
     return page_n, per_page_n
 
+
+
+# --- Version decisions (used by admin approval flows; #7/#8/#9) ----------------
+
+
+def decide_version(
+    session: Session,
+    version: ActionVersion,
+    *,
+    decision: str,  # approved | rejected
+    decided_by: str,
+    notes: str | None = None,
+) -> Action:
+    """Apply a reviewer decision to a submitted version.
+
+    Approve swaps atomically: any current active version becomes ``superseded``
+    and the action becomes ``active`` (withdrawn -> active reactivation included,
+    #8). Reject is terminal for that version; the action returns to ``pending``
+    if it has no other active version. Caller commits + audits.
+    """
+    action = version.action
+    if decision == "approved":
+        current = action.active_version
+        if current is not None and current.id != version.id:
+            current.state = "superseded"
+        version.state = "active"
+        action.active_version_id = version.id
+        action.state = "active"
+    else:
+        version.state = "rejected"
+        if action.active_version_id is None:
+            action.state = "pending"
+    version.decided_at = datetime.now(tz=UTC)
+    version.decided_by = decided_by
+    version.decision_notes = notes
+    session.flush()
+    return action

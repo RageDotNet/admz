@@ -129,6 +129,85 @@ class TestPutNewVersion:
 
 
 
+def _decide(app_fixture, number, decision, notes=None):
+    """Apply an admin decision to version N of crm_search (storage-level)."""
+    from llmdmz.core import storage as st
+    from llmdmz.core.models import ActionVersion
+
+    app, _, _ = app_fixture
+    with app.app_context():
+        s = app.extensions["DMZ_SESSION_FACTORY"]()
+        v = s.scalar(
+            select(ActionVersion).where(
+                ActionVersion.action_id == "crm_search",
+                ActionVersion.version_number == number,
+            )
+        )
+        assert v is not None
+        st.decide_version(s, v, decision=decision, decided_by="admin", notes=notes)
+        s.commit()
+        s.close()
+
+
+class TestFullLifecycle:
+    def test_pending_accepts_put_after_rejection(self, app_fixture, client_http):
+        # #7: rejected first version does not stick the action.
+        _, provider_key, _ = app_fixture
+        client_http.post("/v2/actions", json=CRM_SEARCH, headers=_hdr(provider_key))
+        _decide(app_fixture, 1, "rejected", notes="too broad")
+        resp = client_http.put(
+            "/v2/actions/crm_search", json=CRM_SEARCH, headers=_hdr(provider_key)
+        )
+        assert resp.status_code == 201
+        assert resp.get_json()["version"]["number"] == 2
+        _decide(app_fixture, 2, "approved")
+        detail = client_http.get("/v2/actions/crm_search", headers=_hdr(provider_key))
+        assert detail.get_json()["state"] == "active"
+        assert detail.get_json()["active_version"] == 2
+
+    def test_supersede_flow(self, app_fixture, client_http):
+        _, provider_key, _ = app_fixture
+        client_http.post("/v2/actions", json=CRM_SEARCH, headers=_hdr(provider_key))
+        _decide(app_fixture, 1, "approved")
+        client_http.put(
+            "/v2/actions/crm_search",
+            json={**CRM_SEARCH, "description": "v2"},
+            headers=_hdr(provider_key),
+        )
+        _decide(app_fixture, 2, "approved")
+        hist = client_http.get(
+            "/v2/actions/crm_search/versions", headers=_hdr(provider_key)
+        ).get_json()
+        assert [v["state"] for v in hist["versions"]] == ["superseded", "active"]
+
+    def test_reactivation_via_approval(self, app_fixture, client_http):
+        # #8: withdrawn -> active when a new version is approved.
+        _, provider_key, client_key = app_fixture
+        client_http.post("/v2/actions", json=CRM_SEARCH, headers=_hdr(provider_key))
+        _decide(app_fixture, 1, "approved")
+        client_http.delete("/v2/actions/crm_search", headers=_hdr(provider_key))
+        assert client_http.get(
+            "/v2/actions/crm_search", headers=_hdr(client_key)
+        ).status_code == 404
+        client_http.put("/v2/actions/crm_search", json=CRM_SEARCH, headers=_hdr(provider_key))
+        _decide(app_fixture, 2, "approved")
+        assert client_http.get(
+            "/v2/actions/crm_search", headers=_hdr(client_key)
+        ).status_code == 200
+
+    def test_ownership_403_for_client(self, app_fixture, client_http):
+        _, _, client_key = app_fixture
+        for method, path in [
+            ("post", "/v2/actions"),
+            ("put", "/v2/actions/crm_search"),
+            ("delete", "/v2/actions/crm_search"),
+        ]:
+            resp = getattr(client_http, method)(
+                path, json=CRM_SEARCH, headers=_hdr(client_key)
+            )
+            assert resp.status_code == 403
+
+
 class TestWithdraw:
     def test_withdraw_soft(self, app_fixture, client_http):
         _, provider_key, client_key = app_fixture
