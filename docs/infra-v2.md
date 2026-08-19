@@ -34,7 +34,7 @@ Jinja2 templating; templates ship as package data so they work from an installed
 ## Admin console frontend
 
 - **[Datastar](https://data-star.dev/)** for hypermedia reactivity — server-rendered HTML fragments, signals, multi-patch responses; **no custom JavaScript**.
-- **[0build](https://github.com/0builddotdev/0build)** CSS — zero-build utility classes; no CSS pipeline.
+- **[Bootstrap 5](https://getbootstrap.com/) CSS** — vendored stylesheet, component + utility classes; no CSS pipeline.
 - **No npm/Node anywhere** — the frontend is entirely buildless.
 
 ## Storage
@@ -132,7 +132,7 @@ Key environment variables:
 |---|---|
 | Language | Python 3.11+, packaged app (`pyproject.toml`) |
 | Web framework | Flask — single app (broker pipeline, agent REST API, admin console); synchronous, no task queue |
-| Frontend | Datastar + 0build CSS, buildless, no Node |
+| Frontend | Datastar + Bootstrap 5 CSS, buildless, no Node |
 | Database | SQLAlchemy 2.x ORM; SQLite default, DSN-configurable (Postgres-ready) |
 | Migrations | Alembic (`alembic upgrade head` at deploy) |
 | LLM | LiteLLM → OpenRouter |

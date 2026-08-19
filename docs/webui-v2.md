@@ -11,7 +11,7 @@ The admin webui is the browser-based operational surface for the DMZ, mounted un
 - Let an admin act on anything needing a decision (action versions, enrollment requests) in ≤ 2 clicks.
 - Give a complete picture of any single **action** in one place: its definition/version history, which clients have access, and its invocation history.
 - Give full visibility into agents, traffic, and state changes.
-- Zero custom JavaScript — interactivity via Datastar; styling via 0build CSS; no npm/Node, no build step.
+- Zero custom JavaScript — interactivity via Datastar; styling via Bootstrap 5 CSS; no npm/Node, no build step.
 
 ### Non-goals
 
@@ -136,7 +136,7 @@ Action endpoints that mutate state return **multi-patch responses** (e.g. affect
 ## UX principles
 
 - **No custom JavaScript.** Tab switching, detail expansion, filters, pagination, and action submissions are server-rendered HTML fragments orchestrated by Datastar attributes.
-- **Zero-build CSS.** Styling via 0build utility classes; no bundler, no CSS pipeline.
+- **Zero-build CSS.** Styling via Bootstrap 5 utility/component classes from the vendored stylesheet; no bundler, no CSS pipeline.
 - **Server-rendered everything.** The server owns all rendering, including expanded rows and post-action refreshes; templates are the single source of UI truth.
 - **Inline detail.** Details expand in place under the selected row rather than navigating away.
 - **Immediate feedback.** Every decision updates the affected list and stats in the same response; nothing requires a manual refresh after acting.
