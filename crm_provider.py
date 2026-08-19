@@ -254,14 +254,25 @@ def client_invoke(action_id: str, payload_json: str | None) -> int:
     The request payload is the argument if given, else read from stdin.
     """
     raw = payload_json if payload_json is not None else sys.stdin.read()
+    # Convenience: if the argument names an existing file, read the JSON from it.
+    if payload_json is not None:
+        candidate = Path(payload_json)
+        if candidate.is_file():
+            raw = candidate.read_text(encoding="utf-8")
+    print(f"[client] POST {DMZ_BASE_URL}/v2/actions/{action_id}/invoke", file=sys.stderr)
+    print(f"[client] key: {CLIENT_KEY[:16]}... ({len(CLIENT_KEY)} chars)", file=sys.stderr)
+    print(f"[client] request payload (from {'argv' if payload_json is not None else 'stdin'}):", file=sys.stderr)
+    print(raw, file=sys.stderr)
     try:
         payload = json.loads(raw)
     except (json.JSONDecodeError, ValueError) as exc:
         print(f"[client] request payload is not valid JSON: {exc}", file=sys.stderr)
         return 1
-    status, body, _ = _api(
+    status, body, text = _api(
         "POST", f"/v2/actions/{action_id}/invoke", payload, key=CLIENT_KEY
     )
+    print(f"[client] HTTP status: {status}", file=sys.stderr)
+    print(f"[client] raw response: {text[:2000]}", file=sys.stderr)
     if status == 200:
         print(json.dumps(body, indent=2))
         return 0
