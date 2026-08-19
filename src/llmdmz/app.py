@@ -36,9 +36,17 @@ def create_app(config: Config | None = None) -> Flask:
 
     init_db(app, config)
 
+    from llmdmz.api_v2 import ApiError
     from llmdmz.api_v2 import bp as api_v2_bp
 
     app.register_blueprint(api_v2_bp)
+
+    from llmdmz.api_v2 import error as api_error
+
+    @app.errorhandler(ApiError)
+    def _api_error(exc: ApiError):
+        return api_error(exc.code, exc.message, exc.status, exc.detail)
+
     return app
 
 

@@ -8,7 +8,7 @@ from flask import Blueprint, Response, current_app, jsonify, request
 
 from llmdmz.core.auth import Identity, bearer_token, resolve_bearer
 from llmdmz.core.db import session_scope
-from llmdmz.core.models import Agent
+from llmdmz.core.models import Action, ActionVersion, Agent
 
 bp = Blueprint("api_v2", __name__, url_prefix="/v2")
 
@@ -23,63 +23,65 @@ def error(code: str, message: str, status: int, detail: Any = None) -> tuple[Res
     return jsonify(body), status
 
 
-def parse_json_body() -> tuple[dict[str, Any] | None, tuple[Response, int] | None]:
+class ApiError(Exception):
+    """Carries an error envelope through to the Flask error handler."""
+
+    def __init__(self, code: str, message: str, status: int, detail: Any = None):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.status = status
+        self.detail = detail
+
+
+def parse_json_body() -> dict[str, Any]:
     if not request.is_json:
-        return None, error("malformed_json", "Request body must be JSON.", 400)
+        raise ApiError("malformed_json", "Request body must be JSON.", 400)
     try:
         body = request.get_json()
     except Exception:  # noqa: BLE001 — Flask raises varied parse errors
-        return None, error("malformed_json", "Request body is not valid JSON.", 400)
+        raise ApiError("malformed_json", "Request body is not valid JSON.", 400) from None
     if not isinstance(body, dict):
-        return None, error("malformed_json", "Request body must be a JSON object.", 400)
-    return body, None
+        raise ApiError("malformed_json", "Request body must be a JSON object.", 400)
+    return body
 
 
-def authenticate() -> tuple[Identity | None, tuple[Response, int] | None]:
+def authenticate() -> Identity:
     token = bearer_token()
     if token is None:
-        return None, error("unauthorized", "Missing bearer key.", 401)
+        raise ApiError("unauthorized", "Missing bearer key.", 401)
     with session_scope(current_app) as session:
         identity = resolve_bearer(session, current_app.config["DMZ"], token)
     if identity is None:
-        return None, error("unauthorized", "Unknown or revoked bearer key.", 401)
-    return identity, None
+        raise ApiError("unauthorized", "Unknown or revoked bearer key.", 401)
+    return identity
 
 
-def require_provider(identity: Identity) -> tuple[Response, int] | None:
-    if identity.kind != "agent" or not (identity.agent and identity.agent.is_provider):
-        return error("forbidden", "This endpoint requires the provider capability.", 403)
-    return None
+def authenticate_agent() -> Agent:
+    """Authenticate and require an agent (admin tokens are 403 on /v2, #17)."""
+    identity = authenticate()
+    if identity.kind != "agent" or identity.agent is None:
+        raise ApiError("forbidden", "Admin tokens are not valid on /v2 endpoints.", 403)
+    return identity.agent
 
 
-def require_client(identity: Identity) -> tuple[Response, int] | None:
-    if identity.kind != "agent" or not (identity.agent and identity.agent.is_client):
-        return error("forbidden", "This endpoint requires the client capability.", 403)
-    return None
+def require_provider(agent: Agent) -> None:
+    if not agent.is_provider:
+        raise ApiError("forbidden", "This endpoint requires the provider capability.", 403)
 
 
-# --- T2.4: POST /v2/actions ----------------------------------------------------
+def require_client(agent: Agent) -> None:
+    if not agent.is_client:
+        raise ApiError("forbidden", "This endpoint requires the client capability.", 403)
 
 
-@bp.post("/actions")
-def create_action():
-    identity, err = authenticate()
-    if err:
-        return err
-    err = require_provider(identity)
-    if err:
-        return err
-    assert identity.agent is not None
-    body, err = parse_json_body()
-    if err or body is None:
-        assert err is not None
-        return err
-
+def validate_and_compile(body: dict[str, Any]) -> dict[str, Any]:
+    """Field-validate + compile a schema package; raises 422 ApiError on failure."""
     from llmdmz.registry import compile_schemas, validate_submission
 
     validation = validate_submission(body)
     if not validation.ok or validation.normalized is None:
-        return error(
+        raise ApiError(
             "request_schema_invalid",
             "Submission failed field validation.",
             422,
@@ -87,40 +89,44 @@ def create_action():
         )
     compile_issues = compile_schemas(validation.normalized)
     if compile_issues:
-        return error(
+        raise ApiError(
             "request_schema_invalid",
             "Schemas failed to compile.",
             422,
             {"issues": [{"field": i.field, "message": i.message} for i in compile_issues]},
         )
+    return validation.normalized
 
-    payload = validation.normalized
+
+# --- T2.4: POST /v2/actions ----------------------------------------------------
+
+
+@bp.post("/actions")
+def create_action():
+    agent = authenticate_agent()
+    require_provider(agent)
+    payload = validate_and_compile(parse_json_body())
+
     from llmdmz.core import storage
     from llmdmz.core.audit import audit
-    from llmdmz.core.models import Action, ActionVersion
 
     with session_scope(current_app) as session:
         if storage.get_action(session, payload["id"]) is not None:
-            return error(
-                "duplicate_action", f"Action '{payload['id']}' already exists.", 409
-            )
-        agent = session.get(Agent, identity.agent.id)
-        assert agent is not None
-        action = Action(id=payload["id"], owner_agent_id=agent.id, state="pending")
+            raise ApiError("duplicate_action", f"Action '{payload['id']}' already exists.", 409)
+        owner = session.get(Agent, agent.id)
+        assert owner is not None
+        action = Action(id=payload["id"], owner_agent_id=owner.id, state="pending")
         session.add(action)
         session.flush()
         version = ActionVersion(
-            action_id=action.id,
-            version_number=1,
-            state="submitted",
-            payload=payload,
+            action_id=action.id, version_number=1, state="submitted", payload=payload
         )
         session.add(version)
         session.flush()
         audit(
             session,
             actor_type="agent",
-            actor_id=agent.id,
+            actor_id=owner.id,
             event="action.created",
             target_type="action",
             target_id=action.id,
@@ -136,3 +142,59 @@ def create_action():
             ),
             201,
         )
+
+# --- T2.5: GET /v2/actions/{id} (role-projected views) --------------------------
+
+
+def _client_view(action: Action, active: ActionVersion, enrollment_state: str) -> dict:
+    payload = active.payload
+    return {
+        "id": action.id,
+        "state": action.state,
+        "active_version": active.version_number,
+        "description": payload.get("description", ""),
+        "request_schema": payload.get("request_schema"),
+        "response_schema": payload.get("response_schema"),
+        "client_instructions": payload.get("client_instructions", ""),
+        "enrollment": enrollment_state,
+    }
+
+
+def _owner_view(action: Action, active: ActionVersion | None) -> dict:
+    payload = active.payload if active else {}
+    return {
+        "id": action.id,
+        "state": action.state,
+        "active_version": active.version_number if active else None,
+        "description": payload.get("description", ""),
+        "request_schema": payload.get("request_schema"),
+        "response_schema": payload.get("response_schema"),
+        "request_arbiter_instructions": payload.get("request_arbiter_instructions", ""),
+        "response_arbiter_instructions": payload.get("response_arbiter_instructions", ""),
+        "client_instructions": payload.get("client_instructions", ""),
+        "provider_instructions": payload.get("provider_instructions", ""),
+    }
+
+
+@bp.get("/actions/<action_id>")
+def get_action_detail(action_id: str):
+    agent = authenticate_agent()
+
+    from llmdmz.core import storage
+
+    with session_scope(current_app) as session:
+        action = storage.get_action(session, action_id)
+        if action is None:
+            raise ApiError("not_found", "Unknown action.", 404)
+        active = action.active_version
+        if agent.is_provider and action.owner_agent_id == agent.id:
+            return jsonify(_owner_view(action, active))
+        if not agent.is_client:
+            # A provider looking at someone else's action: not visible.
+            raise ApiError("not_found", "Unknown action.", 404)
+        if active is None:
+            # Never-approved / withdrawn actions are hidden from clients (404, #10).
+            raise ApiError("not_found", "Unknown action.", 404)
+        enrollment = storage.find_enrollment(session, agent_id=agent.id, action_id=action.id)
+        enrollment_state = enrollment.state if enrollment else "available"
+        return jsonify(_client_view(action, active, enrollment_state))

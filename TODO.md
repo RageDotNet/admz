@@ -43,7 +43,7 @@
 - [x] T2.2 Implement JSON Schema draft 2020-12 compilation of request/response schemas (422 on failure) + dydantic model generation
 - [x] T2.3 **Validate:** unit tests using the `crm_search` example plus compile-failure (422) and malformed-body (400) cases
 - [x] T2.4 Implement `POST /v2/actions` (create action + submitted version 1; `409 duplicate_action`; audit)
-- [ ] T2.5 Implement `GET /v2/actions/{id}` role-projected views (client vs owner)
+- [x] T2.5 Implement `GET /v2/actions/{id}` role-projected views (client vs owner)
 - [ ] T2.6 Implement `PUT /v2/actions/{id}` new version (monotonic numbering; `409 version_pending` while one submitted, #9; audit)
 - [ ] T2.7 Implement `DELETE` withdraw (soft, reversible, `withdrawn_by` recorded, #8/#12; audit) and `GET /v2/actions/{id}/versions`
 - [ ] T2.8 **Validate:** API tests â€” full lifecycle (pending accepts PUT after rejection #7, withdrawn reversible, supersede flow, ownership 403s, hidden-action 404s)
