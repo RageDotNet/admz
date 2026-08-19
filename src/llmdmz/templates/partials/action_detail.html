@@ -6,9 +6,34 @@
   </div>
   <p>{{ action.active_version.payload.description if action.active_version }}</p>
 
+  {% if action.active_version %}
+  {% set ap = action.active_version.payload %}
+  <div class="mb-3">
+    <h3>Active settings (v{{ action.active_version.version_number }})</h3>
+    <dl class="row mb-0">
+      <dt class="col-sm-4 small text-body-secondary">provider_instructions</dt>
+      <dd class="col-sm-8 small">{{ ap.provider_instructions or '—' }}</dd>
+      <dt class="col-sm-4 small text-body-secondary">request_arbiter_instructions</dt>
+      <dd class="col-sm-8 small">{{ ap.request_arbiter_instructions or '—' }}</dd>
+      <dt class="col-sm-4 small text-body-secondary">response_arbiter_instructions</dt>
+      <dd class="col-sm-8 small">{{ ap.response_arbiter_instructions or '—' }}</dd>
+    </dl>
+    <div class="row g-3 mt-0">
+      <div class="col-lg-6">
+        <div class="small text-body-secondary mb-1">request_schema</div>
+        <pre class="border rounded p-3 bg-body-tertiary small mb-0" style="max-height: 24rem; overflow: auto">{{ ap.request_schema | tojson(indent=2) }}</pre>
+      </div>
+      <div class="col-lg-6">
+        <div class="small text-body-secondary mb-1">response_schema</div>
+        <pre class="border rounded p-3 bg-body-tertiary small mb-0" style="max-height: 24rem; overflow: auto">{{ ap.response_schema | tojson(indent=2) }}</pre>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <h3>Versions</h3>
   <table class="table table-sm table-hover table-striped align-middle">
-    <thead><tr><th>#</th><th>State</th><th>Submitted</th><th>Decided by</th><th>Notes</th><th>Diff vs active</th><th></th></tr></thead>
+    <thead><tr><th>#</th><th>State</th><th>Submitted</th><th>Decided by</th><th>Notes</th><th>Diff vs active</th><th>Payload</th><th></th></tr></thead>
     <tbody>
     {% for v in versions %}
       <tr>
@@ -26,6 +51,12 @@
               <span class="{{ 'text-success' if e.op == 'added' else ('text-danger text-decoration-line-through' if e.op == 'removed' else '') }}">{{ e.op }} {{ e.path }}</span>
             {% endfor %}</div>
           {% endfor %}
+        </td>
+        <td>
+          <details>
+            <summary class="small">view JSON</summary>
+            <pre class="border rounded p-3 bg-body-tertiary small mb-0 mt-2" style="max-width: 32rem; max-height: 24rem; overflow: auto">{{ v.payload | tojson(indent=2) }}</pre>
+          </details>
         </td>
         <td>
           {% if v.state == 'submitted' %}

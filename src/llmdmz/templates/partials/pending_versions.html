@@ -3,7 +3,7 @@
   <tbody>
   {% for row in pending %}
     <tr>
-      <td>{{ row.action.id }}</td>
+      <td><a href="#" data-on:click="$tab='directory'; @get('/admin/partials/action/{{ row.action.id }}')">{{ row.action.id }}</a></td>
       <td id="version-{{ row.version.id }}-state">v{{ row.version.version_number }} <span class="badge text-bg-warning">submitted</span></td>
       <td class="small text-body-secondary">{{ row.version.submitted_at }}</td>
       <td class="small text-body-secondary">{{ row.version.payload.description[:120] }}</td>

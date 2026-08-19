@@ -121,6 +121,21 @@ class TestAuthMatrix:  # T4.4
 
 
 class TestSSEFragments:  # T4.7
+    def test_action_detail_shows_settings_and_pretty_schemas(self, app_fixture, client_http):
+        _seed_action(app_fixture, client_http)
+        _login(client_http)
+        resp = client_http.get("/admin/partials/action/crm_search")
+        assert resp.status_code == 200
+        body = resp.get_data(as_text=True)
+        assert "request_schema" in body
+        assert "provider_instructions" in body
+        # pretty-printed JSON (2-space indent, not one line): SSE prefix + indent
+        assert 'data: elements   "' in body
+        # per-version payload viewer + link from pending versions list
+        assert "view JSON" in body
+        pending = client_http.get("/admin/partials/stats")
+        assert pending.status_code == 200
+
     def test_mutation_returns_sse_with_selectors(self, app_fixture, client_http):
         version_id, _, _ = _seed_action(app_fixture, client_http)
         _login(client_http)
