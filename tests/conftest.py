@@ -7,9 +7,8 @@ import pytest
 from llmdmz.core.config import AdminAccount, Config
 
 
-@pytest.fixture()
-def config() -> Config:
-    return Config(
+def make_config(**overrides) -> Config:
+    kwargs: dict = dict(
         database_url="sqlite:///:memory:",
         secret_key="test-secret",
         app_port=8000,
@@ -23,5 +22,18 @@ def config() -> Config:
         arbiter_temperature=0.0,
         dispatch_retries=2,
         dispatch_timeout=180,
-        admins=(AdminAccount(username="admin", password="pw", token="dmzadm_testtoken0000000000000000000000000"),),
+        admins=(
+            AdminAccount(
+                username="admin",
+                password="pw",
+                token="dmzadm_testtoken0000000000000000000000000",
+            ),
+        ),
     )
+    kwargs.update(overrides)
+    return Config(**kwargs)
+
+
+@pytest.fixture()
+def config() -> Config:
+    return make_config()
