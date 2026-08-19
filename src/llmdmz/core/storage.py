@@ -1,0 +1,375 @@
+﻿"""Storage module: the stable query/CRUD interface over the ORM.
+
+All database access from blueprints/services goes through this module
+(infra-v2.md); ORM queries are an implementation detail behind it.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
+
+from sqlalchemy import func, or_, select
+
+from llmdmz.core.keys import generate_agent_key, hash_key
+from llmdmz.core.models import (
+    Action,
+    ActionVersion,
+    Agent,
+    AuditEvent,
+    DispatchAttempt,
+    Enrollment,
+    Request,
+)
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+
+# --- agents ---------------------------------------------------------------
+
+
+def register_agent(
+    session: Session, *, name: str, is_client: bool, is_provider: bool
+) -> tuple[Agent, str]:
+    """Register an agent; returns (row, plaintext key â€” reveal-once, #15)."""
+    key = generate_agent_key()
+    agent = Agent(
+        name=name,
+        api_key_hash=hash_key(key),
+        is_client=is_client,
+        is_provider=is_provider,
+    )
+    session.add(agent)
+    session.flush()
+    return agent, key
+
+
+def issue_key(session: Session, agent: Agent) -> str:
+    """Re-issue a bearer key (reveal-once)."""
+    key = generate_agent_key()
+    agent.api_key_hash = hash_key(key)
+    session.flush()
+    return key
+
+
+def get_agent(session: Session, agent_id: str) -> Agent | None:
+    return session.get(Agent, agent_id)
+
+
+def find_agent_by_name(session: Session, name: str) -> Agent | None:
+    return session.scalar(select(Agent).where(Agent.name == name))
+
+
+def find_agent_by_key(session: Session, plaintext_key: str) -> Agent | None:
+    return session.scalar(select(Agent).where(Agent.api_key_hash == hash_key(plaintext_key)))
+
+
+def list_agents(
+    session: Session, *, page: int = 1, per_page: int = 100
+) -> tuple[list[Agent], int]:
+    total = session.scalar(select(func.count()).select_from(Agent)) or 0
+    rows = (
+        session.scalars(
+            select(Agent).order_by(Agent.name).offset((page - 1) * per_page).limit(per_page)
+        )
+        .unique()
+        .all()
+    )
+    return list(rows), total
+
+
+# --- actions & versions -----------------------------------------------------
+
+
+def get_action(session: Session, action_id: str) -> Action | None:
+    action = session.get(Action, action_id)
+    if action is not None:
+        _ = len(action.versions)  # ensure relationship loaded
+    return action
+
+
+def list_actions(
+    session: Session,
+    *,
+    page: int = 1,
+    per_page: int = 100,
+    q: str | None = None,
+) -> tuple[list[Action], int]:
+    stmt = select(Action)
+    if q:
+        like = f"%{q.lower()}%"
+        stmt = stmt.where(
+            or_(func.lower(Action.id).like(like), func.lower(Action.state).like(like))
+        )
+    total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    rows = (
+        session.scalars(
+            stmt.order_by(Action.id).offset((page - 1) * per_page).limit(per_page)
+        )
+        .unique()
+        .all()
+    )
+    return list(rows), total
+
+
+def next_version_number(session: Session, action: Action) -> int:
+    current = session.scalar(
+        select(func.max(ActionVersion.version_number)).where(ActionVersion.action_id == action.id)
+    )
+    return 1 if current is None else current + 1
+
+
+def submitted_version(session: Session, action_id: str) -> ActionVersion | None:
+    """The at-most-one pending `submitted` version of an action (#9)."""
+    return session.scalar(
+        select(ActionVersion)
+        .where(ActionVersion.action_id == action_id, ActionVersion.state == "submitted")
+        .order_by(ActionVersion.version_number.desc())
+    )
+
+
+def list_versions(session: Session, action_id: str) -> list[ActionVersion]:
+    return list(
+        session.scalars(
+            select(ActionVersion)
+            .where(ActionVersion.action_id == action_id)
+            .order_by(ActionVersion.version_number)
+        )
+        .unique()
+        .all()
+    )
+
+
+# --- enrollments ------------------------------------------------------------
+
+
+def get_enrollment(session: Session, enrollment_id: str) -> Enrollment | None:
+    return session.get(Enrollment, enrollment_id)
+
+
+def find_enrollment(
+    session: Session, *, agent_id: str, action_id: str
+) -> Enrollment | None:
+    return session.scalar(
+        select(Enrollment).where(Enrollment.agent_id == agent_id, Enrollment.action_id == action_id)
+    )
+
+
+def list_enrollments(
+    session: Session,
+    *,
+    action_id: str | None = None,
+    agent_id: str | None = None,
+    state: str | None = None,
+    page: int = 1,
+    per_page: int = 100,
+) -> tuple[list[Enrollment], int]:
+    stmt = select(Enrollment)
+    if action_id:
+        stmt = stmt.where(Enrollment.action_id == action_id)
+    if agent_id:
+        stmt = stmt.where(Enrollment.agent_id == agent_id)
+    if state:
+        stmt = stmt.where(Enrollment.state == state)
+    total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    rows = (
+        session.scalars(
+            stmt.order_by(Enrollment.requested_at.desc())
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+        )
+        .unique()
+        .all()
+    )
+    return list(rows), total
+
+
+# --- request logging ----------------------------------------------------------
+
+
+def log_request(
+    session: Session,
+    *,
+    action_id: str,
+    agent_id: str,
+    active_version_id: str | None,
+    request_payload: dict,
+    outcome: str,
+    request_verdict: dict | None = None,
+    response_payload: dict | None = None,
+    finished: bool = True,
+    created_at: datetime | None = None,
+) -> Request:
+    now = datetime.now(UTC)
+    row = Request(
+        action_id=action_id,
+        agent_id=agent_id,
+        active_version_id=active_version_id,
+        request_payload=request_payload,
+        request_verdict=request_verdict,
+        response_payload=response_payload,
+        outcome=outcome,
+        created_at=created_at or now,
+        finished_at=now if finished else None,
+    )
+    session.add(row)
+    session.flush()
+    return row
+
+
+def finish_request(
+    session: Session,
+    request_row: Request,
+    *,
+    outcome: str,
+    response_payload: dict | None = None,
+    request_verdict: dict | None = None,
+) -> None:
+    request_row.outcome = outcome
+    request_row.finished_at = datetime.now(UTC)
+    if response_payload is not None:
+        request_row.response_payload = response_payload
+    if request_verdict is not None:
+        request_row.request_verdict = request_verdict
+
+
+def log_attempt(
+    session: Session,
+    *,
+    request_id: str,
+    attempt_number: int,
+    framing: dict,
+    error_class: str | None = None,
+    error_detail: str | None = None,
+) -> DispatchAttempt:
+    now = datetime.now(UTC)
+    row = DispatchAttempt(
+        request_id=request_id,
+        attempt_number=attempt_number,
+        framing=framing,
+        error_class=error_class,
+        error_detail=error_detail,
+        started_at=now,
+        finished_at=now,
+    )
+    session.add(row)
+    session.flush()
+    return row
+
+
+def get_request(session: Session, request_id: str) -> Request | None:
+    return session.get(Request, request_id)
+
+
+def list_requests(
+    session: Session,
+    *,
+    action_id: str | None = None,
+    agent_id: str | None = None,
+    outcome: str | None = None,
+    page: int = 1,
+    per_page: int = 50,
+) -> tuple[list[Request], int]:
+    stmt = select(Request)
+    if action_id:
+        stmt = stmt.where(Request.action_id == action_id)
+    if agent_id:
+        stmt = stmt.where(Request.agent_id == agent_id)
+    if outcome:
+        stmt = stmt.where(Request.outcome == outcome)
+    total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    rows = (
+        session.scalars(
+            stmt.order_by(Request.created_at.desc())
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+        )
+        .unique()
+        .all()
+    )
+    return list(rows), total
+
+
+def list_attempts(session: Session, request_id: str) -> list[DispatchAttempt]:
+    return list(
+        session.scalars(
+            select(DispatchAttempt)
+            .where(DispatchAttempt.request_id == request_id)
+            .order_by(DispatchAttempt.attempt_number)
+        )
+        .all()
+    )
+
+
+# --- stats (#26) ----------------------------------------------------------------
+
+
+def outcome_counts(session: Session) -> dict[str, int]:
+    """All-time request totals by outcome token."""
+    rows = session.execute(select(Request.outcome, func.count()).group_by(Request.outcome)).all()
+    return {outcome: count for outcome, count in rows}
+
+
+def requests_last_24h(session: Session) -> int:
+    cutoff = datetime.now(UTC) - timedelta(hours=24)
+    return session.scalar(
+        select(func.count()).select_from(Request).where(Request.created_at >= cutoff)
+    ) or 0
+
+
+def requests_last_24h_at(session: Session, now: datetime) -> int:
+    """Trailing-24h count relative to a fixed timestamp (test helper)."""
+    cutoff = now - timedelta(hours=24)
+    return session.scalar(
+        select(func.count()).select_from(Request).where(Request.created_at >= cutoff)
+    ) or 0
+
+
+# --- audit ------------------------------------------------------------------
+
+
+def list_audit_events(
+    session: Session,
+    *,
+    actor_id: str | None = None,
+    target_type: str | None = None,
+    page: int = 1,
+    per_page: int = 50,
+) -> tuple[list[AuditEvent], int]:
+    stmt = select(AuditEvent)
+    if actor_id:
+        stmt = stmt.where(AuditEvent.actor_id == actor_id)
+    if target_type:
+        stmt = stmt.where(AuditEvent.target_type == target_type)
+    total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    rows = (
+        session.scalars(
+            stmt.order_by(AuditEvent.occurred_at.desc())
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+        )
+        .all()
+    )
+    return list(rows), total
+
+
+def clamp_page(
+    page: object,
+    per_page: object,
+    *,
+    max_per_page: int = 500,
+    default_per_page: int = 100,
+) -> tuple[int, int]:
+    """Clamp pagination params - invalid values clamp, not error (#18)."""
+
+    def _int(value: object, fallback: int) -> int:
+        try:
+            return int(value)  # type: ignore[call-overload]
+        except (TypeError, ValueError):
+            return fallback
+
+    page_n = max(1, _int(page, 1))
+    per_page_n = min(max(1, _int(per_page, default_per_page)), max_per_page)
+    return page_n, per_page_n
+
