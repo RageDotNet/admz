@@ -456,8 +456,12 @@ def agent_edit(agent_id: str):
     with _db() as session:
         agent = storage.get_agent(session, agent_id)
         assert agent is not None
-        html = _render_partial("partials/agent_detail.html", agent=agent, saved=True)
-    return sse_merge([(f"#agent-{agent_id}-detail", html)])
+    # Patch the wrapper region (mode inner), not the detail card itself: the
+    # partial's root carries the card's own id, and morphing an element that
+    # contains the patch target into that target throws HierarchyRequestError.
+    return _render_partial(
+        "partials/agent_detail.html", agent=agent, saved=True, target="#agent-detail-region"
+    )
 
 
 @bp.post("/agents/<agent_id>/revoke-key")

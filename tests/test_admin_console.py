@@ -284,6 +284,13 @@ class TestRevealOnce:  # T4.18
             },
         )
         assert resp.status_code == 200
+        # Patch must target the wrapper region, not the detail card itself:
+        # the partial's root carries the target id, and Datastar's inner-mode
+        # morph of an element that contains the patch target into that target
+        # throws HierarchyRequestError in the browser (page never updates).
+        body = resp.get_data(as_text=True)
+        assert "data: selector #agent-detail-region" in body
+        assert f"data: selector #agent-{agent_id}-detail" not in body
         with app.app_context():
             s = app.extensions["DMZ_SESSION_FACTORY"]()
             agent = s.scalars(select(Agent).where(Agent.id == agent_id)).first()
