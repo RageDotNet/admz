@@ -1,4 +1,4 @@
-﻿"""Admin console (webui-v2.md): auth guard, login/CSRF, SSE merge helper.
+"""Admin console (webui-v2.md): auth guard, login/CSRF, SSE merge helper.
 
 The console blueprint is mounted under /admin on the single Flask app. All
 routes exactly match the authoritative route table in webui-v2.md (#27).
@@ -105,10 +105,13 @@ def sse_merge(patches: list[tuple[str, str]]) -> Response:
     for selector, html in patches:
         lines.append("event: datastar-merge-fragments")
         lines.append(f"data: selector {selector}")
-        lines.append("data: mode morph")
-        lines.append("data: fragments")
+        lines.append("data: mergeMode morph")
+        # Protocol (datastar v1.0.0-beta.11): each data line is "key value"
+        # split at the FIRST space; duplicate keys are rejoined with newline.
+        # So a bare "data: fragments" line parses as key "fragment" and the
+        # HTML is dropped -- the key must be repeated on every line.
         for html_line in html.splitlines() or [""]:
-            lines.append(f"data: {html_line}")
+            lines.append(f"data: fragments {html_line}")
         lines.append("")
     response = Response("\n".join(lines), mimetype="text/event-stream")
     response.headers["Cache-Control"] = "no-cache"

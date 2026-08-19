@@ -135,6 +135,39 @@ class TestSSEFragments:  # T4.7
             assert f"data: selector {selector}" in body
         assert "event: datastar-merge-fragments" in body
 
+    def test_sse_wire_format_matches_client_parser(self, client_http):
+        """Replay datastar v1.0.0-beta.11's SSE arg parser over our events.
+
+        Each data line is split at the FIRST space into key/value; duplicate
+        keys are rejoined with \\n; the handler reads `selector`, `fragments`,
+        `mergeMode`. A bare `data: fragments` line or `data: mode ...` key
+        means the HTML never reaches the client.
+        """
+        _login(client_http)
+        resp = client_http.get("/admin/partials/directory")
+        assert resp.status_code == 200
+        assert resp.headers["Content-Type"].startswith("text/event-stream")
+
+        args: dict[str, str] = {}
+        for event_block in resp.get_data(as_text=True).split("\n\n"):
+            if "event: datastar-merge-fragments" not in event_block:
+                continue
+            data_lines = [
+                ln[len("data: "):]
+                for ln in event_block.splitlines()
+                if ln.startswith("data: ")
+            ]
+            parts: dict[str, list[str]] = {}
+            for ln in data_lines:
+                key, _, value = ln.partition(" ")
+                parts.setdefault(key, []).append(value)
+            args = {k: "\n".join(v) for k, v in parts.items()}
+            break
+        assert args.get("selector") == "#directory-list"
+        assert args.get("mergeMode") == "morph"
+        assert "fragments" in args
+        assert "<table>" in args["fragments"]
+
     def test_assets_served_no_network(self, client_http):
         for asset in ("vendor/datastar.min.js", "vendor/0build.min.css"):
             resp = client_http.get(f"/static/{asset}")
