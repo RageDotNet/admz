@@ -4,6 +4,9 @@ admins:
     token: null  # optional admin bearer token (dmzadm_...)
 secret_key: "dev-secret-change-me"
 database_url: sqlite:///data/dmz.db
+# Arbiter LLM via OpenRouter; the key stays in .env (gitignored) as
+# OPENROUTER_API_KEY and is loaded by llmdmz.core.config via python-dotenv.
+arbiter_model: "openrouter/openai/gpt-4o-mini"
 flask_debug: true
-host: "0.0.0.0"
+#host: "0.0.0.0"
 

@@ -16,6 +16,16 @@ from typing import Any
 import yaml
 from werkzeug.security import check_password_hash
 
+# Optional .env support (python-dotenv): secrets like OPENROUTER_API_KEY live
+# in .env (gitignored) instead of config.yaml. Real environment variables
+# always win over .env values. Failure to find/parse .env is not an error.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:  # pragma: no cover - dotenv is an optional convenience
+    pass
+
 DEFAULT_CONFIG_PATH = "./config.yaml"
 
 # Code defaults (lowest precedence).
