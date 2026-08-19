@@ -62,6 +62,63 @@ def _log_step(event: str, request_id: str | None = None, **fields: Any) -> None:
     _log.info(msg)
 
 
+def _arbiter_context(
+    *,
+    action: Action,
+    action_description: str,
+    provider_instructions: str,
+    request_schema: dict,
+    response_schema: dict | None = None,
+    original_request: Any = None,
+) -> str:
+    """Authoritative context for an arbiter evaluation.
+
+    The arbiter must judge payloads against the action's declared contract:
+    its schemas (including each field's description — what the field means and
+    why it may contain), the action's name/description, and the provider's
+    operating instructions. All of these are authoritative and sanctioned by
+    the DMZ operator: content that matches them is allowed.
+    """
+    lines = [
+        "AUTHORITATIVE ACTION CONTRACT — the following is defined by the DMZ",
+        "operator and is trusted, sanctioned, and ALLOWED. Content matching",
+        "this contract (including any field descriptions below, which define",
+        "what each field may legitimately contain) must be APPROVED:",
+        "",
+        f"Action name: {action.id}",
+    ]
+    if action_description:
+        lines.append(f"Action description: {action_description}")
+    if provider_instructions:
+        lines.append(
+            "Provider instructions (authoritative; the provider is expected "
+            f"to follow these): {provider_instructions}"
+        )
+    lines.append("")
+    lines.append(
+        "Request schema (authoritative; a request payload that validates "
+        "against this schema and matches its field descriptions is allowed):"
+    )
+    lines.append(json.dumps(request_schema, ensure_ascii=False, indent=2))
+    if response_schema is not None:
+        lines.append("")
+        lines.append(
+            "Response schema (authoritative; a response payload that validates "
+            "against this schema and matches its field descriptions — e.g. an "
+            "email or phone field whose description permits contact details — "
+            "is allowed):"
+        )
+        lines.append(json.dumps(response_schema, ensure_ascii=False, indent=2))
+    if original_request is not None:
+        lines.append("")
+        lines.append(
+            "The client's original request for this dispatch (judge the "
+            "response against it):"
+        )
+        lines.append(json.dumps(original_request, ensure_ascii=False, indent=2))
+    return "\n".join(lines)
+
+
 def run_invoke(
     session: Session,
     config: Config,
@@ -78,6 +135,25 @@ def run_invoke(
     request_arbiter_instructions = payload.get("request_arbiter_instructions", "")
     response_arbiter_instructions = payload.get("response_arbiter_instructions", "")
     response_schema = payload["response_schema"]
+    action_description = str(payload.get("description", ""))
+    request_ctx = _arbiter_context(
+        action=action,
+        action_description=action_description,
+        provider_instructions=instructions,
+        request_schema=payload["request_schema"],
+    )
+    if request_arbiter_instructions:
+        request_ctx = f"{request_arbiter_instructions}\n\n{request_ctx}"
+    response_ctx = _arbiter_context(
+        action=action,
+        action_description=action_description,
+        provider_instructions=instructions,
+        request_schema=payload["request_schema"],
+        response_schema=response_schema,
+        original_request=request_payload,
+    )
+    if response_arbiter_instructions:
+        response_ctx = f"{response_arbiter_instructions}\n\n{response_ctx}"
 
     # 0. Log the request the moment it arrives so it shows in-flight in the
     # console request log while the pipeline works on it.
@@ -106,7 +182,7 @@ def run_invoke(
             side="request",
             action_id=action.id,
             payload=request_payload,
-            extra_instructions=request_arbiter_instructions,
+            extra_instructions=request_ctx,
         )
     except ArbiterTransportError as exc:
         storage.finish_request(session, request_row, outcome="arbiter_unavailable")
@@ -158,7 +234,7 @@ def run_invoke(
             framing=framing,
             response_schema=response_schema,
             response_arbiter_instructions=response_arbiter_instructions,
-            request_payload=request_payload,
+            response_ctx=response_ctx,
         )
         if previous_error is None:
             _log_step("request completed", request_row.id)
@@ -198,7 +274,7 @@ def _run_attempt(
     framing: Framing,
     response_schema: dict,
     response_arbiter_instructions: str,
-    request_payload: dict[str, Any],
+    response_ctx: str,
 ) -> str | None:
     """One dispatch attempt. Returns None on success, else the retry-injected error."""
     _log_step("delivery to provider", request_row.id, attempt=attempt_row.attempt_number)
@@ -219,15 +295,10 @@ def _run_attempt(
 
     storage.set_request_state(session, request_row, outcome="arbiter_reviewing_response")
     _log_step("arbiter reviewing response", request_row.id, attempt=attempt_row.attempt_number)
-    # Give the arbiter the original request so it can judge scope ("data beyond
-    # what the request asked for") instead of screening the response blind.
-    extra = response_arbiter_instructions
-    context = (
-        "The client's original request was:\n"
-        + json.dumps(request_payload, ensure_ascii=False)
-        + "\nJudge the response payload against this request."
-    )
-    extra = f"{extra}\n\n{context}" if extra else context
+    # Give the arbiter the full authoritative contract: action description,
+    # provider instructions, both schemas (with field descriptions), and the
+    # original request, so it can judge scope instead of screening blind.
+    extra = response_ctx
     try:
         r_verdict = arbiter.check(
             side="response",

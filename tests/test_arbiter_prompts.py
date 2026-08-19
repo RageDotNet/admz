@@ -48,3 +48,6 @@ def test_response_prompt_has_benign_content_guidance():
     assert "Judgment guidance" in p
     assert "NOT attacks" in p
     assert "imperatively addressed to a model" in p
+    assert "AUTHORITATIVE CONTRACT" in REQUEST_BASE_PROMPT
+    assert "AUTHORITATIVE CONTRACT" in p
+    assert "field descriptions" in p
