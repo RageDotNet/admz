@@ -31,7 +31,7 @@ from llmdmz.dispatch.verdict import parse_verdict
 Poster = Callable[[str, dict[str, str], bytes, int], tuple[int, str]]
 """endpoint, headers, body, timeout -> (status, text)."""
 
-Runner = Callable[[str, int], tuple[int, str, str]]
+Runner = Callable[[str, str, int], tuple[int, str, str]]
 """command, timeout -> (exit_code, stdout, stderr)."""
 
 Completer = Callable[[str, str, str, int, int, float], str]
@@ -49,13 +49,14 @@ def _default_poster(
         return exc.code, exc.read().decode("utf-8", errors="replace")
 
 
-def _default_runner(command: str, timeout: int) -> tuple[int, str, str]:
+def _default_runner(command: str, stdin_text: str, timeout: int) -> tuple[int, str, str]:
     try:
         proc = subprocess.run(
             command,
             shell=True,  # noqa: S602 — configured command line by design
             capture_output=True,
             text=True,
+            input=stdin_text,  # framing on stdin (dispatch-v2.md exec)
             timeout=timeout,
         )
         return proc.returncode, proc.stdout, proc.stderr
@@ -204,7 +205,7 @@ class ExecTransport:
 
     def deliver(self, framing: Framing) -> ProviderResult:
         try:
-            exit_code, stdout, stderr = self._runner(framing.command, framing.timeout)
+            exit_code, stdout, stderr = self._runner(framing.command, framing.text, framing.timeout)
         except Exception as exc:  # noqa: BLE001
             return ProviderResult(error_class="transport", error_detail=str(exc))
         if exit_code == -1 and stderr == "timeout":

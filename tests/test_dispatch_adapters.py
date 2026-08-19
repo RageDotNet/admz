@@ -108,21 +108,21 @@ class TestPostTransport:
 
 class TestExecTransport:
     def test_success(self):
-        t = ExecTransport(lambda cmd, timeout: (0, json.dumps({"contacts": []}), ""))
-        result = t.deliver(Framing(protocol="exec", command="serve.py", timeout=10))
+        t = ExecTransport(lambda cmd, stdin, timeout: (0, json.dumps({"contacts": []}), ""))
+        result = t.deliver(Framing(protocol="exec", command="serve.py", text="framed input", timeout=10))
         assert result.payload == {"contacts": []} and result.exit_code == 0
 
     def test_nonzero_exit_with_stderr(self):
-        t = ExecTransport(lambda cmd, timeout: (2, "", "boom"))
+        t = ExecTransport(lambda cmd, stdin, timeout: (2, "", "boom"))
         r = t.deliver(Framing(protocol="exec", command="x"))
         assert r.error_class == "protocol" and "boom" in r.error_detail and r.exit_code == 2
 
     def test_timeout(self):
-        t = ExecTransport(lambda cmd, timeout: (-1, "", "timeout"))
+        t = ExecTransport(lambda cmd, stdin, timeout: (-1, "", "timeout"))
         assert t.deliver(Framing(protocol="exec", command="x")).error_class == "timeout"
 
     def test_unparseable_stdout(self):
-        t = ExecTransport(lambda cmd, timeout: (0, "garbage", ""))
+        t = ExecTransport(lambda cmd, stdin, timeout: (0, "garbage", ""))
         assert t.deliver(Framing(protocol="exec", command="x")).error_class == "protocol"
 
 

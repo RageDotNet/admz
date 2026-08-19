@@ -1,22 +1,42 @@
-"""Trusted internal A2A requestee that fulfills DMZ schema operations."""
+"""Trusted internal CRM provider for the LLM DMZ v2.
+
+Two modes:
+
+- ``python crm_provider.py register`` — publish the CRM actions
+  (``crm_search``, ``crm_add_note``) as schema packages to the DMZ's
+  agent-facing REST API (``POST /v2/actions``), using the schemas in
+  ``./schemas``.
+
+- ``python crm_provider.py run`` — implement the **exec delivery protocol**
+  (dispatch-v2.md): read the unstructured framing on stdin, extract the
+  request JSON after the ``REQUEST JSON FOLLOWS:`` marker, fulfill it, and
+  write the response payload as JSON to stdout. Failures go to stderr with a
+  non-zero exit code so the DMZ records them as failed attempts.
+"""
 
 from __future__ import annotations
 
 import json
 import os
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
-from python_a2a import A2AServer, Task, TaskState, TaskStatus, run_server
-
 from crmtool import add_contact_note, search_contacts
-from dmz.a2a_protocol import extract_llmdmz_envelope
-from llm_logging import get_logger
 
-load_dotenv()
+# Provider bearer key (agent must carry the provider capability). Override
+# with DMZ_PROVIDER_KEY when the key is reissued.
+PROVIDER_KEY = os.getenv("DMZ_PROVIDER_KEY", "dmz_dtLE62fWaxmMBZ2QzBabmPJwlWf9jVglTMAYe1_RjLY")
+DMZ_BASE_URL = os.getenv("DMZ_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
-logger = get_logger("a2a_requestee")
+SCHEMA_DIR = Path(__file__).resolve().parent / "schemas"
 
+REQUEST_MARKER = "REQUEST JSON FOLLOWS:"
+
+
+# --- fulfillment handlers ------------------------------------------------------
 
 def fulfill_crm_search(payload: dict[str, Any]) -> dict[str, Any]:
     seen: set[str] = set()
@@ -49,101 +69,116 @@ HANDLERS = {
 }
 
 
-class RequesteeServer(A2AServer):
-    def handle_task(self, task: Task) -> Task:
-        envelope = extract_llmdmz_envelope(task)
-        if envelope is None or envelope.get("type") != "request":
-            task.status = TaskStatus(
-                state=TaskState.INPUT_REQUIRED,
-                message={"error": "Expected llmdmz request envelope in task metadata or message"},
-            )
-            task.artifacts = [
-                {
-                    "parts": [
-                        {
-                            "type": "text",
-                            "text": (
-                                "Send a DMZ request envelope with schema_id, request_id, "
-                                "and request_payload."
-                            ),
-                        }
-                    ]
-                }
-            ]
-            return task
+# --- register mode ---------------------------------------------------------------
 
-        schema_id = envelope.get("schema_id")
-        request_id = envelope.get("request_id")
-        request_payload = envelope.get("request_payload")
-        response_schema = envelope.get("response_schema")
 
-        if not schema_id or not request_id or not isinstance(request_payload, dict):
-            return self._fail(task, "schema_id, request_id, and request_payload are required")
+def _load_schema(name: str) -> dict[str, Any]:
+    with (SCHEMA_DIR / f"{name}.json").open(encoding="utf-8") as fh:
+        return json.load(fh)  # type: ignore[no-any-return]
 
-        handler = HANDLERS.get(schema_id)
-        if handler is None:
-            return self._fail(task, f"Unsupported schema_id: {schema_id}")
 
-        logger.info(
-            "Requestee handling request_id=%s schema_id=%s payload=%s",
-            request_id,
-            schema_id,
-            json.dumps(request_payload),
+def _action_package(action_id: str, description: str, provider_instructions: str) -> dict[str, Any]:
+    return {
+        "id": action_id,
+        "description": description,
+        "request_schema": _load_schema(f"{action_id}_request"),
+        "response_schema": _load_schema(f"{action_id}_response"),
+        "provider_instructions": provider_instructions,
+    }
+
+
+ACTION_PACKAGES = [
+    _action_package(
+        "crm_search",
+        "Query CRM contacts by customer name and/or company name. Returns the "
+        "matching contact records, or an empty list if none matched.",
+        "The request JSON contains optional 'name' and/or 'company' fields. "
+        "Return {\"records\": [...]} with every matching contact; return an "
+        "empty list when nothing matches. Output ONLY the response JSON.",
+    ),
+    _action_package(
+        "crm_add_note",
+        "Append a note to an existing CRM contact record. Returns the updated "
+        "contact record.",
+        "The request JSON contains 'contact_id' and 'note'. Append the note "
+        "to that contact and return {\"record\": {...}} of the updated "
+        "contact. Output ONLY the response JSON.",
+    ),
+]
+
+
+def register() -> int:
+    """POST each schema package to /v2/actions with the provider key."""
+    failures = 0
+    for package in ACTION_PACKAGES:
+        req = urllib.request.Request(
+            f"{DMZ_BASE_URL}/v2/actions",
+            data=json.dumps(package).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {PROVIDER_KEY}",
+            },
+            method="POST",
         )
-
         try:
-            response_payload = handler(request_payload)
+            with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
+                body = json.loads(resp.read().decode("utf-8"))
+                print(f"[register] {package['id']}: {resp.status} {json.dumps(body)}")
+        except urllib.error.HTTPError as exc:
+            failures += 1
+            detail = exc.read().decode("utf-8", errors="replace")
+            print(f"[register] {package['id']}: HTTP {exc.code} {detail}", file=sys.stderr)
         except Exception as exc:  # noqa: BLE001
-            logger.exception("Requestee handler failed request_id=%s", request_id)
-            return self._fail(task, f"Handler error: {exc}")
+            failures += 1
+            print(f"[register] {package['id']}: {exc}", file=sys.stderr)
+# --- run mode (exec delivery protocol) -------------------------------------------
+# The framing carries no action id (one delivery config serves all of this
+# provider's actions), so the action is inferred from the request payload shape.
 
-        body = {
-            "llmdmz": {
-                "type": "response",
-                "request_id": request_id,
-                "schema_id": schema_id,
-                "response_payload": response_payload,
-            }
-        }
-        if response_schema:
-            body["llmdmz"]["response_schema"] = response_schema
 
-        task.artifacts = [
-            {
-                "parts": [
-                    {"type": "data", "data": body},
-                    {"type": "text", "text": json.dumps(response_payload, indent=2)},
-                ]
-            }
-        ]
-        task.metadata = body
-        task.status = TaskStatus(state=TaskState.COMPLETED)
-        logger.info(
-            "Requestee completed request_id=%s schema_id=%s",
-            request_id,
-            schema_id,
-        )
-        return task
+def _extract_request_payload(framing: str) -> dict[str, Any]:
+    if REQUEST_MARKER not in framing:
+        raise ValueError(f"framing is missing the {REQUEST_MARKER!r} marker")
+    payload = json.loads(framing.split(REQUEST_MARKER, 1)[1].strip())
+    if not isinstance(payload, dict):
+        raise ValueError("request payload is not a JSON object")
+    return payload
 
-    def _fail(self, task: Task, reason: str) -> Task:
-        task.status = TaskStatus(state=TaskState.FAILED, message={"error": reason})
-        task.artifacts = [{"parts": [{"type": "error", "message": reason}]}]
-        return task
+
+def _infer_action_id(payload: dict[str, Any]) -> str:
+    if "contact_id" in payload and "note" in payload:
+        return "crm_add_note"
+    if "name" in payload or "company" in payload:
+        return "crm_search"
+    raise ValueError(
+        f"cannot infer action from request payload (keys: {sorted(payload)}); "
+        "expected crm_search (name/company) or crm_add_note (contact_id/note)"
+    )
+
+
+def run() -> int:
+    framing = sys.stdin.read()
+    try:
+        payload = _extract_request_payload(framing)
+        action_id = _infer_action_id(payload)
+        response_payload = HANDLERS[action_id](payload)
+    except Exception as exc:  # noqa: BLE001 — any failure is a failed attempt
+        print(f"crm_provider: {exc}", file=sys.stderr)
+        return 1
+    sys.stdout.write(json.dumps(response_payload, ensure_ascii=False))
+    return 0
 
 
 def main() -> None:
-    host = os.getenv("A2A_REQUESTEE_HOST", "127.0.0.1")
-    port = int(os.getenv("A2A_REQUESTEE_PORT", "5001"))
-    url = os.getenv("A2A_REQUESTEE_URL", f"http://{host}:{port}")
-
-    agent = RequesteeServer(
-        url=url,
-        name="LLM DMZ Requestee",
-        description="Trusted internal A2A agent that fulfills schema-bound DMZ requests",
-        version="1.0.0",
-    )
-    run_server(agent, host=host, port=port)
+    mode = sys.argv[1] if len(sys.argv) > 1 else ""
+    if mode == "register":
+        sys.exit(register())
+    if mode == "run":
+        sys.exit(run())
+    print("usage: crm_provider.py [register|run]", file=sys.stderr)
+    sys.exit(2)
 
 
 if __name__ == "__main__":
     main()
+
