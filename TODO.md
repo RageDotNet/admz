@@ -39,23 +39,23 @@
 
 ## Phase 2 â€” Schema Registry & Action Lifecycle
 
-- [ ] T2.1 Implement submission field validation (required fields, types, instruction-field rules from `schemas-v2.md`)
-- [ ] T2.2 Implement JSON Schema draft 2020-12 compilation of request/response schemas (422 on failure) + dydantic model generation
-- [ ] T2.3 **Validate:** unit tests using the `crm_search` example plus compile-failure (422) and malformed-body (400) cases
+- [x] T2.1 Implement submission field validation (required fields, types, instruction-field rules from `schemas-v2.md`)
+- [x] T2.2 Implement JSON Schema draft 2020-12 compilation of request/response schemas (422 on failure) + dydantic model generation
+- [x] T2.3 **Validate:** unit tests using the `crm_search` example plus compile-failure (422) and malformed-body (400) cases
 - [ ] T2.4 Implement `POST /v2/actions` (create action + submitted version 1; `409 duplicate_action`; audit)
 - [ ] T2.5 Implement `GET /v2/actions/{id}` role-projected views (client vs owner)
 - [ ] T2.6 Implement `PUT /v2/actions/{id}` new version (monotonic numbering; `409 version_pending` while one submitted, #9; audit)
 - [ ] T2.7 Implement `DELETE` withdraw (soft, reversible, `withdrawn_by` recorded, #8/#12; audit) and `GET /v2/actions/{id}/versions`
 - [ ] T2.8 **Validate:** API tests â€” full lifecycle (pending accepts PUT after rejection #7, withdrawn reversible, supersede flow, ownership 403s, hidden-action 404s)
 - [ ] T2.9 Implement error-envelope middleware (all `rest-api-v2.md` codes incl. `arbiter_unavailable`)
-- [ ] T2.10 Implement `GET /v2/actions` directory: `page`/`per_page` (clamp), `q` substring, `enrollment` filter, alphabetical order (#18)
-- [ ] T2.11 Implement client-projection base + provider overlay on owned rows for dual-role agents (#19, #20)
-- [ ] T2.12 **Validate:** API tests for filters/pagination/projections per #18â€“20
-- [ ] T2.13 Implement `POST`/`GET /v2/actions/{id}/enroll` (`409 already_enrolled`; `404` when no active version, #10; audit)
-- [ ] T2.14 **Validate:** enrollment tests incl. non-active 404 and enrollments-survive-withdrawal behavior
-- [ ] T2.15 Draft `skills/client.md` and `skills/provider.md` per clarification #21 acceptance criteria
-- [ ] T2.16 Implement `GET /v2/skill` serving texts (merged for dual-role agents)
-- [ ] T2.17 **Validate + owner gate:** tests assert non-empty + core endpoints mentioned; **project-owner review of skill prose required before merge**
+- [x] T2.10 Implement `GET /v2/actions` directory: `page`/`per_page` (clamp), `q` substring, `enrollment` filter, alphabetical order (#18)
+- [x] T2.11 Implement client-projection base + provider overlay on owned rows for dual-role agents (#19, #20)
+- [x] T2.12 **Validate:** API tests for filters/pagination/projections per #18â€“20
+- [x] T2.13 Implement `POST`/`GET /v2/actions/{id}/enroll` (`409 already_enrolled`; `404` when no active version, #10; audit)
+- [x] T2.14 **Validate:** enrollment tests incl. non-active 404 and enrollments-survive-withdrawal behavior
+- [x] T2.15 Draft `skills/client.md` and `skills/provider.md` per clarification #21 acceptance criteria
+- [x] T2.16 Implement `GET /v2/skill` serving texts (merged for dual-role agents)
+- [x] T2.17 **Validate + owner gate:** tests assert non-empty + core endpoints mentioned; **project-owner review of skill prose required before merge**
 
 ## Phase 3 â€” Arbitration & Dispatch
 
