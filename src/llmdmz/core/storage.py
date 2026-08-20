@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import func, or_, select
 
-from llmdmz.core.keys import generate_agent_key, hash_key
+from llmdmz.core.keys import DEFAULT_PAYLOAD_CHARS, generate_agent_key, hash_key
 from llmdmz.core.models import (
     Action,
     ActionVersion,
@@ -30,10 +30,15 @@ if TYPE_CHECKING:
 
 
 def register_agent(
-    session: Session, *, name: str, is_client: bool, is_provider: bool
+    session: Session,
+    *,
+    name: str,
+    is_client: bool,
+    is_provider: bool,
+    key_payload_chars: int = DEFAULT_PAYLOAD_CHARS,
 ) -> tuple[Agent, str]:
     """Register an agent; returns (row, plaintext key â€” reveal-once, #15)."""
-    key = generate_agent_key()
+    key = generate_agent_key(key_payload_chars)
     agent = Agent(
         name=name,
         api_key_hash=hash_key(key),
@@ -45,9 +50,9 @@ def register_agent(
     return agent, key
 
 
-def issue_key(session: Session, agent: Agent) -> str:
+def issue_key(session: Session, agent: Agent, *, key_payload_chars: int = DEFAULT_PAYLOAD_CHARS) -> str:
     """Re-issue a bearer key (reveal-once)."""
-    key = generate_agent_key()
+    key = generate_agent_key(key_payload_chars)
     agent.api_key_hash = hash_key(key)
     session.flush()
     return key

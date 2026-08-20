@@ -22,6 +22,7 @@ def make_config(**overrides) -> Config:
         arbiter_temperature=0.0,
         dispatch_retries=2,
         dispatch_timeout=180,
+        key_payload_chars=14,
         admins=(
             AdminAccount(
                 username="admin",

@@ -460,39 +460,39 @@ class TestEnrollment:
 
 
 class TestSkill:
-    def test_client_skill(self, app_fixture, client_http):
-        _, _, client_key = app_fixture
-        resp = client_http.get("/v2/skill", headers=_hdr(client_key))
+    def test_unauthenticated_returns_both(self, client_http):
+        resp = client_http.get("/v2/skill")
         assert resp.status_code == 200
-        body = resp.get_json()
-        assert body["capabilities"] == {"is_client": True, "is_provider": False}
-        assert "/v2/actions" in body["skill"]
+        assert resp.content_type.startswith("text/markdown")
+        body = resp.get_data(as_text=True)
+        assert "Client Skill" in body and "Provider Skill" in body
+
+    def test_client_skill(self, client_http):
+        resp = client_http.get("/v2/skill/client")
+        assert resp.status_code == 200
+        assert resp.content_type.startswith("text/markdown")
+        body = resp.get_data(as_text=True)
+        assert body.startswith("# LLM DMZ")
+        assert "/v2/actions" in body
         for endpoint in ("/v2/actions", "/enroll", "/invoke"):
-            assert endpoint in body["skill"]
-        assert "arbiter_rejected" in body["skill"]
-        assert "provider_failed" in body["skill"]
+            assert endpoint in body
+        assert "arbiter_rejected" in body
+        assert "provider_failed" in body
+        assert "Provider Skill" not in body
 
-    def test_provider_skill(self, app_fixture, client_http):
-        _, provider_key, _ = app_fixture
-        body = client_http.get("/v2/skill", headers=_hdr(provider_key)).get_json()
-        assert body["capabilities"]["is_provider"] is True
-        assert "PUT /v2/actions/{id}" in body["skill"]
-        assert "DELETE /v2/actions/{id}" in body["skill"]
-        assert "completions" in body["skill"]
+    def test_provider_skill(self, client_http):
+        resp = client_http.get("/v2/skill/provider")
+        body = resp.get_data(as_text=True)
+        assert resp.content_type.startswith("text/markdown")
+        assert "PUT /v2/actions/{id}" in body
+        assert "DELETE /v2/actions/{id}" in body
+        assert "completions" in body
+        assert "Client Skill" not in body
 
-    def test_dual_role_merged(self, app_fixture, client_http):
-        app, provider_key, _ = app_fixture
-        with app.app_context():
-            s = app.extensions["DMZ_SESSION_FACTORY"]()
-            from llmdmz.core.models import Agent
-
-            row = s.scalars(select(Agent).where(Agent.name == "provider")).first()
-            row.is_client = True
-            s.commit()
-            s.close()
-        body = client_http.get("/v2/skill", headers=_hdr(provider_key)).get_json()
-        assert body["capabilities"] == {"is_client": True, "is_provider": True}
-        assert "Client Skill" in body["skill"] and "Provider Skill" in body["skill"]
+    def test_unknown_role_404(self, client_http):
+        resp = client_http.get("/v2/skill/admin")
+        assert resp.status_code == 404
+        assert resp.get_json()["error"]["code"] == "not_found"
 
 
 class TestErrorEnvelope:
@@ -509,6 +509,30 @@ class TestErrorEnvelope:
         assert resp.status_code == 405
         assert resp.get_json()["error"]["code"] == "not_found"
 
+    def test_transposed_key_checksum_invalid(self, app_fixture, client_http):
+        _, _, client_key = app_fixture
+        from llmdmz.core.keys import AGENT_PREFIX, PAYLOAD_CHARS
+
+        body = client_key[len(AGENT_PREFIX) :]
+        payload, check = body[:PAYLOAD_CHARS], body[PAYLOAD_CHARS:]
+        i = 0
+        while i + 1 < len(payload) and payload[i] == payload[i + 1]:
+            i += 1
+        transposed = payload[:i] + payload[i + 1] + payload[i] + payload[i + 2 :]
+        bad = AGENT_PREFIX + transposed + check
+        resp = client_http.get("/v2/actions", headers=_hdr(bad))
+        assert resp.status_code == 401
+        err = resp.get_json()["error"]
+        assert err["code"] == "key_checksum_invalid"
+        assert "keystore" in err["message"]
+
+    def test_unknown_but_well_formed_key_is_unauthorized(self, client_http):
+        from llmdmz.core.keys import generate_agent_key
+
+        resp = client_http.get("/v2/actions", headers=_hdr(generate_agent_key()))
+        assert resp.status_code == 401
+        assert resp.get_json()["error"]["code"] == "unauthorized"
+
     def test_all_documented_codes_covered(self):
         # rest-api-v2.md stable tokens (incl. arbiter_unavailable, #1).
         from llmdmz.api_v2 import ApiError
@@ -517,7 +541,7 @@ class TestErrorEnvelope:
             "unauthorized", "forbidden", "not_found", "malformed_json",
             "duplicate_action", "request_schema_invalid", "arbiter_rejected",
             "arbiter_unavailable", "not_enrolled", "provider_failed",
-            "already_enrolled", "version_pending",
+            "already_enrolled", "version_pending", "key_checksum_invalid",
         }
         for code in codes:  # every token is constructible via the envelope
             ApiError(code, "msg", 400)

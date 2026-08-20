@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from flask import abort, render_template, request
+from flask import abort, current_app, render_template, request
 
 from llmdmz.core import storage
 from llmdmz.core.jsondiff import diff_payloads
@@ -430,8 +430,13 @@ def register_agent():
     if not (is_client or is_provider):
         abort(400)
     with _db() as session:
+        payload_chars = current_app.config["DMZ"].key_payload_chars
         agent, key = storage.register_agent(
-            session, name=name, is_client=is_client, is_provider=is_provider
+            session,
+            name=name,
+            is_client=is_client,
+            is_provider=is_provider,
+            key_payload_chars=payload_chars,
         )
         if is_provider:
             agent.delivery_config = _compose_delivery(data)
@@ -503,7 +508,7 @@ def agent_new_key(agent_id: str):
         agent = storage.get_agent(session, agent_id)
         if agent is None:
             abort(404)
-        key = storage.issue_key(session, agent)
+        key = storage.issue_key(session, agent, key_payload_chars=current_app.config["DMZ"].key_payload_chars)
         _audit(session, "agent.key_issued", "agent", agent_id)
     return _render_partial(
         "partials/key_reveal.html", key=key, agent_id=agent_id,

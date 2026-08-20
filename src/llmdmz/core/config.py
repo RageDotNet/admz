@@ -42,6 +42,7 @@ _DEFAULTS: dict[str, Any] = {
     "arbiter_temperature": 0.0,
     "dispatch_retries": 2,  # dispatch-v2.md default
     "dispatch_timeout": 180,  # dispatch-v2.md default
+    "key_payload_chars": 14,  # dmz_ body entropy chars; last 2 of body are checksum
     # Optional prompt overrides (empty string = built-in default prompt).
     "arbiter_request_prompt": "",
     "arbiter_response_prompt": "",
@@ -62,6 +63,7 @@ _ENV_MAP = {
     "arbiter_temperature": "ARBITER_TEMPERATURE",
     "dispatch_retries": "DMZ_DISPATCH_RETRIES",
     "dispatch_timeout": "DMZ_DISPATCH_TIMEOUT",
+    "key_payload_chars": "DMZ_KEY_PAYLOAD_CHARS",
 }
 
 _INT_KEYS = {
@@ -70,6 +72,7 @@ _INT_KEYS = {
     "arbiter_max_tokens",
     "dispatch_retries",
     "dispatch_timeout",
+    "key_payload_chars",
 }
 _FLOAT_KEYS = {"arbiter_temperature"}
 _BOOL_KEYS = {"flask_debug"}
@@ -150,6 +153,7 @@ class Config:
     arbiter_temperature: float
     dispatch_retries: int
     dispatch_timeout: int
+    key_payload_chars: int
     arbiter_request_prompt: str = ""
     arbiter_response_prompt: str = ""
     arbiter_injection_focus: str = ""
@@ -251,6 +255,9 @@ def load_config(path: str | None = None) -> Config:
         raise ConfigError("dispatch_retries must be >= 0")
     if merged["dispatch_timeout"] <= 0 or merged["arbiter_timeout"] <= 0:
         raise ConfigError("timeouts must be positive")
+    kpc = merged["key_payload_chars"]
+    if kpc < 14 or kpc > 128:
+        raise ConfigError("key_payload_chars must be between 14 and 128")
     level = merged["log_level"]
     if not isinstance(level, str) or level.upper() not in VALID_LOG_LEVELS:
         raise ConfigError(f"log_level invalid: {level!r}")

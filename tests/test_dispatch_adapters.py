@@ -91,6 +91,19 @@ class TestPostTransport:
         assert calls[0][1]["Authorization"] == "Bearer prov-key"
         assert calls[0][3] == 42  # per-provider timeout override reaches the wire
 
+    def test_body_is_utf8_and_content_type_declares_charset(self):
+        calls = []
+
+        def poster(endpoint, headers, body, timeout):
+            calls.append((headers, body))
+            return 200, json.dumps({"contacts": []})
+
+        t = PostTransport(poster)
+        t.deliver(Framing(protocol="post", text="hello 🦞", endpoint="https://x"))
+        headers, body = calls[0]
+        assert body == "hello 🦞".encode()
+        assert "charset=utf-8" in headers["Content-Type"]
+
     def test_http_error_and_transport_error(self):
         t = PostTransport(lambda *a: (503, "down"))
         assert t.deliver(Framing(protocol="post", endpoint="x")).error_class == "protocol"
@@ -124,6 +137,24 @@ class TestExecTransport:
     def test_unparseable_stdout(self):
         t = ExecTransport(lambda cmd, stdin, timeout: (0, "garbage", ""))
         assert t.deliver(Framing(protocol="exec", command="x")).error_class == "protocol"
+
+    def test_default_runner_roundtrips_utf8_emoji(self):
+        """Windows text mode defaults to charmap/cp1252; 🦞 must not explode."""
+        import subprocess
+        import sys
+
+        from llmdmz.dispatch.adapters import _default_runner
+
+        script = (
+            "import sys;"
+            "sys.stdin.reconfigure(encoding='utf-8');"
+            "sys.stdout.reconfigure(encoding='utf-8');"
+            "sys.stdout.write(sys.stdin.read())"
+        )
+        cmd = subprocess.list2cmdline([sys.executable, "-c", script])
+        code, stdout, stderr = _default_runner(cmd, "hello 🦞", 15)
+        assert code == 0, stderr
+        assert stdout == "hello 🦞"
 
 
 class TestCompletionsTransport:

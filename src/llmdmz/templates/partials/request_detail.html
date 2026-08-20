@@ -16,10 +16,20 @@
         <td>{{ a.attempt_number }}</td><td>{{ a.framing.protocol }}</td>
         <td>{{ a.error_class or "—" }}</td><td class="small text-body-secondary">{{ a.error_detail or "" }}</td>
         <td>
-          {% if a.request_payload %}
+          {% if a.framing %}
           <details>
             <summary class="small">request</summary>
-            <pre class="small">{{ a.request_payload | tojson(indent=2) }}</pre>
+            {# Framing is what the provider actually received (instructions,
+               response schema, retry errors, then the request JSON). #}
+            {% if a.framing.protocol == "completions" %}
+            <div class="small text-body-secondary">model: {{ a.framing.model or "—" }}</div>
+            <div class="small text-body-secondary mt-2">system</div>
+            <pre class="small" style="max-height: 24rem; overflow: auto">{{ a.framing.system_prompt }}</pre>
+            <div class="small text-body-secondary">user</div>
+            <pre class="small" style="max-height: 12rem; overflow: auto">{{ a.framing.user_prompt }}</pre>
+            {% else %}
+            <pre class="small" style="max-height: 24rem; overflow: auto">{{ a.framing.text }}</pre>
+            {% endif %}
           </details>
           {% endif %}
           {% if a.response_payload %}

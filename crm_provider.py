@@ -324,7 +324,19 @@ def _infer_action_id(payload: dict[str, Any]) -> str:
     )
 
 
+def _utf8_stdio() -> None:
+    """Windows consoles default to cp1252; emoji in framing/JSON needs UTF-8."""
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding="utf-8")
+            except (OSError, ValueError):
+                pass
+
+
 def run() -> int:
+    _utf8_stdio()
     framing = sys.stdin.read()
     try:
         payload = _extract_request_payload(framing)
@@ -338,6 +350,7 @@ def run() -> int:
 
 
 def main() -> None:
+    _utf8_stdio()
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
     if mode == "register":
         sys.exit(register())

@@ -7,7 +7,7 @@ import re
 from sqlalchemy import select
 from tests.test_registry import CRM_SEARCH
 
-from llmdmz.core.models import ActionVersion, Agent, Enrollment
+from llmdmz.core.models import ActionVersion, Agent, Enrollment, Request
 
 ADMIN_TOKEN = "dmzadm_testtoken0000000000000000000000000"
 EXPECTED_ROUTES = {
@@ -198,7 +198,12 @@ class TestSSEFragments:  # T4.7
         _login(client_http)
         resp = client_http.get("/admin/partials/directory")
         assert resp.status_code == 200
-        assert "crm_search" in resp.get_data(as_text=True)
+        body = resp.get_data(as_text=True)
+        assert "crm_search" in body
+        # Pending action: no active version. Empty cells must be an em dash,
+        # not the mojibake that a mis-encoded '—' produces in the browser.
+        assert "â€" not in body
+        assert "&mdash;" in body
 
     def test_assets_served_no_network(self, client_http):
         for asset, min_size in (
@@ -437,3 +442,41 @@ class TestRouteTable:  # T4.21
     def test_pagination_caps_enforced(self, client_http):
         _login(client_http)
         assert client_http.get("/admin/partials/log?per_page=10000").status_code == 200
+
+
+class TestRequestLogFraming:
+    def test_attempt_request_shows_provider_framing(self, app_fixture, client_http):
+        """Dispatch-attempt 'request' is the framed input sent to the provider
+        (instructions, response schema, retry errors), not the client JSON."""
+        from tests.test_invoke_pipeline import (
+            GOOD_RESPONSE,
+            ApprovingArbiter,
+            ScriptedTransport,
+            _enrolled_action,
+            _invoke,
+            error_result,
+        )
+
+        key = _enrolled_action(app_fixture, client_http)
+        transport = ScriptedTransport(
+            [error_result("protocol", "unparseable"), GOOD_RESPONSE]
+        )
+        _invoke(client_http, key, arbiter=ApprovingArbiter(), transport=transport)
+
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            req = s.scalars(select(Request)).first()
+            assert req is not None
+            request_id = req.id
+            s.close()
+
+        _login(client_http)
+        resp = client_http.get(f"/admin/partials/request/{request_id}")
+        assert resp.status_code == 200
+        body = resp.get_data(as_text=True)
+        assert "REQUEST JSON FOLLOWS:" in body
+        assert "Return only matching contacts." in body
+        assert "CRM Search Response" in body
+        assert "ERRORS FROM YOUR PREVIOUS INVOCATION" in body
+        assert "unparseable" in body

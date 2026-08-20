@@ -32,14 +32,112 @@ def session():
 
 
 def test_key_generation_prefixes_and_hashes():
+    from llmdmz.core.keys import (
+        CHECKSUM_CHARS,
+        CHECKSUMMED_BODY_CHARS,
+        PAYLOAD_CHARS,
+        key_checksum_status,
+    )
+
     agent_key = generate_agent_key()
     admin_token = generate_admin_token()
     assert agent_key.startswith(AGENT_PREFIX)
-    assert len(agent_key) == len(AGENT_PREFIX) + 43  # token_urlsafe(32) → 43 chars
+    assert len(agent_key) == 20  # dmz_ + 16 (14 entropy + 2 checksum)
+    assert len(agent_key) == len(AGENT_PREFIX) + CHECKSUMMED_BODY_CHARS
+    assert len(agent_key) == len(AGENT_PREFIX) + PAYLOAD_CHARS + CHECKSUM_CHARS
     assert admin_token.startswith(ADMIN_PREFIX)
+    assert key_checksum_status(agent_key) == "ok"
+    assert key_checksum_status(admin_token) == "ok"
     assert hash_key(agent_key) != agent_key
     assert len(hash_key(agent_key)) == 64  # sha256 hex
     assert hash_key(agent_key) == hash_key(agent_key)
+
+
+def test_key_checksum_rejects_typos_and_accepts_legacy():
+    from llmdmz.core.keys import (
+        AGENT_PREFIX,
+        PAYLOAD_CHARS,
+        KeyChecksumError,
+        assert_key_checksum,
+        key_checksum_status,
+    )
+
+    key = generate_agent_key()
+    body = key[len(AGENT_PREFIX) :]
+    payload, check = body[:PAYLOAD_CHARS], body[PAYLOAD_CHARS:]
+    i = 0
+    while i + 1 < len(payload) and payload[i] == payload[i + 1]:
+        i += 1
+    transposed = payload[:i] + payload[i + 1] + payload[i] + payload[i + 2 :]
+    bad = AGENT_PREFIX + transposed + check
+    assert key_checksum_status(bad) == "invalid"
+    with pytest.raises(KeyChecksumError):
+        assert_key_checksum(bad)
+
+    truncated = key[:-1]
+    assert key_checksum_status(truncated) == "invalid"
+    from llmdmz.core.keys import LEGACY_UNCHECKED_BODY_CHARS
+
+    legacy = AGENT_PREFIX + "A" * LEGACY_UNCHECKED_BODY_CHARS
+    assert key_checksum_status(legacy) == "legacy"
+    assert_key_checksum(legacy)  # does not raise
+    assert key_checksum_status("garbage") == "other"
+    # Config-file admin tokens are free-form length; don't checksum-reject them.
+    from llmdmz.core.keys import ADMIN_PREFIX
+
+    assert key_checksum_status(ADMIN_PREFIX + "testtoken0000000000000000000000000") == "legacy"
+
+
+def test_intermediate_43_plus_6_checksum_still_accepted():
+    from llmdmz.core.keys import (
+        AGENT_PREFIX,
+        KeyChecksumError,
+        _checksum,
+        assert_key_checksum,
+        key_checksum_status,
+    )
+
+    payload = "C" * 43
+    key = AGENT_PREFIX + payload + _checksum(payload, 6)
+    assert key_checksum_status(key) == "ok"
+    assert_key_checksum(key)
+    assert key_checksum_status(AGENT_PREFIX + payload + "XXXXXX") == "invalid"
+    with pytest.raises(KeyChecksumError):
+        assert_key_checksum(AGENT_PREFIX + payload + "XXXXXX")
+
+
+def test_configurable_payload_length():
+    from llmdmz.core.keys import (
+        AGENT_PREFIX,
+        CHECKSUM_CHARS,
+        generate_agent_key,
+        key_checksum_status,
+    )
+
+    for payload_chars in (14, 32, 64):
+        key = generate_agent_key(payload_chars)
+        body = key[len(AGENT_PREFIX) :]
+        assert len(body) == payload_chars + CHECKSUM_CHARS
+        assert key_checksum_status(key) == "ok"
+
+
+def test_legacy_key_without_checksum_still_resolves(session, config):
+    from llmdmz.core.keys import AGENT_PREFIX, LEGACY_UNCHECKED_BODY_CHARS
+    from llmdmz.core.models import Agent
+
+    legacy = AGENT_PREFIX + "B" * LEGACY_UNCHECKED_BODY_CHARS
+    session.add(
+        Agent(
+            name="oldtimer",
+            api_key_hash=hash_key(legacy),
+            is_client=True,
+            is_provider=False,
+        )
+    )
+    session.flush()
+    ident = resolve_bearer(session, config, legacy)
+    assert ident is not None and ident.kind == "agent"
+    assert ident.agent is not None and ident.agent.name == "oldtimer"
 
 
 def test_register_agent_reveal_once(session):

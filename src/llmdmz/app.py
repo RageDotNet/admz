@@ -30,6 +30,12 @@ def create_app(config: Config | None = None) -> Flask:
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
     app.config["SESSION_COOKIE_SECURE"] = config.session_cookie_secure
     app.config["PERMANENT_SESSION_LIFETIME"] = 12 * 3600  # 12h rolling (#23)
+    # rest-api-v2.md: JSON is UTF-8. Keep non-ASCII (emoji, etc.) unescaped so
+    # responses match the request encoding instead of \uXXXX sequences.
+    from flask.json.provider import DefaultJSONProvider
+
+    if isinstance(app.json, DefaultJSONProvider):
+        app.json.ensure_ascii = False
 
     # Blueprints are registered in later phases (api v2, admin console).
     from llmdmz.core.db import init_db

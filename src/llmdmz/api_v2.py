@@ -53,6 +53,12 @@ def authenticate() -> Identity:
     token = bearer_token()
     if token is None:
         raise ApiError("unauthorized", "Missing bearer key.", 401)
+    from llmdmz.core.keys import CHECKSUM_MESSAGE, KeyChecksumError, assert_key_checksum
+
+    try:
+        assert_key_checksum(token)
+    except KeyChecksumError:
+        raise ApiError("key_checksum_invalid", CHECKSUM_MESSAGE, 401) from None
     with session_scope(current_app) as session:
         identity = resolve_bearer(session, current_app.config["DMZ"], token)
     if identity is None:
@@ -491,7 +497,7 @@ def enrollment_state(action_id: str):
         )
 
 
-# --- T2.16: GET /v2/skill (role-merged skill documents, #21) ---------------------
+# --- T2.16: GET /v2/skill (public skill documents, #21) --------------------------
 
 _SKILLS_DIR = pathlib.Path(__file__).resolve().parent.parent.parent / "skills"
 
@@ -501,23 +507,24 @@ def _load_skill(name: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _skill_markdown(*names: str) -> Response:
+    body = "\n\n---\n\n".join(_load_skill(name) for name in names)
+    return Response(body, content_type="text/markdown; charset=utf-8")
+
+
 @bp.get("/skill")
 def skill():
-    agent = authenticate_agent()
-    documents = []
-    if agent.is_client:
-        documents.append(_load_skill("client.md"))
-    if agent.is_provider:
-        documents.append(_load_skill("provider.md"))
-    if not documents:
-        raise ApiError("forbidden", "No skill applies to this agent.", 403)
-    return jsonify(
-        {
-            "base_url": "",
-            "capabilities": {"is_client": agent.is_client, "is_provider": agent.is_provider},
-            "skill": "\n\n---\n\n".join(documents),
-        }
-    )
+    """Both skill documents as markdown. No auth."""
+    return _skill_markdown("client.md", "provider.md")
+
+
+@bp.get("/skill/<role>")
+def skill_for_role(role: str):
+    if role == "client":
+        return _skill_markdown("client.md")
+    if role == "provider":
+        return _skill_markdown("provider.md")
+    raise ApiError("not_found", "Unknown skill.", 404)
 
 
 # --- T3.11+: POST /v2/actions/<id>/invoke (synchronous dispatch pipeline) ----
@@ -557,11 +564,15 @@ def invoke_action(action_id: str):
         if enrollment is None or enrollment.state != "enrolled":
             raise ApiError("not_enrolled", "You are not enrolled in this action.", 403)
 
+        # Delivery is endpoint-per-provider (dispatch-v2.md), never the caller's.
+        provider = storage.get_agent(session, action.owner_agent_id)
+        delivery = (provider.delivery_config if provider is not None else None) or {}
+
         # DI seam: tests override these app extensions with fakes (#31).
         arbiter = current_app.extensions.get("DMZ_ARBITER") or LiteLLMArbiterClient(config)
         transport = current_app.extensions.get("DMZ_TRANSPORT")
         if transport is None:
-            transport = _production_transport(agent.delivery_config or {})
+            transport = _production_transport(delivery)
 
         outcome = run_invoke(
             session,
@@ -569,6 +580,7 @@ def invoke_action(action_id: str):
             action=action,
             active=action.active_version,
             agent=agent,
+            delivery=delivery,
             request_payload=body,
             arbiter=arbiter,
             transport=transport,

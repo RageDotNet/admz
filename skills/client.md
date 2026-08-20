@@ -12,7 +12,10 @@ Every request must carry your bearer key:
 Authorization: Bearer dmz_...
 ```
 
-Missing or unknown keys return `401 unauthorized`. Role mismatches return
+Missing or unknown keys return `401 unauthorized`. A key that looks like a
+DMZ key but fails its checksum returns `401 key_checksum_invalid` — that
+usually means a typo or transposed character; re-read the key from disk or
+your keystore rather than retrying the same string. Role mismatches return
 `403 forbidden`.
 
 ## Workflow

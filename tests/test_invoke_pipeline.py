@@ -162,6 +162,47 @@ class TestInvokeHappyPath:
         assert "REQUEST JSON FOLLOWS:" in text
         assert json.dumps({"name": "Ada"}) in text
 
+    def test_invoke_preserves_utf8_emoji_in_framing(self, app_fixture, client_http):
+        key = _enrolled_action(app_fixture, client_http)
+        transport = ScriptedTransport([GOOD_RESPONSE])
+        resp = _invoke(
+            client_http,
+            key,
+            payload={"name": "🦞"},
+            arbiter=ApprovingArbiter(),
+            transport=transport,
+        )
+        assert resp.status_code == 200
+        assert "🦞" in transport.framings[0].text
+        assert "\\ud83e\\udd9e" not in transport.framings[0].text
+
+    def test_dispatch_uses_provider_delivery_not_caller(self, app_fixture, client_http):
+        """A dual-role client with no (or unrelated) delivery config must still
+        dispatch via the action owner's endpoint. Regression: invoke used the
+        caller's delivery_config, so a client like 'red' POSTed to ''."""
+        key = _enrolled_action(app_fixture, client_http)
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            from llmdmz.core.models import Agent
+
+            caller = s.scalars(select(Agent).where(Agent.name == "client")).first()
+            caller.is_provider = True
+            caller.delivery_config = {
+                "protocol": "exec",
+                "command": "should-not-run",
+                "retries": 0,
+            }
+            s.commit()
+            s.close()
+        transport = ScriptedTransport([GOOD_RESPONSE])
+        resp = _invoke(client_http, key, arbiter=ApprovingArbiter(), transport=transport)
+        assert resp.status_code == 200
+        framing = transport.framings[0]
+        assert framing.protocol == "post"
+        assert framing.endpoint == "https://x"
+        assert framing.command == ""
+
 
 class TestInvokeRejections:
     def test_in_flight_states_visible_during_dispatch(self, app_fixture, client_http):

@@ -103,6 +103,26 @@ def admin_required(
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(fn)
         def wrapper(*args: Any, **kwargs: Any):
+            token = bearer_token()
+            if token is not None:
+                from llmdmz.core.keys import CHECKSUM_MESSAGE, KeyChecksumError, assert_key_checksum
+
+                try:
+                    assert_key_checksum(token)
+                except KeyChecksumError:
+                    if page:
+                        return redirect(url_for("admin.login"))
+                    return (
+                        jsonify(
+                            {
+                                "error": {
+                                    "code": "key_checksum_invalid",
+                                    "message": CHECKSUM_MESSAGE,
+                                }
+                            }
+                        ),
+                        401,
+                    )
             admin = current_admin()
             if admin is None:
                 if page:
@@ -156,7 +176,7 @@ def sse_merge(patches: list[tuple[str, str]], remove_signals: list[str] | None =
         SSE.patch_elements(html, selector=selector, mode=ElementPatchMode.INNER)
         for selector, html in patches
     )
-    response = Response(body, mimetype="text/event-stream")
+    response = Response(body, content_type="text/event-stream; charset=utf-8")
     response.headers["Cache-Control"] = "no-cache"
     return response
 

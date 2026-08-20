@@ -40,11 +40,11 @@
         <td>{{ v.version_number }}</td>
         <td id="version-{{ v.id }}-state"><span class="badge text-bg-{{ state_tag(v.state) }}">{{ v.state }}</span></td>
         <td class="small text-body-secondary">{{ v.submitted_at }}</td>
-        <td class="small text-body-secondary">{{ v.decided_by or 'â€”' }}</td>
+        <td class="small text-body-secondary">{% if v.decided_by %}{{ v.decided_by }}{% else %}&mdash;{% endif %}</td>
         <td class="small text-body-secondary">{{ v.decision_notes or '' }}</td>
         <td class="small text-body-secondary">
           {% set d = diffs.get(v.version_number) or {} %}
-          {% if not d %}<span class="small text-body-secondary">â€”</span>{% endif %}
+          {% if not d %}<span class="small text-body-secondary">&mdash;</span>{% endif %}
           {% for field, entries in d.items() %}
             <div><strong>{{ field }}</strong>:
             {% for e in entries %}

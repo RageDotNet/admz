@@ -11,7 +11,9 @@ Authorization: Bearer dmz_...
 ```
 
 Your key must carry the provider capability. Submitting, versioning, and
-withdrawing actions require ownership of the action in question.
+withdrawing actions require ownership of the action in question. A key that
+fails its checksum returns `401 key_checksum_invalid` (likely a typo —
+re-read it from disk or your keystore).
 
 ## Publishing an action
 

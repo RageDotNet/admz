@@ -24,6 +24,7 @@ def _clean_env(monkeypatch):
         "DMZ_CONFIG", "DMZ_DATABASE_URL", "FLASK_SECRET_KEY", "DMZ_APP_PORT",
         "ARBITER_MODEL", "OPENROUTER_API_KEY", "ARBITER_TIMEOUT",
         "DMZ_DISPATCH_RETRIES", "DMZ_DISPATCH_TIMEOUT", "LOG_LEVEL",
+        "DMZ_KEY_PAYLOAD_CHARS",
     ):
         monkeypatch.delenv(var, raising=False)
 
@@ -114,4 +115,25 @@ def test_unknown_key_rejected(tmp_path, monkeypatch):
     path = _write(tmp_path, GOOD_ADMIN + "bogus_key: 1\n")
     monkeypatch.setenv("DMZ_CONFIG", path)
     with pytest.raises(ConfigError, match="unknown config key"):
+        load_config()
+
+
+def test_key_payload_chars_from_yaml_and_env(tmp_path, monkeypatch):
+    path = _write(tmp_path, GOOD_ADMIN + "key_payload_chars: 32\n")
+    monkeypatch.setenv("DMZ_CONFIG", path)
+    cfg = load_config()
+    assert cfg.key_payload_chars == 32
+    monkeypatch.setenv("DMZ_KEY_PAYLOAD_CHARS", "48")
+    cfg = load_config()
+    assert cfg.key_payload_chars == 48
+
+
+def test_key_payload_chars_bounds(tmp_path, monkeypatch):
+    path = _write(tmp_path, GOOD_ADMIN + "key_payload_chars: 13\n")
+    monkeypatch.setenv("DMZ_CONFIG", path)
+    with pytest.raises(ConfigError, match="key_payload_chars"):
+        load_config()
+    path = _write(tmp_path, GOOD_ADMIN + "key_payload_chars: 129\n")
+    monkeypatch.setenv("DMZ_CONFIG", path)
+    with pytest.raises(ConfigError, match="key_payload_chars"):
         load_config()

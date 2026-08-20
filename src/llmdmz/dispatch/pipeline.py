@@ -132,6 +132,7 @@ def run_invoke(
     action: Action,
     active: ActionVersion,
     agent: Agent,
+    delivery: dict[str, Any],
     request_payload: Any,
     arbiter: ArbiterClient,
     transport: ProviderTransport,
@@ -207,7 +208,6 @@ def run_invoke(
     _log_step("arbiter approved request", request_row.id)
     request_row.request_verdict = verdict_dict
 
-    delivery = agent.delivery_config or {}
     retries = int(delivery.get("retries", config.dispatch_retries))
     timeout = int(delivery.get("timeout", config.dispatch_timeout))
     protocol = delivery.get("protocol", "post")
@@ -246,7 +246,7 @@ def run_invoke(
             attempt_row=attempt_row,
             framing=framing,
             response_schema=response_schema,
-            response_arbiter_instructions=response_arbiter_instructions,
+            response_arbiter_instructions=response_arbiter_instructions,
             response_ctx=response_ctx,
         )
         if previous_error is None:

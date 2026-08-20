@@ -56,6 +56,8 @@ def _default_runner(command: str, stdin_text: str, timeout: int) -> tuple[int, s
             shell=True,  # noqa: S602 — configured command line by design
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             input=stdin_text,  # framing on stdin (dispatch-v2.md exec)
             timeout=timeout,
         )
@@ -185,7 +187,7 @@ class PostTransport:
         self._poster = poster
 
     def deliver(self, framing: Framing) -> ProviderResult:
-        headers = {"Content-Type": "text/plain"}
+        headers = {"Content-Type": "text/plain; charset=utf-8"}
         headers.update(framing.headers or {})
         try:
             status, text = self._poster(

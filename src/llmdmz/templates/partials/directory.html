@@ -20,8 +20,8 @@
 
         <td>{{ row.owner.name if row.owner }}</td>
         <td id="action-{{ row.action.id }}-state"><span class="badge text-bg-{{ state_tag(row.action.state) }}">{{ row.action.state }}</span></td>
-        <td>{{ row.action.active_version.version_number if row.action.active_version else 'â€”' }}</td>
-        <td>{{ row.pending_version.version_number if row.pending_version else 'â€”' }}</td>
+        <td>{% if row.action.active_version %}{{ row.action.active_version.version_number }}{% else %}&mdash;{% endif %}</td>
+        <td>{% if row.pending_version %}{{ row.pending_version.version_number }}{% else %}&mdash;{% endif %}</td>
         <td>{{ row.enrolled_count }}</td>
       </tr>
     {% else %}
@@ -30,7 +30,7 @@
     </tbody>
   </table>
   <div class="d-flex flex-wrap gap-2 align-items-center my-3">
-    <span class="small text-body-secondary">{{ total }} total â€” page {{ page }} ({{ per_page }}/page)</span>
+    <span class="small text-body-secondary">{{ total }} total &mdash; page {{ page }} ({{ per_page }}/page)</span>
     {% if page > 1 %}<a class="btn btn-sm btn-outline-secondary btn btn-sm btn-outline-secondary" href="#" data-on:click="@get('/admin/partials/directory?page={{ page - 1 }}')">Prev</a>{% endif %}
     {% if page * per_page < total %}<a class="btn btn-sm btn-outline-secondary btn btn-sm btn-outline-secondary" href="#" data-on:click="@get('/admin/partials/directory?page={{ page + 1 }}')">Next</a>{% endif %}
   </div>
