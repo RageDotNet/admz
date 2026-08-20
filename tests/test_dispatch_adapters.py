@@ -158,26 +158,45 @@ class TestExecTransport:
 
 
 class TestCompletionsTransport:
-    def test_framing_exact_match(self):
+    def test_posts_openai_body_and_extracts_content(self):
         calls = []
 
-        def completer(model, system, user, timeout, max_tokens, temperature):
-            calls.append((model, system, user, timeout, max_tokens, temperature))
-            return json.dumps({"contacts": []})
+        def poster(endpoint, headers, body, timeout):
+            calls.append((endpoint, headers, json.loads(body.decode("utf-8")), timeout))
+            return 200, json.dumps(
+                {
+                    "choices": [
+                        {"message": {"role": "assistant", "content": json.dumps({"contacts": []})}}
+                    ]
+                }
+            )
 
-        t = CompletionsTransport(completer)
+        t = CompletionsTransport(poster)
         framing = Framing(
             protocol="completions",
             system_prompt="SYS",
             user_prompt=json.dumps(REQUEST),
             model="prov-model",
+            endpoint="http://127.0.0.1:8090/v1/chat/completions",
+            headers={"Authorization": "Bearer x"},
             timeout=77,
         )
         assert t.deliver(framing).payload == {"contacts": []}
-        assert calls[0] == ("prov-model", "SYS", json.dumps(REQUEST), 77, 4096, 0.0)
+        endpoint, headers, payload, timeout = calls[0]
+        assert endpoint.endswith("/v1/chat/completions")
+        assert headers["Authorization"] == "Bearer x"
+        assert headers["Content-Type"] == "application/json"
+        assert payload["model"] == "prov-model"
+        assert payload["messages"][0] == {"role": "system", "content": "SYS"}
+        assert payload["messages"][1]["role"] == "user"
+        assert timeout == 77
 
     def test_unparseable_reply(self):
-        t = CompletionsTransport(lambda *a: "chatty reply, no json")
+        t = CompletionsTransport(lambda *a: (200, "chatty reply, no json"))
+        assert t.deliver(Framing(protocol="completions")).error_class == "protocol"
+
+    def test_non_200_is_protocol(self):
+        t = CompletionsTransport(lambda *a: (500, '{"error":"nope"}'))
         assert t.deliver(Framing(protocol="completions")).error_class == "protocol"
 
 

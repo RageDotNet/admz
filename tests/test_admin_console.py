@@ -410,7 +410,9 @@ class TestRevealOnce:  # T4.18
             headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
             data={
                 "name": "hook-provider", "is_provider": "on",
-                "protocol": "completions", "model": "openai/gpt-4o-mini",
+                "protocol": "completions",
+                "model": "crm-provider",
+                "endpoint": "http://127.0.0.1:8090/v1/chat/completions",
             },
         )
         assert resp.status_code == 200
@@ -418,7 +420,9 @@ class TestRevealOnce:  # T4.18
             s = app.extensions["DMZ_SESSION_FACTORY"]()
             agent = s.scalars(select(Agent).where(Agent.name == "hook-provider")).first()
             assert agent.delivery_config == {
-                "protocol": "completions", "model": "openai/gpt-4o-mini"
+                "protocol": "completions",
+                "model": "crm-provider",
+                "endpoint": "http://127.0.0.1:8090/v1/chat/completions",
             }
             s.close()
 
@@ -480,3 +484,5 @@ class TestRequestLogFraming:
         assert "CRM Search Response" in body
         assert "ERRORS FROM YOUR PREVIOUS INVOCATION" in body
         assert "unparseable" in body
+        assert "post https://x" in body
+        assert "client client" in body.replace("\n", " ")

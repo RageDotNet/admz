@@ -375,7 +375,7 @@ def _compose_delivery(data: dict[str, str]) -> dict[str, Any]:
     if protocol not in _DELIVERY_PROTOCOLS:
         abort(400)
     cfg: dict[str, Any] = {"protocol": protocol}
-    if protocol == "post":
+    if protocol in ("post", "completions"):
         endpoint = (data.get("endpoint") or "").strip()
         headers: dict[str, str] = {}
         for i in range(_HEADER_ROWS):
@@ -387,14 +387,14 @@ def _compose_delivery(data: dict[str, str]) -> dict[str, Any]:
             cfg["endpoint"] = endpoint
         if headers:
             cfg["headers"] = headers
+        if protocol == "completions":
+            model = (data.get("model") or "").strip()
+            if model:
+                cfg["model"] = model
     elif protocol == "exec":
         command = (data.get("command") or "").strip()
         if command:
             cfg["command"] = command
-    else:  # completions
-        model = (data.get("model") or "").strip()
-        if model:
-            cfg["model"] = model
     for knob in ("retries", "timeout"):
         raw = (data.get(knob) or "").strip()
         if raw:

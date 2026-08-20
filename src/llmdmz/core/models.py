@@ -125,7 +125,7 @@ class Request(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
     action_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    agent_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    agent_id: Mapped[str] = mapped_column(String(36), ForeignKey("agents.id"), nullable=False)
     active_version_id: Mapped[str | None] = mapped_column(String(36), nullable=True)  # snapshot
     request_payload: Mapped[dict] = mapped_column(JSON, nullable=False)
     request_verdict: Mapped[dict | None] = mapped_column(JSON, nullable=True)
@@ -135,6 +135,13 @@ class Request(Base):
     outcome: Mapped[str] = mapped_column(String(32), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    attempts = relationship(
+        "DispatchAttempt",
+        back_populates="request",
+        order_by="DispatchAttempt.attempt_number",
+    )
+    agent = relationship("Agent", foreign_keys=[agent_id])
 
 
 class DispatchAttempt(Base):
@@ -155,6 +162,8 @@ class DispatchAttempt(Base):
     error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    request = relationship("Request", back_populates="attempts")
 
 
 class AuditEvent(Base):

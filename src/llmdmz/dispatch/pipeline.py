@@ -384,6 +384,10 @@ def _build_framing(
 def _framing_log(framing: Framing) -> dict[str, Any]:
     """Observability copy of the framing (dispatch-v2.md Observability)."""
     log: dict[str, Any] = {"protocol": framing.protocol}
+    if framing.protocol in ("post", "completions"):
+        log["endpoint"] = framing.endpoint
+    if framing.protocol == "exec":
+        log["command"] = framing.command
     if framing.protocol == "completions":
         log["system_prompt"] = framing.system_prompt
         log["user_prompt"] = framing.user_prompt

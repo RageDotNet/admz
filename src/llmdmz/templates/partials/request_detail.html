@@ -1,6 +1,7 @@
 <div class="card card-body">
   <h3>Request {{ req.id }}</h3>
-  <p class="small text-body-secondary">{{ req.created_at }} — outcome <span class="badge text-bg-{{ state_tag(req.outcome) }}">{{ req.outcome }}</span></p>
+  <p class="small text-body-secondary">{{ req.created_at }} — client {{ request_agent_name(req) }} — outcome <span class="badge text-bg-{{ state_tag(req.outcome) }}">{{ req.outcome }}</span></p>
+  <p class="small font-monospace">Dispatch: {% if attempts %}{{ dispatch_target(attempts[0].framing) }}{% else %}&mdash;{% endif %}</p>
   <h4>Request payload</h4>
   <pre>{{ req.request_payload | tojson(indent=2) }}</pre>
   <h4>Arbiter verdict (request)</h4>
@@ -9,11 +10,12 @@
   <pre>{{ (req.response_payload | tojson(indent=2)) if req.response_payload else "—" }}</pre>
   <h4>Dispatch attempts ({{ attempts | length }})</h4>
   <table class="table table-sm table-hover table-striped align-middle">
-    <thead><tr><th>#</th><th>Protocol</th><th>Error class</th><th>Detail</th><th>Payloads</th></tr></thead>
+    <thead><tr><th>#</th><th>Dispatch</th><th>Error class</th><th>Detail</th><th>Payloads</th></tr></thead>
     <tbody>
     {% for a in attempts %}
       <tr>
-        <td>{{ a.attempt_number }}</td><td>{{ a.framing.protocol }}</td>
+        <td>{{ a.attempt_number }}</td>
+        <td class="small font-monospace">{{ dispatch_target(a.framing) }}</td>
         <td>{{ a.error_class or "—" }}</td><td class="small text-body-secondary">{{ a.error_detail or "" }}</td>
         <td>
           {% if a.framing %}
@@ -23,6 +25,7 @@
                response schema, retry errors, then the request JSON). #}
             {% if a.framing.protocol == "completions" %}
             <div class="small text-body-secondary">model: {{ a.framing.model or "—" }}</div>
+            <div class="small text-body-secondary">endpoint: {{ a.framing.endpoint or "—" }}</div>
             <div class="small text-body-secondary mt-2">system</div>
             <pre class="small" style="max-height: 24rem; overflow: auto">{{ a.framing.system_prompt }}</pre>
             <div class="small text-body-secondary">user</div>

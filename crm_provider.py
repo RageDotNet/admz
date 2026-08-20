@@ -1,6 +1,6 @@
 """Trusted internal CRM provider for the LLM DMZ v2.
 
-Two modes:
+Modes:
 
 - ``python crm_provider.py register`` — publish the CRM actions
   (``crm_search``, ``crm_add_note``) as schema packages to the DMZ's
@@ -24,6 +24,11 @@ Two modes:
   request JSON after the ``REQUEST JSON FOLLOWS:`` marker, fulfill it, and
   write the response payload as JSON to stdout. Failures go to stderr with a
   non-zero exit code so the DMZ records them as failed attempts.
+
+- ``python crm_provider.py serve [host] [port]`` — OpenAI-compatible
+  ``POST /v1/chat/completions`` listener for the **completions** delivery
+  protocol. Prints the endpoint URL on start. Host/port default to
+  ``127.0.0.1:8090`` (or ``CRM_SERVE_HOST`` / ``CRM_SERVE_PORT``).
 """
 
 from __future__ import annotations
@@ -31,8 +36,10 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -335,17 +342,119 @@ def _utf8_stdio() -> None:
                 pass
 
 
+def _fulfill(payload: dict[str, Any]) -> dict[str, Any]:
+    action_id = _infer_action_id(payload)
+    return HANDLERS[action_id](payload)
+
+
 def run() -> int:
     _utf8_stdio()
     framing = sys.stdin.read()
     try:
         payload = _extract_request_payload(framing)
-        action_id = _infer_action_id(payload)
-        response_payload = HANDLERS[action_id](payload)
+        response_payload = _fulfill(payload)
     except Exception as exc:  # noqa: BLE001 — any failure is a failed attempt
         print(f"crm_provider: {exc}", file=sys.stderr)
         return 1
     sys.stdout.write(json.dumps(response_payload, ensure_ascii=False))
+    return 0
+
+
+# --- serve mode (OpenAI-compatible chat completions) -----------------------------
+
+
+DEFAULT_SERVE_HOST = os.getenv("CRM_SERVE_HOST", "127.0.0.1")
+DEFAULT_SERVE_PORT = int(os.getenv("CRM_SERVE_PORT", "8090"))
+
+
+def _request_payload_from_messages(messages: list[Any]) -> dict[str, Any]:
+    """The DMZ user turn is the request JSON; use the last parseable user object."""
+    for msg in reversed(messages):
+        if not isinstance(msg, dict) or msg.get("role") != "user":
+            continue
+        content = msg.get("content")
+        if not isinstance(content, str):
+            continue
+        text = content.strip()
+        if text.startswith("```"):
+            text = text.strip("`")
+            if text.lower().startswith("json"):
+                text = text[4:]
+            text = text.strip()
+        try:
+            parsed = json.loads(text)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    raise ValueError("no user message contained a JSON object request payload")
+
+
+def _openai_completion(content: str, model: str) -> dict[str, Any]:
+    return {
+        "id": f"chatcmpl-{uuid.uuid4().hex[:24]}",
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": model,
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": content},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    }
+
+
+def create_serve_app():
+    """Flask app exposing POST /v1/chat/completions (and /chat/completions)."""
+    from flask import Flask, jsonify, request
+
+    app = Flask("crm_provider_serve")
+    app.json.ensure_ascii = False
+
+    def chat_completions():
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return jsonify({"error": {"message": "JSON object body required", "type": "invalid_request_error"}}), 400
+        messages = body.get("messages")
+        if not isinstance(messages, list) or not messages:
+            return jsonify({"error": {"message": "messages array required", "type": "invalid_request_error"}}), 400
+        model = str(body.get("model") or "crm-provider")
+        try:
+            payload = _request_payload_from_messages(messages)
+            response_payload = _fulfill(payload)
+        except Exception as exc:  # noqa: BLE001 — surface as a failed completions attempt
+            return jsonify({"error": {"message": str(exc), "type": "server_error"}}), 500
+        content = json.dumps(response_payload, ensure_ascii=False)
+        return jsonify(_openai_completion(content, model))
+
+    app.add_url_rule(
+        "/v1/chat/completions",
+        view_func=chat_completions,
+        methods=["POST"],
+        endpoint="v1_chat_completions",
+    )
+    app.add_url_rule(
+        "/chat/completions",
+        view_func=chat_completions,
+        methods=["POST"],
+        endpoint="chat_completions",
+    )
+    return app
+
+
+def serve(host: str = DEFAULT_SERVE_HOST, port: int = DEFAULT_SERVE_PORT) -> int:
+    app = create_serve_app()
+    endpoint = f"http://{host}:{port}/v1/chat/completions"
+    print(f"[serve] OpenAI-compatible chat completions: {endpoint}", flush=True)
+    print(
+        "[serve] Set the provider delivery method to completions with this endpoint "
+        "(any model name is accepted).",
+        flush=True,
+    )
+    app.run(host=host, port=port, debug=False, use_reloader=False, threaded=True)
     return 0
 
 
@@ -365,9 +474,17 @@ def main() -> None:
             print("usage: crm_provider.py client <action_id> [request JSON]", file=sys.stderr)
             sys.exit(2)
         sys.exit(client_invoke(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None))
+    if mode == "serve":
+        host = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_SERVE_HOST
+        try:
+            port = int(sys.argv[3]) if len(sys.argv) > 3 else DEFAULT_SERVE_PORT
+        except ValueError:
+            print("usage: crm_provider.py serve [host] [port]", file=sys.stderr)
+            sys.exit(2)
+        sys.exit(serve(host, port))
     print(
         "usage: crm_provider.py [register|update|enroll [pattern]|run|"
-        "client <action_id> [request JSON]]",
+        "serve [host] [port]|client <action_id> [request JSON]]",
         file=sys.stderr,
     )
     sys.exit(2)

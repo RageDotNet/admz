@@ -10,18 +10,19 @@
     <button type="submit" class="btn btn-sm btn-outline-secondary">Filter</button>
   </form>
   <table class="table table-sm table-hover table-striped align-middle">
-    <thead><tr><th>When</th><th>Action</th><th>Agent</th><th>Outcome</th><th></th></tr></thead>
+    <thead><tr><th>When</th><th>Action</th><th>Agent</th><th>Dispatch</th><th>Outcome</th><th></th></tr></thead>
     <tbody>
     {% for r in rows %}
       <tr>
         <td class="small text-body-secondary">{{ r.created_at }}</td>
         <td class="small text-body-secondary">{{ r.action_id }}</td>
-        <td class="small text-body-secondary mono">{{ r.agent_id[:8] }}</td>
+        <td class="small text-body-secondary">{{ request_agent_name(r) }}</td>
+        <td class="small font-monospace">{{ request_dispatch_target(r) }}</td>
         <td><span class="badge text-bg-{{ state_tag(r.outcome) }}">{{ r.outcome }}</span></td>
         <td><a href="#" data-on:click="@get(&quot;/admin/partials/request/{{ r.id }}&quot;)">detail</a></td>
       </tr>
     {% else %}
-      <tr><td colspan="5" class="small text-body-secondary">No requests.</td></tr>
+      <tr><td colspan="6" class="small text-body-secondary">No requests.</td></tr>
     {% endfor %}
     </tbody>
   </table>

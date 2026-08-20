@@ -62,7 +62,37 @@ def state_tag(state: str) -> str:
     return STATE_TAG.get(state, "secondary")
 
 
+def dispatch_target(framing: dict | None) -> str:
+    """Protocol plus URL (post/completions) or command (exec) for the request log."""
+    if not framing:
+        return "—"
+    protocol = str(framing.get("protocol") or "")
+    if protocol in ("post", "completions"):
+        return f"{protocol} {framing.get('endpoint') or '—'}"
+    if protocol == "exec":
+        return f"{protocol} {framing.get('command') or '—'}"
+    return protocol or "—"
+
+
+def request_dispatch_target(req: Any) -> str:
+    attempts = getattr(req, "attempts", None) or []
+    if not attempts:
+        return "—"
+    return dispatch_target(attempts[0].framing)
+
+
+def request_agent_name(req: Any) -> str:
+    agent = getattr(req, "agent", None)
+    if agent is not None and getattr(agent, "name", None):
+        return str(agent.name)
+    agent_id = getattr(req, "agent_id", None)
+    return str(agent_id) if agent_id else "—"
+
+
 bp.add_app_template_global(state_tag)
+bp.add_app_template_global(dispatch_target)
+bp.add_app_template_global(request_dispatch_target)
+bp.add_app_template_global(request_agent_name)
 
 
 # --- T4.3: auth guard (#17/#23) -----------------------------------------------

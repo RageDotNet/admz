@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.orm import selectinload
 
 from llmdmz.core.keys import DEFAULT_PAYLOAD_CHARS, generate_agent_key, hash_key
 from llmdmz.core.models import (
@@ -277,7 +278,11 @@ def log_attempt(
 
 
 def get_request(session: Session, request_id: str) -> Request | None:
-    return session.get(Request, request_id)
+    return session.scalar(
+        select(Request)
+        .options(selectinload(Request.agent), selectinload(Request.attempts))
+        .where(Request.id == request_id)
+    )
 
 
 def list_requests(
@@ -290,7 +295,10 @@ def list_requests(
     page: int = 1,
     per_page: int = 50,
 ) -> tuple[list[Request], int]:
-    stmt = select(Request)
+    stmt = select(Request).options(
+        selectinload(Request.attempts),
+        selectinload(Request.agent),
+    )
     if action_id:
         stmt = stmt.where(Request.action_id == action_id)
     if agent_id:

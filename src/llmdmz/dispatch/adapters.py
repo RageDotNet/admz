@@ -229,24 +229,44 @@ class ExecTransport:
 
 
 class CompletionsTransport:
-    """T3.9: chat-completions framing (system/user split) via injectable completer."""
+    """T3.9: OpenAI-compatible POST to the configured chat-completions URL."""
 
-    def __init__(self, completer: Completer):
-        self._completer = completer
+    def __init__(self, poster: Poster = _default_poster):
+        self._poster = poster
 
     def deliver(self, framing: Framing) -> ProviderResult:
+        headers = {"Content-Type": "application/json"}
+        headers.update(framing.headers or {})
+        body = json.dumps(
+            {
+                "model": framing.model,
+                "messages": [
+                    {"role": "system", "content": framing.system_prompt},
+                    {"role": "user", "content": framing.user_prompt},
+                ],
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
         try:
-            reply = self._completer(
-                framing.model,
-                framing.system_prompt,
-                framing.user_prompt,
-                framing.timeout,
-                4096,  # provider response budget; arbiter knobs do not apply here
-                0.0,
+            status, text = self._poster(
+                framing.endpoint, headers, body, framing.timeout
             )
         except Exception as exc:  # noqa: BLE001
             return ProviderResult(error_class="transport", error_detail=str(exc))
-        return _parse_payload(reply)
+        if status != 200:
+            return ProviderResult(error_class="protocol", error_detail=f"HTTP {status}: {text}")
+        try:
+            data = json.loads(text)
+            content = data["choices"][0]["message"]["content"]
+        except (json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError):
+            return ProviderResult(
+                error_class="protocol", error_detail="unparseable completions response"
+            )
+        if not isinstance(content, str):
+            return ProviderResult(
+                error_class="protocol", error_detail="completions content is not a string"
+            )
+        return _parse_payload(content)
 
 
 def _parse_payload(text: str) -> ProviderResult:

@@ -537,9 +537,7 @@ def _production_transport(delivery: dict) -> ProviderTransport:
     if protocol == "exec":
         return ExecTransport()
     if protocol == "completions":
-        from llmdmz.dispatch.adapters import _litellm_completer
-
-        return CompletionsTransport(_litellm_completer)
+        return CompletionsTransport()
     return PostTransport()
 
 

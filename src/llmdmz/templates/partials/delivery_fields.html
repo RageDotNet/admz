@@ -16,19 +16,19 @@
           <select name="protocol" class="form-select form-select-sm" data-bind="${{ sig }}_protocol">
             <option value="post"{% if proto == 'post' %} selected{% endif %}>HTTP POST endpoint</option>
             <option value="exec"{% if proto == 'exec' %} selected{% endif %}>Local command (exec)</option>
-            <option value="completions"{% if proto == 'completions' %} selected{% endif %}>LLM completions (LiteLLM)</option>
+            <option value="completions"{% if proto == 'completions' %} selected{% endif %}>OpenAI-compatible chat completions</option>
           </select>
         </div>
 
-        {# --- post: endpoint + header key/value rows (client-side add/remove) --- #}
-        <div data-show="${{ sig }}_protocol==='post'" class="d-flex flex-column gap-2">
+        {# --- post/completions: endpoint + header key/value rows --- #}
+        <div data-show="${{ sig }}_protocol==='post' || ${{ sig }}_protocol==='completions'" class="d-flex flex-column gap-2">
           <div>
             <label class="form-label small mb-1">Endpoint URL</label>
             <input type="url" name="endpoint" class="form-control form-control-sm"
                    value="{{ cfg.get('endpoint', '') }}"
-                   placeholder="https://provider.example/hook">
+                   placeholder="https://provider.example/v1/chat/completions">
           </div>
-          <div class="small text-body-secondary mb-0">Headers (added verbatim to every POST)</div>
+          <div class="small text-body-secondary mb-0">Headers (added verbatim to every request)</div>
           {% for i in range(5) %}
           <div class="d-flex flex-wrap gap-2 align-items-center" data-show="${{ sig }}_headerRows > {{ i }}">
             <input type="text" name="header_key_{{ i }}" class="form-control form-control-sm"
@@ -55,13 +55,13 @@
           <div class="form-text small">Run locally; framing arrives on stdin, JSON payload is read from stdout.</div>
         </div>
 
-        {# --- completions: LiteLLM model string --- #}
+        {# --- completions: model name in the chat-completions body --- #}
         <div data-show="${{ sig }}_protocol==='completions'">
           <label class="form-label small mb-1">Model</label>
           <input type="text" name="model" class="form-control form-control-sm font-monospace"
                  value="{{ cfg.get('model', '') }}"
-                 placeholder="openai/gpt-4o-mini">
-          <div class="form-text small">LiteLLM model string; called with system/user chat framing.</div>
+                 placeholder="crm-provider">
+          <div class="form-text small">Sent as <code>model</code> in the chat-completions body. Endpoint must be the full <code>/v1/chat/completions</code> URL.</div>
         </div>
 
         {# --- common knobs --- #}

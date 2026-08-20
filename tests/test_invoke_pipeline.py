@@ -202,6 +202,13 @@ class TestInvokeHappyPath:
         assert framing.protocol == "post"
         assert framing.endpoint == "https://x"
         assert framing.command == ""
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            attempt = s.scalars(select(DispatchAttempt)).first()
+            assert attempt is not None
+            assert attempt.framing["protocol"] == "post"
+            assert attempt.framing["endpoint"] == "https://x"
+            s.close()
 
 
 class TestInvokeRejections:
