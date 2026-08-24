@@ -2,6 +2,8 @@
 
 A demilitarized zone (DMZ) between an **untrusted external agent** and a **trusted internal agent**. The two sides never talk directly. All communication passes through a schema-validated, LLM-arbitrated gateway with persistent queues and a human review path for anything suspicious.
 
+**Why we built this:** keep agents with external reach (internet, customers) separate from agents with internal confidential systems — and still let them call each other both ways through a neutral boundary. The DMZ breaks the [lethal trifecta](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/) path with schemas, an LLM arbiter, and human-approved enrollment. See [Why We Built This](docs/why-we-built-this.md) for the problem statement, benefits, human vs agent usage, and how this relates to sandboxes (NemoClaw), session policy engines (Omnigent), and MCP proxies (Open Edison). The v2 product direction is a directory-driven sync broker; see [docs/index-v2.md](docs/index-v2.md).
+
 The project provides **two gateway entry points** that share the same core (`dmz/` package, SQLite storage, schema registry, LLM arbiter, and review queue):
 
 | Gateway | Entry point | Protocol | Validation | Default port |

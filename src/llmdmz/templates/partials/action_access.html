@@ -1,0 +1,68 @@
+<div class="table-responsive">
+  <table class="table table-sm table-hover table-striped align-middle">
+    <thead><tr><th>Agent</th><th>State</th><th>Requested</th><th>Decided by</th><th>Notes</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for e in enrollments %}
+      <tr>
+        <td>
+          {% set ename = agent_names.get(e.agent_id, e.agent_id) %}
+          <button type="button" class="btn btn-link p-0" data-on:click="$tab = 'agents'; location.hash = 'agents'; @get('/admin/agents/{{ e.agent_id }}')">{{ ename }}</button>
+        </td>
+        <td>{{ state_badge(e.state) }}</td>
+        <td class="small text-body-secondary">{{ when(e.requested_at) }}</td>
+        <td class="small text-body-secondary">{% if e.decided_by %}{{ e.decided_by }}{% else %}&mdash;{% endif %}</td>
+        <td class="small text-body-secondary">{{ e.decision_notes or '—' }}</td>
+        <td>
+          {% if e.state in ('requested',) %}
+          <form class="row g-2 align-items-end" data-on:submit="@post('/admin/enrollment/{{ e.id }}/approve', {contentType: 'form'})">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="col-12">
+              <label class="form-label mb-1" for="enr-{{ e.id }}-a-notes">Notes</label>
+              <input type="text" id="enr-{{ e.id }}-a-notes" name="notes" class="form-control form-control-sm">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-sm btn-outline-secondary">Approve</button>
+            </div>
+          </form>
+          <form class="row g-2 align-items-end mt-2" data-on:submit="@post('/admin/enrollment/{{ e.id }}/reject', {contentType: 'form'})">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="col-12">
+              <label class="form-label mb-1" for="enr-{{ e.id }}-r-notes">Notes</label>
+              <input type="text" id="enr-{{ e.id }}-r-notes" name="notes" class="form-control form-control-sm">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-sm btn-danger">Reject</button>
+            </div>
+          </form>
+          {% elif e.state == 'enrolled' %}
+          {% with confirm_key="enr-" ~ e.id, button_label="Revoke", confirm_label="Revoke",
+                  message="Revoke this client's enrollment? They will no longer be able to invoke this action.",
+                  post_url="/admin/enrollment/" ~ e.id ~ "/revoke" %}
+            {% include "partials/confirm_destructive.html" %}
+          {% endwith %}
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="small text-body-secondary">No enrollments.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if enrollable %}
+<form class="row row-cols-lg-auto g-2 align-items-end mt-2" data-on:submit="@post('/admin/action/{{ action.id }}/enroll', {contentType: 'form'})">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="col-12">
+    <label class="form-label mb-1" for="enroll-agent-{{ action.id }}">Enroll client</label>
+    <select id="enroll-agent-{{ action.id }}" name="agent_id" class="form-select form-select-sm" required>
+      <option value="" selected disabled>Choose an agent</option>
+      {% for a in enrollable %}
+      <option value="{{ a.id }}">{{ a.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-12">
+    <button type="submit" class="btn btn-sm btn-outline-secondary">Enroll</button>
+  </div>
+</form>
+{% endif %}

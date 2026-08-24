@@ -1,14 +1,71 @@
-<div class="card card-body">
-  <h3>Request {{ req.id }}</h3>
-  <p class="small text-body-secondary">{{ req.created_at }} — client {{ request_agent_name(req) }} — outcome <span class="badge text-bg-{{ state_tag(req.outcome) }}">{{ req.outcome }}</span></p>
-  <p class="small font-monospace">Dispatch: {% if attempts %}{{ dispatch_target(attempts[0].framing) }}{% else %}&mdash;{% endif %}</p>
-  <h4>Request payload</h4>
-  <pre>{{ req.request_payload | tojson(indent=2) }}</pre>
-  <h4>Arbiter verdict (request)</h4>
-  <pre>{{ (req.request_verdict | tojson(indent=2)) if req.request_verdict else "—" }}</pre>
-  <h4>Response payload</h4>
-  <pre>{{ (req.response_payload | tojson(indent=2)) if req.response_payload else "—" }}</pre>
-  <h4>Dispatch attempts ({{ attempts | length }})</h4>
+{% set last = attempts[-1] if attempts else none %}
+{% set schema_errors = (req.request_verdict or {}).get("schema_errors") if req.outcome == "request_schema_invalid" else none %}
+{% set req_verdict = req.request_verdict if req.request_verdict and not schema_errors else none %}
+<div class="card card-body" data-init="el.scrollIntoView({block: 'nearest', behavior: 'smooth'})">
+  <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+    <h2 class="h5 mb-0">{{ req.action_id }}</h2>
+    {{ state_badge(log_outcome(req)) }}
+    <span class="small text-body-secondary">{{ when(req.created_at) }}</span>
+    <span class="small text-body-secondary">client {{ request_agent_name(req) }}</span>
+    {% if into == "action" %}
+    <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" data-on:click="__adminCloseActionRequest()">Close</button>
+    {% else %}
+    <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" data-on:click="$openRequest = ''; __adminCloseRequest()">Close</button>
+    {% endif %}
+  </div>
+  <p class="small font-monospace text-body-secondary mb-2">
+    <span id="request-id-{{ req.id }}">{{ req.id }}</span>
+  </p>
+  {% if attempts %}
+  <p class="small font-monospace">Dispatch: {{ dispatch_target(attempts[0].framing) }}</p>
+  {% endif %}
+
+  {% if req.outcome == "provider_failed" and last %}
+  <div class="alert alert-danger py-2" role="alert">
+    <div class="fw-semibold">{{ last.error_class or "provider_failed" }}</div>
+    {% if last.error_detail %}<div class="small mb-0">{{ last.error_detail }}</div>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if schema_errors %}
+  <h3 class="h6">Schema errors</h3>
+  <ul class="small mb-3">
+    {% for err in schema_errors %}
+    <li>{{ err }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    <h3 class="h6 mb-0">Request payload</h3>
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-on:click="__adminCopyText('request-payload-{{ req.id }}')">Copy</button>
+  </div>
+  <pre id="request-payload-{{ req.id }}" class="small" style="max-height: 24rem; overflow: auto">{{ req.request_payload | tojson(indent=2) }}</pre>
+
+  {% if req_verdict %}
+  <h3 class="h6">Arbiter verdict (request)</h3>
+  <pre class="small" style="max-height: 16rem; overflow: auto">{{ req_verdict | tojson(indent=2) }}</pre>
+  {% endif %}
+
+  {% if req.response_payload %}
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    <h3 class="h6 mb-0">Response payload</h3>
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-on:click="__adminCopyText('response-payload-{{ req.id }}')">Copy</button>
+  </div>
+  <pre id="response-payload-{{ req.id }}" class="small" style="max-height: 24rem; overflow: auto">{{ req.response_payload | tojson(indent=2) }}</pre>
+  {% endif %}
+
+  {% if last and last.error_class == "arbiter_rejected" %}
+  <h3 class="h6">Arbiter verdict (response)</h3>
+  <pre class="small" style="max-height: 16rem; overflow: auto">{{ {"approved": false, "reason": last.error_detail} | tojson(indent=2) }}</pre>
+  {% elif req.outcome == "completed" and last and not last.error_class %}
+  <h3 class="h6">Arbiter verdict (response)</h3>
+  <p class="small mb-3">Approved</p>
+  {% endif %}
+
+  {% if attempts %}
+  <h3 class="h6">Dispatch attempts ({{ attempts | length }})</h3>
+  <div class="table-responsive">
   <table class="table table-sm table-hover table-striped align-middle">
     <thead><tr><th>#</th><th>Dispatch</th><th>Error class</th><th>Detail</th><th>Payloads</th></tr></thead>
     <tbody>
@@ -16,7 +73,8 @@
       <tr>
         <td>{{ a.attempt_number }}</td>
         <td class="small font-monospace">{{ dispatch_target(a.framing) }}</td>
-        <td>{{ a.error_class or "—" }}</td><td class="small text-body-secondary">{{ a.error_detail or "" }}</td>
+        <td>{{ a.error_class or "—" }}</td>
+        <td class="small text-body-secondary">{{ a.error_detail or "" }}</td>
         <td>
           {% if a.framing %}
           <details>
@@ -46,4 +104,6 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
+  {% endif %}
 </div>

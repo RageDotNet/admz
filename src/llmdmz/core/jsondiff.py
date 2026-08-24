@@ -65,3 +65,43 @@ def diff_payloads(old: dict[str, Any], new: dict[str, Any]) -> dict[str, list[di
         if entries:
             result[field] = entries
     return result
+
+
+# Fields shown in the admin "Active settings" summary. Risk metadata and the
+# action id are noise in the version table (e.g. `request_risk: changed request_risk`).
+_DIFF_SUMMARY_FIELDS = (
+    "description",
+    "provider_instructions",
+    "client_instructions",
+    "request_arbiter_instructions",
+    "response_arbiter_instructions",
+    "request_schema",
+    "response_schema",
+)
+
+
+def compact_payload_diff(old: dict[str, Any], new: dict[str, Any]) -> dict[str, list[str]]:
+    """Console-facing diff: summary fields only, no `op path` repeating the field."""
+    raw = diff_payloads(old, new)
+    out: dict[str, list[str]] = {}
+    for field in _DIFF_SUMMARY_FIELDS:
+        entries = raw.get(field) or []
+        if not entries:
+            continue
+        labels: list[str] = []
+        seen: set[str] = set()
+        prefix = field + "."
+        for e in entries:
+            path = e["path"]
+            op = e["op"]
+            if path == field:
+                label = op
+            elif path.startswith(prefix):
+                label = f"{op} {path[len(prefix):]}"
+            else:
+                label = f"{op} {path}"
+            if label not in seen:
+                seen.add(label)
+                labels.append(label)
+        out[field] = labels
+    return out

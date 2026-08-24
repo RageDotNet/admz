@@ -7,7 +7,7 @@ import re
 from sqlalchemy import select
 from tests.test_registry import CRM_SEARCH
 
-from llmdmz.core.models import ActionVersion, Agent, Enrollment, Request
+from llmdmz.core.models import Action, ActionVersion, Agent, Enrollment, Request
 
 ADMIN_TOKEN = "dmzadm_testtoken0000000000000000000000000"
 EXPECTED_ROUTES = {
@@ -146,7 +146,7 @@ class TestSSEFragments:  # T4.7
         assert resp.status_code == 200
         assert resp.headers["Content-Type"].startswith("text/event-stream")
         body = resp.get_data(as_text=True)
-        for selector in ("#stats-bar", "#pending-versions", "#pending-enrollments"):
+        for selector in ("#stats-bar", "#enrollments-panel"):
             assert f"data: selector {selector}" in body
         assert "event: datastar-patch-elements" in body
 
@@ -182,7 +182,8 @@ class TestSSEFragments:  # T4.7
         assert args.get("selector") == "#directory-list"
         assert args.get("mode") == "inner"
         assert "elements" in args
-        assert "table table-sm" in args["elements"]
+        html = args["elements"]
+        assert "table table-sm" in html or "No actions match this filter." in html
 
     def test_directory_renders_after_session_close(self, app_fixture, client_http):
         """Regression: directory rows hold detached Action objects; the template
@@ -204,6 +205,34 @@ class TestSSEFragments:  # T4.7
         # not the mojibake that a mis-encoded '—' produces in the browser.
         assert "â€" not in body
         assert "&mdash;" in body
+
+    def test_directory_state_filter_total_matches_rows(self, app_fixture, client_http):
+        _login(client_http)
+        resp = client_http.get("/admin/partials/directory?state=withdrawn")
+        assert resp.status_code == 200
+        body = resp.get_data(as_text=True)
+        assert "0 total" in body
+        assert "No actions match this filter." in body
+
+    def test_directory_pagination_preserves_q(self, app_fixture, client_http):
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            owner = s.scalars(select(Agent).where(Agent.name == "provider")).first()
+            s.add(Action(id="crm_add_note", owner_agent_id=owner.id, state="active"))
+            s.add(Action(id="crm_search", owner_agent_id=owner.id, state="active"))
+            s.add(Action(id="red_opinion", owner_agent_id=owner.id, state="active"))
+            s.commit()
+            s.close()
+        _login(client_http)
+        resp = client_http.get("/admin/partials/directory?q=crm&per_page=1&page=2")
+        assert resp.status_code == 200
+        body = resp.get_data(as_text=True)
+        assert "2 total" in body
+        assert "crm_search" in body
+        assert "red_opinion" not in body
+        assert "q=crm" in body
+        assert "per_page=1" in body
 
     def test_assets_served_no_network(self, client_http):
         for asset, min_size in (
@@ -257,6 +286,45 @@ class TestQueues:  # T4.16
             assert s.get(Enrollment, enrollment_id) is None
             s.close()
 
+    def test_enrollments_tab_is_queue_and_recent(self, app_fixture, client_http):
+        version_id, enrollment_id, _ = _seed_action(app_fixture, client_http)
+        _login(client_http)
+        shell = client_http.get("/admin").get_data(as_text=True)
+        assert "Pending version approvals" not in shell
+        assert 'id="enrollments-panel"' in shell
+        body = client_http.get("/admin/partials/enrollments").get_data(as_text=True)
+        assert "Pending version approvals" not in body
+        assert "Enrollment requests" in body
+        assert "Recently decided" in body
+        assert f'for="enq-{enrollment_id}-a-notes"' in body
+        assert f'for="enq-{enrollment_id}-r-notes"' in body
+        action = client_http.get("/admin/partials/action/crm_search").get_data(as_text=True)
+        assert f"/admin/action-version/{version_id}/approve" in action
+        reject = client_http.post(
+            f"/admin/enrollment/{enrollment_id}/reject",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+            data={"notes": "throwaway reject"},
+        )
+        assert reject.status_code == 200
+        merged = reject.get_data(as_text=True)
+        assert "throwaway reject" in merged
+        assert "Reset" in merged
+        assert f"/admin/enrollment/{enrollment_id}/reset" in merged
+        assert f'id="enrollment-{enrollment_id}"' not in merged
+        filtered = client_http.get("/admin/partials/enrollments?state=rejected").get_data(
+            as_text=True
+        )
+        assert "throwaway reject" in filtered
+        assert 'value="rejected" selected' in filtered
+        reset = client_http.post(
+            f"/admin/enrollment/{enrollment_id}/reset",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+        )
+        assert reset.status_code == 200
+        after = reset.get_data(as_text=True)
+        assert "throwaway reject" not in after
+        assert f"/admin/enrollment/{enrollment_id}/reset" not in after
+
 
 class TestRevealOnce:  # T4.18
     def test_register_returns_key_once_never_again(self, client_http):
@@ -270,8 +338,70 @@ class TestRevealOnce:  # T4.18
         body = resp.get_data(as_text=True)
         key = re.search(r"dmz_[A-Za-z0-9_-]+", body)
         assert key is not None
+        assert "Copy" in body
+        assert "data: selector #agent-key-reveal" in body
         listing = client_http.get("/admin/partials/agents").get_data(as_text=True)
         assert key.group(0) not in listing
+
+    def test_register_empty_name_is_inline_error(self, client_http):
+        _login(client_http)
+        resp = client_http.post(
+            "/admin/agents",
+            data={"name": "", "is_client": "on"},
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+        )
+        assert resp.status_code == 200
+        body = resp.get_data(as_text=True)
+        assert "data: selector #agent-register-error" in body
+        assert "Name is required" in body
+
+    def test_register_without_capability_is_inline_error(self, client_http):
+        _login(client_http)
+        resp = client_http.post(
+            "/admin/agents",
+            data={"name": "ghost"},
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+        )
+        assert resp.status_code == 200
+        body = resp.get_data(as_text=True)
+        assert "data: selector #agent-register-error" in body
+        assert "capability" in body.lower()
+
+    def test_new_key_reveals_in_detail_region(self, client_http):
+        _login(client_http)
+        created = client_http.post(
+            "/admin/agents",
+            data={"name": "keytarget", "is_client": "on"},
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+        )
+        assert created.status_code == 200
+        listing = client_http.get("/admin/partials/agents").get_data(as_text=True)
+        match = re.search(
+            r">keytarget</button>[\s\S]*?id=\"agent-([0-9a-f-]{36})-key-state\"",
+            listing,
+        )
+        assert match
+        agent_id = match.group(1)
+        resp = client_http.post(
+            f"/admin/agents/{agent_id}/new-key",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+        )
+        assert resp.status_code == 200
+        body = resp.get_data(as_text=True)
+        assert "data: selector #agent-key-reveal" in body
+        assert f"data: selector #agent-{agent_id}-detail" not in body
+        assert re.search(r"dmz_[A-Za-z0-9_-]+", body)
+        assert "Copy" in body
+
+    def test_agents_list_has_delivery_and_pager(self, client_http):
+        _login(client_http)
+        body = client_http.get("/admin/partials/agents?per_page=1").get_data(as_text=True)
+        assert "Delivery" in body
+        assert "Registered" in body
+        assert "Prev" in body or "Next" in body
+        assert "id=\"agent-detail-region\"" in body
+        assert "id=\"agent-key-reveal\"" in body
+        assert "id=\"agent-register-error\"" in body
 
     def test_delivery_config_prefilled_for_admin(self, app_fixture, client_http):
         """Admins may see all delivery settings (console is admin-only)."""
@@ -479,6 +609,12 @@ class TestRequestLogFraming:
         resp = client_http.get(f"/admin/partials/request/{request_id}")
         assert resp.status_code == 200
         body = resp.get_data(as_text=True)
+        assert "data: selector #request-detail" in body
+        action_resp = client_http.get(f"/admin/partials/request/{request_id}?into=action")
+        assert action_resp.status_code == 200
+        action_body = action_resp.get_data(as_text=True)
+        assert "data: selector #action-request-detail" in action_body
+        assert "data: selector #request-detail" not in action_body
         assert "REQUEST JSON FOLLOWS:" in body
         assert "Return only matching contacts." in body
         assert "CRM Search Response" in body
@@ -486,3 +622,140 @@ class TestRequestLogFraming:
         assert "unparseable" in body
         assert "post https://x" in body
         assert "client client" in body.replace("\n", " ")
+        assert "Close" in body
+        assert "Schema errors" not in body
+
+
+class TestDispatchTarget:
+    def test_missing_target_is_dash(self):
+        from llmdmz.admin import dispatch_target
+
+        assert dispatch_target({"protocol": "exec"}) == "—"
+        assert dispatch_target({"protocol": "post", "endpoint": "  "}) == "—"
+        assert dispatch_target({"protocol": "completions", "endpoint": "https://x"}) == "completions https://x"
+
+
+class TestRequestLogFilters:
+    def test_in_flight_stays_selected(self, client_http):
+        _login(client_http)
+        html = client_http.get("/admin/partials/log?outcome=in_flight").get_data(as_text=True)
+        assert 'value="in_flight"' in html
+        assert 'value="in_flight" selected' in html or "value='in_flight' selected" in html
+
+    def test_pager_preserves_filters(self, app_fixture, client_http):
+        from tests.test_invoke_pipeline import (
+            GOOD_RESPONSE,
+            ApprovingArbiter,
+            ScriptedTransport,
+            _enrolled_action,
+            _invoke,
+        )
+
+        key = _enrolled_action(app_fixture, client_http)
+        _invoke(client_http, key, arbiter=ApprovingArbiter(), transport=ScriptedTransport([GOOD_RESPONSE]))
+        _invoke(client_http, key, arbiter=ApprovingArbiter(), transport=ScriptedTransport([GOOD_RESPONSE]))
+        _login(client_http)
+        html = client_http.get(
+            "/admin/partials/log?outcome=completed&action_id=crm_search&per_page=1"
+        ).get_data(as_text=True)
+        assert 'value="completed" selected' in html or "value='completed' selected" in html
+        assert "outcome=completed" in html
+        assert "action_id=crm_search" in html
+        assert "Details" in html
+        assert ">detail<" not in html.lower()
+
+
+class TestAuditTrail:
+    def test_detail_summary_omits_empty_notes(self):
+        from llmdmz.admin import audit_detail_summary
+
+        assert audit_detail_summary({"notes": ""}) == ""
+        assert audit_detail_summary({"notes": None}) == ""
+        assert audit_detail_summary({"code": None, "status": 200}) == "status 200"
+        assert audit_detail_summary({"notes": "looks good"}) == "looks good"
+
+    def test_lifecycle_default_names_and_pager(self, app_fixture, client_http):
+        from llmdmz.core.audit import audit
+
+        app, _, _ = app_fixture
+        _seed_action(app_fixture, client_http)
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            client = s.scalars(select(Agent).where(Agent.name == "client")).first()
+            assert client is not None
+            audit(
+                s, actor_type="admin", actor_id="admin", event="version.approved",
+                target_type="action", target_id="crm_search", detail={"notes": ""},
+            )
+            audit(
+                s, actor_type="admin", actor_id="admin", event="enrollment.approved",
+                target_type="enrollment", target_id="missing",
+                detail={"action_id": "crm_search", "notes": None},
+            )
+            audit(
+                s, actor_type="agent", actor_id=client.id, event="request.invoked",
+                target_type="action", target_id="crm_search",
+                detail={"code": None, "status": 200},
+            )
+            s.commit()
+            s.close()
+        _login(client_http)
+        html = client_http.get("/admin/partials/audit").get_data(as_text=True)
+        assert "Approved version" in html
+        assert "Approved enrollment" in html
+        assert 'value="lifecycle" selected' in html or "value='lifecycle' selected" in html
+        assert "Invoked action" not in html
+        assert "Request invoked" not in html
+        assert '{"notes": ""}' not in html
+        assert '{"notes": null}' not in html
+        assert "crm_search" in html
+        html_admin = client_http.get("/admin/partials/audit?actor=admin").get_data(as_text=True)
+        assert "admin" in html_admin
+        assert "Invoked action" not in html_admin
+        assert "actor=admin" in html_admin or 'value="admin"' in html_admin
+        html_page = client_http.get(
+            "/admin/partials/audit?actor=admin&per_page=1"
+        ).get_data(as_text=True)
+        assert "actor=admin" in html_page
+        assert "kind=lifecycle" in html_page
+        html_traffic = client_http.get("/admin/partials/audit?kind=traffic").get_data(as_text=True)
+        assert "Invoked action" in html_traffic or "Request invoked" in html_traffic
+        assert "client" in html_traffic
+
+
+class TestLogOutcome:
+    def test_last_attempt_arbiter_rejected(self):
+        from types import SimpleNamespace
+
+        from llmdmz.admin import log_outcome
+
+        req = SimpleNamespace(
+            outcome="provider_failed",
+            attempts=[
+                SimpleNamespace(attempt_number=1, error_class="transport"),
+                SimpleNamespace(attempt_number=2, error_class="arbiter_rejected"),
+            ],
+        )
+        assert log_outcome(req) == "arbiter_rejected"
+
+    def test_last_attempt_transport_is_provider_error(self):
+        from types import SimpleNamespace
+
+        from llmdmz.admin import log_outcome
+
+        req = SimpleNamespace(
+            outcome="provider_failed",
+            attempts=[
+                SimpleNamespace(attempt_number=1, error_class="arbiter_rejected"),
+                SimpleNamespace(attempt_number=2, error_class="protocol"),
+            ],
+        )
+        assert log_outcome(req) == "provider_error"
+
+    def test_non_exhausted_outcome_unchanged(self):
+        from types import SimpleNamespace
+
+        from llmdmz.admin import log_outcome
+
+        req = SimpleNamespace(outcome="completed", attempts=[])
+        assert log_outcome(req) == "completed"

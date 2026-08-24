@@ -1,14 +1,26 @@
-<div class="card card-body" id="agent-{{ agent.id }}-detail">
+<div class="card card-body" id="agent-{{ agent.id }}-detail" data-init="el.scrollIntoView({block: 'nearest', behavior: 'smooth'})">
   {% if saved %}<p class="alert alert-success py-2 mb-2">Saved.</p>{% endif %}
-  <h3>{{ agent.name }} <span class="small text-body-secondary mono">{{ agent.id }}</span></h3>
-  <!-- Delivery config: full values shown/prefilled — admin-only console. -->
-  <p class="small text-body-secondary">Delivery config: {{ 'configured (' ~ (agent.delivery_config.protocol if agent.delivery_config else '') ~ ')' if agent.delivery_config else 'not configured' }}</p>
+  <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+    <h2 class="h5 mb-0">{{ agent.name }}</h2>
+    <span id="agent-id-{{ agent.id }}" class="small font-monospace text-body-secondary">{{ agent.id }}</span>
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-on:click="__adminCopyText('agent-id-{{ agent.id }}')">Copy id</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" data-on:click="__adminCloseAgent()">Close</button>
+  </div>
+  <p class="small text-body-secondary">{{ delivery_summary(agent.delivery_config) }}</p>
   <form class="d-flex flex-column gap-2" data-on:submit="@post('/admin/agents/{{ agent.id }}', {contentType: 'form'})">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label class="small text-body-secondary"><input type="checkbox" name="is_client" {% if agent.is_client %}checked{% endif %}> client</label>
-    <label class="small text-body-secondary"><input type="checkbox" name="is_provider" data-bind="$edit_provider"
-      {% if agent.is_provider %}checked{% endif %}> provider</label>
-    <label class="small text-body-secondary"><input type="checkbox" name="enabled" {% if not agent.disabled %}checked{% endif %}> enabled</label>
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" id="edit-{{ agent.id }}-client" name="is_client" {% if agent.is_client %}checked{% endif %}>
+      <label class="form-check-label" for="edit-{{ agent.id }}-client">Client <span class="visually-hidden">({{ agent.name }})</span></label>
+    </div>
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" id="edit-{{ agent.id }}-provider" name="is_provider" data-bind="$edit_provider" {% if agent.is_provider %}checked{% endif %}>
+      <label class="form-check-label" for="edit-{{ agent.id }}-provider">Provider <span class="visually-hidden">({{ agent.name }})</span></label>
+    </div>
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" id="edit-{{ agent.id }}-enabled" name="enabled" {% if not agent.disabled %}checked{% endif %}>
+      <label class="form-check-label" for="edit-{{ agent.id }}-enabled">Enabled <span class="visually-hidden">({{ agent.name }})</span></label>
+    </div>
     {% with sig = 'edit' %}{% include "partials/delivery_fields.html" %}{% endwith %}
     <button type="submit" class="btn btn-sm btn-primary align-self-start">Save</button>
   </form>

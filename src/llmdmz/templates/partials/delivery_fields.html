@@ -13,37 +13,45 @@
       <div class="card-body d-flex flex-column gap-2">
         <div>
           <label class="form-label small mb-1">Delivery method</label>
-          <select name="protocol" class="form-select form-select-sm" data-bind="${{ sig }}_protocol">
+          <select name="protocol" class="form-select form-select-sm"
+                  data-bind="${{ sig }}_protocol"
+                  data-on:change="${{ sig }}_protocol = el.value">
             <option value="post"{% if proto == 'post' %} selected{% endif %}>HTTP POST endpoint</option>
             <option value="exec"{% if proto == 'exec' %} selected{% endif %}>Local command (exec)</option>
             <option value="completions"{% if proto == 'completions' %} selected{% endif %}>OpenAI-compatible chat completions</option>
           </select>
         </div>
 
-        {# --- post/completions: endpoint + header key/value rows --- #}
-        <div data-show="${{ sig }}_protocol==='post' || ${{ sig }}_protocol==='completions'" class="d-flex flex-column gap-2">
-          <div>
-            <label class="form-label small mb-1">Endpoint URL</label>
-            <input type="url" name="endpoint" class="form-control form-control-sm"
-                   value="{{ cfg.get('endpoint', '') }}"
-                   placeholder="https://provider.example/v1/chat/completions">
+        {# --- post/completions: endpoint + header key/value rows ---
+             Do not put Bootstrap d-flex on the same node as data-show:
+             d-flex is !important and wins over Datastar's display:none. #}
+        <div data-show="${{ sig }}_protocol==='post' || ${{ sig }}_protocol==='completions'">
+          <div class="d-flex flex-column gap-2">
+            <div>
+              <label class="form-label small mb-1">Endpoint URL</label>
+              <input type="url" name="endpoint" class="form-control form-control-sm"
+                     value="{{ cfg.get('endpoint', '') }}"
+                     placeholder="https://provider.example/v1/chat/completions">
+            </div>
+            <div class="small text-body-secondary mb-0">Headers (added verbatim to every request)</div>
+            {% for i in range(5) %}
+            <div data-show="${{ sig }}_headerRows > {{ i }}">
+              <div class="d-flex flex-wrap gap-2 align-items-center">
+                <input type="text" name="header_key_{{ i }}" class="form-control form-control-sm"
+                       style="max-width: 14rem" placeholder="Header name" data-bind="${{ sig }}_hk{{ i }}">
+                <input type="text" name="header_value_{{ i }}" class="form-control form-control-sm"
+                       style="max-width: 20rem" placeholder="Value (e.g. Bearer &hellip;)" data-bind="${{ sig }}_hv{{ i }}">
+                {% if i %}
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                        data-on:click="${{ sig }}_headerRows={{ i }};{% for j in range(i, 5) %} ${{ sig }}_hk{{ j }}=null; ${{ sig }}_hv{{ j }}=null;{% endfor %}">remove</button>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+            <div data-show="${{ sig }}_headerRows < 5">
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-on:click="${{ sig }}_headerRows++">+ header</button>
+            </div>
           </div>
-          <div class="small text-body-secondary mb-0">Headers (added verbatim to every request)</div>
-          {% for i in range(5) %}
-          <div class="d-flex flex-wrap gap-2 align-items-center" data-show="${{ sig }}_headerRows > {{ i }}">
-            <input type="text" name="header_key_{{ i }}" class="form-control form-control-sm"
-                   style="max-width: 14rem" placeholder="Header name" data-bind="${{ sig }}_hk{{ i }}">
-            <input type="text" name="header_value_{{ i }}" class="form-control form-control-sm"
-                   style="max-width: 20rem" placeholder="Value (e.g. Bearer &hellip;)" data-bind="${{ sig }}_hv{{ i }}">
-            {% if i %}
-            <button type="button" class="btn btn-sm btn-outline-danger"
-                    data-show="${{ sig }}_headerRows > {{ i }}"
-                    data-on:click="${{ sig }}_headerRows={{ i }};{% for j in range(i, 5) %} ${{ sig }}_hk{{ j }}=null; ${{ sig }}_hv{{ j }}=null;{% endfor %}">remove</button>
-            {% endif %}
-          </div>
-          {% endfor %}
-          <button type="button" class="btn btn-sm btn-outline-secondary align-self-start"
-                  data-show="${{ sig }}_headerRows < 5" data-on:click="${{ sig }}_headerRows++">+ header</button>
         </div>
 
         {# --- exec: command line; framing on stdin, JSON payload on stdout --- #}
@@ -69,12 +77,12 @@
           <div>
             <label class="form-label small mb-1">Retries</label>
             <input type="number" name="retries" min="0" max="9" class="form-control form-control-sm"
-                   style="max-width: 8rem" value="{{ cfg.get('retries', '') }}" placeholder="config default">
+                   style="width: 8rem" value="{{ cfg.get('retries', '') }}">
           </div>
           <div>
             <label class="form-label small mb-1">Timeout (s)</label>
             <input type="number" name="timeout" min="1" max="600" class="form-control form-control-sm"
-                   style="max-width: 8rem" value="{{ cfg.get('timeout', '') }}" placeholder="config default">
+                   style="width: 8rem" value="{{ cfg.get('timeout', '') }}">
           </div>
         </div>
       </div>

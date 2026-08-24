@@ -1,12 +1,15 @@
+{% if pending %}
+<div class="table-responsive">
 <table class="table table-sm table-hover table-striped align-middle">
   <thead><tr><th>Action</th><th>Version</th><th>Submitted</th><th>Description</th><th></th></tr></thead>
   <tbody>
   {% for row in pending %}
     <tr>
-      <td><a href="#" data-on:click="$tab='directory'; @get('/admin/partials/action/{{ row.action.id }}')">{{ row.action.id }}</a></td>
-      <td id="version-{{ row.version.id }}-state">v{{ row.version.version_number }} <span class="badge text-bg-warning">submitted</span></td>
-      <td class="small text-body-secondary">{{ row.version.submitted_at }}</td>
-      <td class="small text-body-secondary">{{ row.version.payload.description[:120] }}</td>
+      <td><button type="button" class="btn btn-link p-0" data-on:click="$tab='directory'; location.hash='directory'; $openAction='{{ row.action.id }}'; @get('/admin/partials/action/{{ row.action.id }}')">{{ row.action.id }}</button></td>
+      <td id="version-{{ row.version.id }}-state">v{{ row.version.version_number }} {{ state_badge("submitted") }}</td>
+      <td class="small text-body-secondary">{{ when(row.version.submitted_at) }}</td>
+      {% set desc = row.version.payload.get('description') if row.version.payload else none %}
+      <td class="small text-body-secondary">{% if desc is string and desc %}{{ desc[:120] }}{% else %}—{% endif %}</td>
       <td>
         <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post(&quot;/admin/action-version/{{ row.version.id }}/approve&quot;, {contentType: &quot;form&quot;})">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -20,8 +23,10 @@
         </form>
       </td>
     </tr>
-  {% else %}
-    <tr><td colspan="5" class="small text-body-secondary">No pending versions.</td></tr>
   {% endfor %}
   </tbody>
 </table>
+</div>
+{% else %}
+<p class="text-body-secondary py-3 mb-0">No pending versions.</p>
+{% endif %}

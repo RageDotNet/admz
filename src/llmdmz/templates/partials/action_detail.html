@@ -1,56 +1,83 @@
-<div class="card card-body">
+<div class="card card-body" data-init="el.scrollIntoView({block: 'nearest', behavior: 'smooth'})">
   <div class="d-flex flex-wrap gap-2 align-items-center">
-    <h2>{{ action.id }}</h2>
-    <span id="action-{{ action.id }}-state" class="badge text-bg-{{ state_tag(action.state) }}">{{ action.state }}</span>
-    <span class="small text-body-secondary">owner: {{ owner.name if owner }}</span>
+    <h2 class="h5 mb-0">{{ action.id }}</h2>
+    <span id="action-{{ action.id }}-state">{{ state_badge(action.state) }}</span>
+    <span class="small text-body-secondary">
+      Owner
+      {% if owner %}
+      <button type="button" class="btn btn-link p-0 align-baseline" data-on:click="$tab = 'agents'; location.hash = 'agents'; @get('/admin/agents/{{ owner.id }}')">{{ owner.name }}</button>
+      {% elif action.owner_agent_id %}
+      <span class="font-monospace">{{ action.owner_agent_id }}</span>
+      {% else %}
+      unknown
+      {% endif %}
+    </span>
+    <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" data-on:click="$openAction = ''; __adminCloseAction()">Close</button>
   </div>
-  <p>{{ action.active_version.payload.description if action.active_version }}</p>
 
+  <h3 class="h6 text-uppercase text-body-secondary mt-3 mb-2">Definition</h3>
   {% if action.active_version %}
   {% set ap = action.active_version.payload %}
-  <div class="mb-3">
-    <h3>Active settings (v{{ action.active_version.version_number }})</h3>
-    <dl class="row mb-0">
-      <dt class="col-sm-4 small text-body-secondary">provider_instructions</dt>
-      <dd class="col-sm-8 small">{{ ap.provider_instructions or '—' }}</dd>
-      <dt class="col-sm-4 small text-body-secondary">request_arbiter_instructions</dt>
-      <dd class="col-sm-8 small">{{ ap.request_arbiter_instructions or '—' }}</dd>
-      <dt class="col-sm-4 small text-body-secondary">response_arbiter_instructions</dt>
-      <dd class="col-sm-8 small">{{ ap.response_arbiter_instructions or '—' }}</dd>
-    </dl>
-    <div class="row g-3 mt-0">
-      <div class="col-lg-6">
-        <div class="small text-body-secondary mb-1">request_schema</div>
-        <pre class="border rounded p-3 bg-body-tertiary small mb-0" style="max-height: 24rem; overflow: auto">{{ ap.request_schema | tojson(indent=2) }}</pre>
-      </div>
-      <div class="col-lg-6">
-        <div class="small text-body-secondary mb-1">response_schema</div>
-        <pre class="border rounded p-3 bg-body-tertiary small mb-0" style="max-height: 24rem; overflow: auto">{{ ap.response_schema | tojson(indent=2) }}</pre>
-      </div>
+  <p class="mb-3">{{ ap.get('description') or '—' }}</p>
+  <p class="small text-body-secondary mb-3">Active settings (v{{ action.active_version.version_number }})</p>
+  <div class="row g-3 mb-3">
+    <div class="col-md-6">
+      <div class="small text-body-secondary mb-1">Provider instructions</div>
+      <div class="small text-break">{{ ap.get('provider_instructions') or '—' }}</div>
+    </div>
+    <div class="col-md-6">
+      <div class="small text-body-secondary mb-1">Client instructions</div>
+      <div class="small text-break">{{ ap.get('client_instructions') or '—' }}</div>
+    </div>
+    <div class="col-md-6">
+      <div class="small text-body-secondary mb-1">Request-arbiter instructions</div>
+      <div class="small text-break">{{ ap.get('request_arbiter_instructions') or '—' }}</div>
+    </div>
+    <div class="col-md-6">
+      <div class="small text-body-secondary mb-1">Response-arbiter instructions</div>
+      <div class="small text-break">{{ ap.get('response_arbiter_instructions') or '—' }}</div>
     </div>
   </div>
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="small text-body-secondary mb-1">request_schema</div>
+      <pre class="border rounded p-3 bg-body-tertiary small mb-0" style="max-height: 24rem; overflow: auto">{{ ap.request_schema | tojson(indent=2) }}</pre>
+    </div>
+    <div class="col-lg-6">
+      <div class="small text-body-secondary mb-1">response_schema</div>
+      <pre class="border rounded p-3 bg-body-tertiary small mb-0" style="max-height: 24rem; overflow: auto">{{ ap.response_schema | tojson(indent=2) }}</pre>
+    </div>
+  </div>
+  {% else %}
+  <p class="small text-body-secondary">No approved version yet.</p>
   {% endif %}
 
-  <h3>Versions</h3>
+  <h3 class="h6 text-uppercase text-body-secondary mt-4 mb-2">Versions</h3>
+  <div class="table-responsive">
   <table class="table table-sm table-hover table-striped align-middle">
-    <thead><tr><th>#</th><th>State</th><th>Submitted</th><th>Decided by</th><th>Notes</th><th>Diff vs active</th><th>Payload</th><th></th></tr></thead>
+    <thead><tr><th>#</th><th>State</th><th>Submitted</th><th>Decided by</th><th>Notes</th><th>Diff vs previous</th><th>Payload</th><th>Actions</th></tr></thead>
     <tbody>
     {% for v in versions %}
       <tr>
         <td>{{ v.version_number }}</td>
-        <td id="version-{{ v.id }}-state"><span class="badge text-bg-{{ state_tag(v.state) }}">{{ v.state }}</span></td>
-        <td class="small text-body-secondary">{{ v.submitted_at }}</td>
+        <td id="version-{{ v.id }}-state">{{ state_badge(v.state) }}</td>
+        <td class="small text-body-secondary">{{ when(v.submitted_at) }}</td>
         <td class="small text-body-secondary">{% if v.decided_by %}{{ v.decided_by }}{% else %}&mdash;{% endif %}</td>
-        <td class="small text-body-secondary">{{ v.decision_notes or '' }}</td>
+        <td class="small text-body-secondary">{{ v.decision_notes or '—' }}</td>
         <td class="small text-body-secondary">
           {% set d = diffs.get(v.version_number) or {} %}
-          {% if not d %}<span class="small text-body-secondary">&mdash;</span>{% endif %}
-          {% for field, entries in d.items() %}
-            <div><strong>{{ field }}</strong>:
-            {% for e in entries %}
-              <span class="{{ 'text-success' if e.op == 'added' else ('text-danger text-decoration-line-through' if e.op == 'removed' else '') }}">{{ e.op }} {{ e.path }}</span>
-            {% endfor %}</div>
-          {% endfor %}
+          {% if not d %}&mdash;{% else %}
+            {% for field, labels in d.items() %}
+            <div>
+              <strong>{{ field }}</strong>
+              {% if labels|length == 1 and labels[0] in ('changed', 'added', 'removed') %}
+              {{ labels[0] }}
+              {% else %}
+              {{ labels | join(', ') }}
+              {% endif %}
+            </div>
+            {% endfor %}
+          {% endif %}
         </td>
         <td>
           <details>
@@ -60,73 +87,73 @@
         </td>
         <td>
           {% if v.state == 'submitted' %}
-          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/action-version/{{ v.id }}/approve', {contentType: 'form'})">
+          <form class="row g-2 align-items-end" data-on:submit="@post('/admin/action-version/{{ v.id }}/approve', {contentType: 'form'})">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <input type="text" name="notes" class="form-control form-control-sm small text-body-secondary" placeholder="optional notes">
-            <button class="btn btn-sm btn-primary" type="submit">Approve</button>
+            <div class="col-12">
+              <label class="form-label mb-1" for="ver-{{ v.id }}-a-notes">Notes</label>
+              <input type="text" id="ver-{{ v.id }}-a-notes" name="notes" class="form-control form-control-sm">
+            </div>
+            <div class="col-12">
+              <button class="btn btn-sm btn-primary" type="submit">Approve</button>
+            </div>
           </form>
-          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/action-version/{{ v.id }}/reject', {contentType: 'form'})">
+          <form class="row g-2 align-items-end mt-2" data-on:submit="@post('/admin/action-version/{{ v.id }}/reject', {contentType: 'form'})">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button class="btn btn-sm btn-danger" type="submit">Reject</button>
+            <div class="col-12">
+              <label class="form-label mb-1" for="ver-{{ v.id }}-r-notes">Notes</label>
+              <input type="text" id="ver-{{ v.id }}-r-notes" name="notes" class="form-control form-control-sm">
+            </div>
+            <div class="col-12">
+              <button class="btn btn-sm btn-danger" type="submit">Reject</button>
+            </div>
           </form>
+          {% else %}
+          &mdash;
           {% endif %}
         </td>
       </tr>
     {% endfor %}
     </tbody>
   </table>
+  </div>
 
-  <h3>Enrolled clients</h3>
-  <table class="table table-sm table-hover table-striped align-middle">
-    <thead><tr><th>Agent</th><th>State</th><th>Requested</th><th></th></tr></thead>
-    <tbody>
-    {% for e in enrollments %}
-      <tr>
-        <td class="mono small text-body-secondary">{{ agent_names.get(e.agent_id, e.agent_id) }}</td>
-        <td><span class="badge text-bg-{{ state_tag(e.state) }}">{{ e.state }}</span></td>
-        <td class="small text-body-secondary">{{ e.requested_at }}</td>
-        <td>
-          {% if e.state in ('requested',) %}
-          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/enrollment/{{ e.id }}/approve', {contentType: 'form'})">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-sm btn-outline-secondary">Approve</button>
-          </form>
-          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/enrollment/{{ e.id }}/reject', {contentType: 'form'})">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-sm btn-danger">Reject</button>
-          </form>
-          {% elif e.state == 'enrolled' %}
-          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/enrollment/{{ e.id }}/revoke', {contentType: 'form'})">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-sm btn-danger">Revoke</button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
-    {% else %}
-      <tr><td colspan="4" class="small text-body-secondary">No enrollments.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <h3 class="h6 text-uppercase text-body-secondary mt-4 mb-2">Access</h3>
+  <div id="action-access">
+    {% include "partials/action_access.html" %}
+  </div>
 
-  <h3>Recent invocations</h3>
+  <h3 class="h6 text-uppercase text-body-secondary mt-4 mb-2">Invocations</h3>
+  <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+    <p class="small text-body-secondary mb-0">Most recent 20</p>
+    <button type="button" class="btn btn-link btn-sm p-0" data-on:click="$tab = 'log'; location.hash = 'log'; @get('/admin/partials/log?action_id={{ action.id }}')">View all in Request log</button>
+  </div>
+  <div class="table-responsive">
   <table class="table table-sm table-hover table-striped align-middle">
-    <thead><tr><th>When</th><th>Outcome</th><th>Verdict</th><th></th></tr></thead>
+    <thead><tr><th>When</th><th>Outcome</th><th></th></tr></thead>
     <tbody>
     {% for r in requests %}
       <tr>
-        <td class="small text-body-secondary">{{ r.created_at }}</td>
-        <td><span class="badge text-bg-{{ state_tag(r.outcome) }}">{{ r.outcome }}</span></td>
-        <td class="small text-body-secondary">{{ r.request_verdict.reason if r.request_verdict else '' }}</td>
-        <td><a href="#" data-on:click="@get('/admin/partials/request/{{ r.id }}')">detail</a></td>
+        <td class="small text-body-secondary">{{ when(r.created_at) }}</td>
+        <td>{{ state_badge(log_outcome(r)) }}</td>
+        <td><button type="button" class="btn btn-link p-0" data-on:click="@get('/admin/partials/request/{{ r.id }}?into=action')">Details</button></td>
       </tr>
     {% else %}
-      <tr><td colspan="4" class="small text-body-secondary">No invocations.</td></tr>
+      <tr><td colspan="3" class="small text-body-secondary">No invocations.</td></tr>
     {% endfor %}
     </tbody>
   </table>
+  </div>
+  <div id="action-request-detail"></div>
 
   {% if action.state == 'active' %}
-  <form data-on:submit="@post('/admin/action/{{ action.id }}/withdraw', {contentType: 'form'})">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button type="submit" class="btn btn-sm btn-danger">Withdraw action (admin)</button>
-  </form>
+  <div class="border border-danger-subtle rounded p-3 mt-4">
+    <h3 class="h6 text-danger mb-2">Danger zone</h3>
+    <p class="small text-body-secondary mb-2">Withdrawing hides this action from clients. They can no longer invoke it.</p>
+    {% with confirm_key="wd-" ~ action.id, button_label="Withdraw action", confirm_label="Withdraw",
+            message="Withdraw " ~ action.id ~ "? This cannot be undone from this button.",
+            post_url="/admin/action/" ~ action.id ~ "/withdraw" %}
+      {% include "partials/confirm_destructive.html" %}
+    {% endwith %}
+  </div>
   {% endif %}
 </div>

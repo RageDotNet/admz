@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LLM DMZ Admin</title>
+  <title>Directory — LLM DMZ</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
   <script>
     // Bootstrap color-mode init (before paint): honour saved or system preference.
     if (localStorage.getItem("bs-theme") === "dark" ||
@@ -11,52 +12,159 @@
          window.matchMedia("(prefers-color-scheme: dark)").matches)) {
       document.documentElement.setAttribute("data-bs-theme", "dark");
     }
+    window.__adminTabTitles = {
+      directory: "Directory",
+      enrollments: "Enrollments",
+      agents: "Agents",
+      log: "Request log",
+      audit: "Audit trail"
+    };
+    window.__adminSetTitle = function (tab) {
+      document.title = (window.__adminTabTitles[tab] || "Admin") + " — LLM DMZ";
+    };
+    window.__adminToggleTheme = function () {
+      var next = document.documentElement.getAttribute("data-bs-theme") === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-bs-theme", next);
+      localStorage.setItem("bs-theme", next);
+    };
+    // datastar-fetch is dispatched on document and does not bubble; data-indicator
+    // only tracks fetches from its own element, so the console counts started/finished
+    // here for a global busy flag and surfaces HTTP 4xx/5xx as a banner.
+    window.__adminBusy = function (busy, evt) {
+      var type = evt.detail && evt.detail.type;
+      if (type === "started") return (busy || 0) + 1;
+      if (type === "finished") return Math.max(0, (busy || 0) - 1);
+      return busy || 0;
+    };
+    window.__adminFlash = function (current, evt) {
+      var type = evt.detail && evt.detail.type;
+      if (type === "started") return "";
+      if (type === "retries-failed") return "Request failed after retries.";
+      if (type === "error") {
+        var status = evt.detail.argsRaw && evt.detail.argsRaw.status;
+        return status ? ("Request failed (" + status + ").") : "Request failed.";
+      }
+      return current || "";
+    };
+    window.__adminCloseAction = function () {
+      var el = document.getElementById("action-detail");
+      if (el) el.replaceChildren();
+    };
+    window.__adminCloseAgent = function () {
+      var el = document.getElementById("agent-detail-region");
+      if (el) el.replaceChildren();
+    };
+    window.__adminCloseRequest = function () {
+      var el = document.getElementById("request-detail");
+      if (el) el.replaceChildren();
+    };
+    window.__adminCloseActionRequest = function () {
+      var el = document.getElementById("action-request-detail");
+      if (el) el.replaceChildren();
+    };
+    window.__adminCopyText = function (id) {
+      var el = document.getElementById(id);
+      if (!el || !navigator.clipboard || !navigator.clipboard.writeText) return;
+      navigator.clipboard.writeText(el.textContent || "");
+    };
   </script>
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-5.3.3.min.css') }}">
   <script type="module" src="{{ url_for('static', filename='vendor/datastar-1.0.2.js') }}"></script>
 </head>
 <body>
-<div class="container py-4" data-signals="{tab: 'directory'}">
-  <h1 class="h3 mb-3">LLM DMZ — Admin Console</h1>
-  <div id="stats-bar" class="mb-3">{% include "partials/stats_placeholder.html" %}</div>
-  <nav class="d-flex flex-wrap gap-2 align-items-center nav nav-tabs mb-3" role="tablist">
-    <a class="nav-link" role="tab" href="#directory"
+<div
+  id="admin-root"
+  class="container py-4"
+  data-attr-aria-busy="$busy > 0"
+  data-on:hashchange__window="$tab = ['directory','enrollments','agents','log','audit'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'directory'; __adminSetTitle($tab)"
+  data-on:datastar-fetch__document="$busy = __adminBusy($busy, evt); $flashError = __adminFlash($flashError, evt)"
+>
+<script>
+(function () {
+  var allowed = ["directory", "enrollments", "agents", "log", "audit"];
+  var t = (location.hash || "#directory").slice(1);
+  if (allowed.indexOf(t) === -1) t = "directory";
+  var dark = document.documentElement.getAttribute("data-bs-theme") === "dark";
+  document.getElementById("admin-root").setAttribute(
+    "data-signals", JSON.stringify({tab: t, dark: dark, pendingConfirm: "", busy: 0, flashError: "", openAction: "", openRequest: ""})
+  );
+  window.__adminSetTitle(t);
+})();
+</script>
+  <header class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
+    <div>
+      <h1 class="h4 mb-0">LLM DMZ</h1>
+      <p class="small text-body-secondary mb-0">Signed in as {{ admin }}</p>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <div data-show="$busy > 0">
+        <div class="spinner-border spinner-border-sm text-secondary" role="status">
+          <span class="visually-hidden">Loading</span>
+        </div>
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-secondary"
+              data-on:click="__adminToggleTheme(); $dark = document.documentElement.getAttribute('data-bs-theme') === 'dark'"
+              data-attr-aria-pressed="$dark ? 'true' : 'false'"
+              aria-label="Toggle color theme">
+        <span data-show="$dark">Light</span>
+        <span data-show="!$dark">Dark</span>
+      </button>
+      <form method="post" action="{{ url_for('admin.logout') }}" class="m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-sm btn-outline-secondary">Log out</button>
+      </form>
+    </div>
+  </header>
+  <div data-show="$flashError !== ''">
+    <div class="alert alert-danger d-flex justify-content-between align-items-start gap-2 py-2 mb-3" role="alert">
+      <span data-text="$flashError"></span>
+      <button type="button" class="btn-close flex-shrink-0" aria-label="Dismiss" data-on:click="$flashError = ''"></button>
+    </div>
+  </div>
+  <div id="stats-bar" class="mb-3" data-init="@get('/admin/partials/stats')">
+    {% include "partials/stats_placeholder.html" %}
+  </div>
+  <nav class="nav nav-tabs mb-3" role="tablist">
+    <a class="nav-link" role="tab" href="#directory" id="tab-directory"
+       aria-controls="directory"
        data-attr-class="$tab==='directory' ? 'nav-link active' : 'nav-link'"
+       data-attr-aria-selected="$tab==='directory' ? 'true' : 'false'"
        data-on:click="$tab='directory'">Directory</a>
-    <a class="nav-link" role="tab" href="#enrollments"
+    <a class="nav-link" role="tab" href="#enrollments" id="tab-enrollments"
+       aria-controls="enrollments"
        data-attr-class="$tab==='enrollments' ? 'nav-link active' : 'nav-link'"
+       data-attr-aria-selected="$tab==='enrollments' ? 'true' : 'false'"
        data-on:click="$tab='enrollments'">Enrollments</a>
-    <a class="nav-link" role="tab" href="#agents"
+    <a class="nav-link" role="tab" href="#agents" id="tab-agents"
+       aria-controls="agents"
        data-attr-class="$tab==='agents' ? 'nav-link active' : 'nav-link'"
+       data-attr-aria-selected="$tab==='agents' ? 'true' : 'false'"
        data-on:click="$tab='agents'">Agents</a>
-    <a class="nav-link" role="tab" href="#log"
+    <a class="nav-link" role="tab" href="#log" id="tab-log"
+       aria-controls="log"
        data-attr-class="$tab==='log' ? 'nav-link active' : 'nav-link'"
+       data-attr-aria-selected="$tab==='log' ? 'true' : 'false'"
        data-on:click="$tab='log'">Request log</a>
-    <a class="nav-link" role="tab" href="#audit"
+    <a class="nav-link" role="tab" href="#audit" id="tab-audit"
+       aria-controls="audit"
        data-attr-class="$tab==='audit' ? 'nav-link active' : 'nav-link'"
+       data-attr-aria-selected="$tab==='audit' ? 'true' : 'false'"
        data-on:click="$tab='audit'">Audit trail</a>
-    <form class="ms-auto" method="post" action="{{ url_for('admin.logout') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit" class="btn btn-sm btn-outline-secondary">Log out ({{ admin }})</button>
-    </form>
   </nav>
 
-  <section id="directory" data-show="$tab==='directory'">
+  <section id="directory" role="tabpanel" aria-labelledby="tab-directory" data-show="$tab==='directory'">
     <div id="directory-list" data-init="@get('/admin/partials/directory')"></div>
   </section>
-  <section id="enrollments" data-show="$tab==='enrollments'">
-    <h2 class="h5 mt-3">Pending version approvals</h2>
-    <div id="pending-versions">{{ pending_versions | safe }}</div>
-    <h2 class="h5 mt-4">Enrollment requests</h2>
-    <div id="pending-enrollments" data-init="@get('/admin/partials/enrollments')"></div>
+  <section id="enrollments" role="tabpanel" aria-labelledby="tab-enrollments" data-show="$tab==='enrollments'">
+    <div id="enrollments-panel" data-init="@get('/admin/partials/enrollments')"></div>
   </section>
-  <section id="agents" data-show="$tab==='agents'">
+  <section id="agents" role="tabpanel" aria-labelledby="tab-agents" data-show="$tab==='agents'">
     <div id="agents-list" data-init="@get('/admin/partials/agents', {openWhenHidden: true})"></div>
   </section>
-  <section id="log" data-show="$tab==='log'">
+  <section id="log" role="tabpanel" aria-labelledby="tab-log" data-show="$tab==='log'">
     <div id="log-list" data-init="@get('/admin/partials/log')"></div>
   </section>
-  <section id="audit" data-show="$tab==='audit'">
+  <section id="audit" role="tabpanel" aria-labelledby="tab-audit" data-show="$tab==='audit'">
     <div id="audit-list" data-init="@get('/admin/partials/audit')"></div>
   </section>
 </div>

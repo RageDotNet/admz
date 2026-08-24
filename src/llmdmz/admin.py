@@ -9,6 +9,7 @@ from __future__ import annotations
 import functools
 import secrets
 from collections.abc import Callable
+from datetime import datetime, timezone
 from typing import Any
 
 from datastar_py import ServerSentEventGenerator as SSE
@@ -24,12 +25,13 @@ from flask import (
     session,
     url_for,
 )
+from markupsafe import Markup, escape
 
 from llmdmz.core.auth import bearer_token, resolve_bearer
 
 bp = Blueprint("admin", __name__, url_prefix="/admin", template_folder="../templates")
 
-# 0build kit has no per-state badge classes; map domain states to z-tag variants.
+# Domain states/outcomes → Bootstrap 5 `text-bg-*` color.
 STATE_TAG = {
     # action states
     "pending": "warning",
@@ -43,14 +45,24 @@ STATE_TAG = {
     "requested": "info",
     "enrolled": "success",
     "revoked": "secondary",
+    "enabled": "success",
+    "disabled": "secondary",
+    "set": "success",
     # request outcomes (terminal)
     "completed": "success",
     "request_schema_invalid": "warning",
     "arbiter_rejected": "danger",
     "provider_failed": "danger",
+    "provider_error": "danger",
+    "transport": "danger",
+    "timeout": "danger",
+    "protocol": "danger",
+    "response_schema_invalid": "danger",
+    "arbiter_transport": "warning",
     "arbiter_unavailable": "warning",
     "internal_error": "danger",
     # request outcomes (in-flight progress)
+    "in_flight": "info",
     "received": "info",
     "arbiter_reviewing_request": "info",
     "dispatching": "primary",
@@ -62,15 +74,174 @@ def state_tag(state: str) -> str:
     return STATE_TAG.get(state, "secondary")
 
 
+def state_label(state: str | None) -> str:
+    """Sentence-case label: provider_failed → Provider failed."""
+    if not state:
+        return ""
+    words = state.replace("_", " ").split()
+    if not words:
+        return ""
+    return words[0].capitalize() + ((" " + " ".join(words[1:])) if len(words) > 1 else "")
+
+
+_TRANSPORT_ERROR_CLASSES = frozenset(
+    {"transport", "timeout", "protocol", "arbiter_transport"}
+)
+
+
+def log_outcome(req) -> str:
+    """Admin-visible reason for a request row.
+
+    Exhausted retries are stored as ``provider_failed`` (what the client is
+    told). The log should show why the *last* attempt died: ``arbiter_rejected``
+    vs a transport/protocol ``provider_error``, not a blanket provider failure.
+    """
+    outcome = getattr(req, "outcome", None) or ""
+    if outcome != "provider_failed":
+        return outcome
+    attempts = list(getattr(req, "attempts", None) or [])
+    if not attempts:
+        return "provider_failed"
+    last = max(attempts, key=lambda a: getattr(a, "attempt_number", 0))
+    cls = getattr(last, "error_class", None)
+    if cls == "arbiter_rejected":
+        return "arbiter_rejected"
+    if cls in _TRANSPORT_ERROR_CLASSES:
+        return "provider_error"
+    if cls:
+        return cls
+    return "provider_failed"
+
+
+def state_badge(state: str | None) -> Markup:
+    label = state_label(state)
+    return Markup(
+        f'<span class="badge text-bg-{escape(state_tag(state or ""))}">{escape(label)}</span>'
+    )
+
+
+def _aware(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def fmt_when(dt: datetime) -> str:
+    """Relative for recent rows; otherwise date + time without microseconds."""
+    now = datetime.now(timezone.utc)
+    d = _aware(dt)
+    secs = int((now - d).total_seconds())
+    if 0 <= secs < 45:
+        return "just now"
+    if 45 <= secs < 90:
+        return "1m ago"
+    if 90 <= secs < 3600:
+        return f"{secs // 60}m ago"
+    if 3600 <= secs < 86400:
+        return f"{secs // 3600}h ago"
+    if 86400 <= secs < 86400 * 2:
+        return "1d ago"
+    if 86400 * 2 <= secs < 86400 * 7:
+        return f"{secs // 86400}d ago"
+    return d.strftime("%Y-%m-%d %H:%M")
+
+
+def fmt_when_title(dt: datetime) -> str:
+    return _aware(dt).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def when(dt: datetime | None) -> Markup:
+    if dt is None:
+        return Markup("—")
+    return Markup(
+        f'<time datetime="{escape(dt.isoformat())}" title="{escape(fmt_when_title(dt))}">{escape(fmt_when(dt))}</time>'
+    )
+
+
+def pager_summary(total: int, page: int, per_page: int) -> str:
+    if total <= per_page:
+        return f"{total} total"
+    return f"{total} total — page {page} ({per_page}/page)"
+
+
+_AUDIT_EVENT_LABELS = {
+    "action.created": "Created action",
+    "action.version_submitted": "Submitted version",
+    "version.approved": "Approved version",
+    "version.rejected": "Rejected version",
+    "action.withdrawn": "Withdrew action",
+    "enrollment.requested": "Requested enrollment",
+    "enrollment.approved": "Approved enrollment",
+    "enrollment.rejected": "Rejected enrollment",
+    "enrollment.revoked": "Revoked enrollment",
+    "enrollment.reset": "Reset enrollment",
+    "enrollment.admin_granted": "Admin enrolled client",
+    "agent.registered": "Registered agent",
+    "agent.edited": "Edited agent",
+    "agent.key_revoked": "Revoked key",
+    "agent.key_issued": "Issued key",
+    "request.invoked": "Invoked action",
+    "request.invoked": "Invoked action",
+}
+
+
+def audit_event_label(event: str | None) -> str:
+    if not event:
+        return ""
+    if event in _AUDIT_EVENT_LABELS:
+        return _AUDIT_EVENT_LABELS[event]
+    return state_label(event.replace(".", "_"))
+
+
+def audit_detail_summary(detail: dict | None) -> str:
+    """One-line operator summary; omit empty/null notes and null fields."""
+    if not detail:
+        return ""
+    parts: list[str] = []
+    notes = detail.get("notes")
+    if isinstance(notes, str) and notes.strip():
+        parts.append(notes.strip())
+    version_number = detail.get("version_number")
+    if version_number is not None and version_number != "":
+        parts.append(f"v{version_number}")
+    name = detail.get("name")
+    if isinstance(name, str) and name.strip():
+        parts.append(name.strip())
+    code = detail.get("code")
+    if code:
+        parts.append(str(code))
+    status = detail.get("status")
+    if status is not None and status != "" and code is None:
+        parts.append(f"status {status}")
+    skip = {"notes", "action_id", "agent_id", "version_number", "name", "code", "status"}
+    for key, value in detail.items():
+        if key in skip or value is None or value == "" or value == {}:
+            continue
+        if isinstance(value, bool):
+            parts.append(key if value else f"not {key}")
+            continue
+        parts.append(f"{key} {value}")
+    return " · ".join(parts)
+
+
 def dispatch_target(framing: dict | None) -> str:
-    """Protocol plus URL (post/completions) or command (exec) for the request log."""
+    """Protocol plus URL (post/completions) or command (exec) for the request log.
+
+    Protocol with no target is "—" (not ``exec —`` / ``post —``).
+    """
     if not framing:
         return "—"
     protocol = str(framing.get("protocol") or "")
     if protocol in ("post", "completions"):
-        return f"{protocol} {framing.get('endpoint') or '—'}"
+        endpoint = str(framing.get("endpoint") or "").strip()
+        if not endpoint:
+            return "—"
+        return f"{protocol} {endpoint}"
     if protocol == "exec":
-        return f"{protocol} {framing.get('command') or '—'}"
+        command = str(framing.get("command") or "").strip()
+        if not command:
+            return "—"
+        return f"{protocol} {command}"
     return protocol or "—"
 
 
@@ -89,10 +260,30 @@ def request_agent_name(req: Any) -> str:
     return str(agent_id) if agent_id else "—"
 
 
+def delivery_summary(cfg: dict | None) -> str:
+    """Protocol plus command (exec) or endpoint (post/completions) for the agent list."""
+    if not cfg:
+        return "—"
+    protocol = str(cfg.get("protocol") or "")
+    if protocol == "exec":
+        return f"{protocol} {cfg.get('command') or '—'}"
+    if protocol in ("post", "completions"):
+        return f"{protocol} {cfg.get('endpoint') or '—'}"
+    return protocol or "—"
+
+
 bp.add_app_template_global(state_tag)
+bp.add_app_template_global(state_label)
+bp.add_app_template_global(state_badge)
+bp.add_app_template_global(log_outcome)
+bp.add_app_template_global(when)
+bp.add_app_template_global(pager_summary)
 bp.add_app_template_global(dispatch_target)
 bp.add_app_template_global(request_dispatch_target)
 bp.add_app_template_global(request_agent_name)
+bp.add_app_template_global(delivery_summary)
+bp.add_app_template_global(audit_event_label)
+bp.add_app_template_global(audit_detail_summary)
 
 
 # --- T4.3: auth guard (#17/#23) -----------------------------------------------
@@ -218,7 +409,7 @@ def sse_merge(patches: list[tuple[str, str]], remove_signals: list[str] | None =
 def login():
     if current_admin():
         return redirect(url_for("admin.dashboard"))
-    return render_template("login.html", csrf_token=csrf_token())
+    return render_template("login.html", csrf_token=csrf_token(), username="")
 
 @bp.post("/login")
 def login_post():
@@ -232,7 +423,12 @@ def login_post():
         username = request.form.get("username", "")
         password = request.form.get("password", "")
         if not secrets.compare_digest(request.form.get("csrf_token", ""), csrf_token()):
-            return render_template("login.html", error="CSRF token mismatch."), 400
+            return render_template(
+                "login.html",
+                error="CSRF token mismatch.",
+                csrf_token=csrf_token(),
+                username=username,
+            ), 400
     for admin in config.admins:
         assert isinstance(admin, AdminAccount)
         if admin.username == username and admin.check_password(password):
@@ -245,7 +441,12 @@ def login_post():
             return redirect(url_for("admin.dashboard"))
     if request.is_json:
         return jsonify({"error": {"code": "unauthorized", "message": "Bad credentials."}}), 401
-    return render_template("login.html", error="Invalid username or password.", csrf_token=csrf_token()), 401
+    return render_template(
+        "login.html",
+        error="Invalid username or password.",
+        csrf_token=csrf_token(),
+        username=username,
+    ), 401
 
 
 @bp.post("/logout")

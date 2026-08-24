@@ -1,35 +1,62 @@
 <div>
-  <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@get(&quot;/admin/partials/log&quot;, {contentType: &quot;form&quot;})">
-    <input type="text" name="action_id" class="form-control form-control-sm" value="{{ action_id }}" placeholder="action id">
-    <select name="outcome" class="form-select form-select-sm">
-      <option value="">any outcome</option>
-      {% for o in ("in_flight", "received", "arbiter_reviewing_request", "dispatching", "arbiter_reviewing_response", "completed", "request_schema_invalid", "arbiter_rejected", "provider_failed", "arbiter_unavailable", "internal_error") %}
-      <option value="{{ o }}" {% if outcome == o %}selected{% endif %}>{{ o }}</option>
-      {% endfor %}
-    </select>
-    <button type="submit" class="btn btn-sm btn-outline-secondary">Filter</button>
+  <form class="row row-cols-lg-auto g-2 align-items-end mb-3" method="get"
+        data-indicator="logLoading"
+        data-on:submit="@get('/admin/partials/log', {contentType: 'form'}); $openRequest = ''; __adminCloseRequest()">
+    <div class="col-12">
+      <label class="form-label mb-1" for="log-action">Action</label>
+      <input type="text" id="log-action" name="action_id" class="form-control form-control-sm" style="min-width: 12rem" value="{{ action_id }}" placeholder="crm_search">
+    </div>
+    <div class="col-12">
+      <label class="form-label mb-1" for="log-outcome">Outcome</label>
+      <select id="log-outcome" name="outcome" class="form-select form-select-sm">
+        <option value="">any</option>
+        {% for o in ("in_flight", "received", "arbiter_reviewing_request", "dispatching", "arbiter_reviewing_response", "completed", "request_schema_invalid", "arbiter_rejected", "provider_failed", "arbiter_unavailable", "internal_error") %}
+        <option value="{{ o }}" {% if outcome == o %}selected{% endif %}>{{ state_label(o) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12">
+      <button type="submit" class="btn btn-sm btn-outline-secondary" data-attr-disabled="$logLoading">
+        <span data-show="!$logLoading">Filter</span>
+        <span data-show="$logLoading">Filtering…</span>
+      </button>
+      {% if filters_active %}
+      <button type="button" class="btn btn-sm btn-outline-secondary ms-1" data-on:click="@get('/admin/partials/log'); $openRequest = ''; __adminCloseRequest()">Clear</button>
+      {% endif %}
+    </div>
   </form>
-  <table class="table table-sm table-hover table-striped align-middle">
-    <thead><tr><th>When</th><th>Action</th><th>Agent</th><th>Dispatch</th><th>Outcome</th><th></th></tr></thead>
-    <tbody>
-    {% for r in rows %}
-      <tr>
-        <td class="small text-body-secondary">{{ r.created_at }}</td>
-        <td class="small text-body-secondary">{{ r.action_id }}</td>
-        <td class="small text-body-secondary">{{ request_agent_name(r) }}</td>
-        <td class="small font-monospace">{{ request_dispatch_target(r) }}</td>
-        <td><span class="badge text-bg-{{ state_tag(r.outcome) }}">{{ r.outcome }}</span></td>
-        <td><a href="#" data-on:click="@get(&quot;/admin/partials/request/{{ r.id }}&quot;)">detail</a></td>
-      </tr>
-    {% else %}
-      <tr><td colspan="6" class="small text-body-secondary">No requests.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  {% if rows %}
+  <div class="table-responsive">
+    <table class="table table-sm table-hover table-striped align-middle">
+      <thead><tr><th>When</th><th>Action</th><th>Agent</th><th>Dispatch</th><th>Outcome</th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+        {% set disp = request_dispatch_target(r) %}
+        <tr data-class:table-active="$openRequest === '{{ r.id }}'">
+          <td class="small text-body-secondary">{{ when(r.created_at) }}</td>
+          <td>
+            <button type="button" class="btn btn-link p-0" data-on:click="$tab = 'directory'; location.hash = 'directory'; $openAction = '{{ r.action_id }}'; @get('/admin/partials/action/{{ r.action_id }}')">{{ r.action_id }}</button>
+          </td>
+          <td>
+            <button type="button" class="btn btn-link p-0" data-on:click="$tab = 'agents'; location.hash = 'agents'; @get('/admin/agents/{{ r.agent_id }}')">{{ request_agent_name(r) }}</button>
+          </td>
+          <td class="small font-monospace text-truncate" style="max-width: 14rem" title="{{ disp }}">{{ disp }}</td>
+          <td>
+            {{ state_badge(log_outcome(r)) }}
+            <button type="button" class="btn btn-link btn-sm p-0 ms-2" data-on:click="$openRequest = '{{ r.id }}'; @get('/admin/partials/request/{{ r.id }}')">Details</button>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-body-secondary py-3 mb-0">No requests match this filter.</p>
+  {% endif %}
   <div class="d-flex flex-wrap gap-2 align-items-center my-3">
-    <span class="small text-body-secondary">{{ total }} total — page {{ page }}</span>
-    {% if page > 1 %}<a class="btn btn-sm btn-outline-secondary btn btn-sm btn-outline-secondary" href="#" data-on:click="@get(&quot;/admin/partials/log?page={{ page - 1 }}&quot;)">Prev</a>{% endif %}
-    {% if page * per_page < total %}<a class="btn btn-sm btn-outline-secondary btn btn-sm btn-outline-secondary" href="#" data-on:click="@get(&quot;/admin/partials/log?page={{ page + 1 }}&quot;)">Next</a>{% endif %}
+    <span class="small text-body-secondary">{{ pager_summary(total, page, per_page) }}</span>
+    {% if page > 1 %}<button type="button" class="btn btn-sm btn-outline-secondary" data-on:click="@get('{{ pager_prev | safe }}'); $openRequest = ''; __adminCloseRequest()">Prev</button>{% endif %}
+    {% if page * per_page < total %}<button type="button" class="btn btn-sm btn-outline-secondary" data-on:click="@get('{{ pager_next | safe }}'); $openRequest = ''; __adminCloseRequest()">Next</button>{% endif %}
   </div>
   <div id="request-detail"></div>
 </div>

@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LLM DMZ Admin — Login</title>
+  <title>Log in — LLM DMZ</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
   <script>
     if (localStorage.getItem("bs-theme") === "dark" ||
         (!localStorage.getItem("bs-theme") &&
@@ -15,21 +16,22 @@
 </head>
 <body class="bg-body-tertiary min-vh-100 d-flex align-items-center">
 <div class="container" style="max-width: 28rem;">
-  <div class="card">
-    <div class="card-body">
-      <h1 class="h4 mb-3">LLM DMZ — Admin Login</h1>
-      {% if error %}<p class="alert alert-danger py-2">{{ error }}</p>{% endif %}
+  <div class="card shadow-sm">
+    <div class="card-body p-4">
+      <h1 class="h4 mb-1">LLM DMZ</h1>
+      <p class="small text-body-secondary mb-3">Admin</p>
+      {% if error %}<div class="alert alert-danger py-2" role="alert">{{ error }}</div>{% endif %}
       <form method="post" action="{{ url_for('admin.login_post') }}" class="d-flex flex-column gap-3">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div>
           <label class="form-label" for="username">Username</label>
-          <input class="form-control" type="text" id="username" name="username" autocomplete="username">
+          <input class="form-control" type="text" id="username" name="username" autocomplete="username" required value="{{ username|default('') }}"{% if not error %} autofocus{% endif %}>
         </div>
         <div>
           <label class="form-label" for="password">Password</label>
-          <input class="form-control" type="password" id="password" name="password" autocomplete="current-password">
+          <input class="form-control" type="password" id="password" name="password" autocomplete="current-password" required{% if error %} autofocus{% endif %}>
         </div>
-        <button type="submit" class="btn btn-primary align-self-start">Log in</button>
+        <button type="submit" class="btn btn-primary w-100">Log in</button>
       </form>
     </div>
   </div>

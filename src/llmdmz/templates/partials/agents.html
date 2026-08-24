@@ -1,41 +1,91 @@
 <div>
-  <h2>Register agent</h2>
-  <form class="d-flex flex-column gap-2" data-on:submit="@post('/admin/agents', {contentType: 'form'})">
+  <h2 class="h5 mb-3">Register agent</h2>
+  <form class="row g-2 align-items-end mb-2"
+        data-signals="{regName: '', reg_client: false, regValid: false}"
+        data-on:input="$regValid = !!$regName && ($reg_client || $reg_provider)"
+        data-on:change="$regValid = !!$regName && ($reg_client || $reg_provider)"
+        data-on:submit="@post('/admin/agents', {contentType: 'form'})">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <div class="d-flex flex-wrap gap-2 align-items-center">
-      <input type="text" name="name" class="form-control form-control-sm" style="max-width: 16rem" placeholder="agent name">
-      <label class="small text-body-secondary"><input type="checkbox" name="is_client"> client</label>
-      <label class="small text-body-secondary"><input type="checkbox" name="is_provider" data-bind="$reg_provider"> provider</label>
-      <button class="btn btn-sm btn-primary" type="submit">Register</button>
+    <div class="col-12 col-md-auto">
+      <label class="form-label mb-1" for="reg-name">Name</label>
+      <input type="text" id="reg-name" name="name" class="form-control form-control-sm" style="min-width: 12rem"
+             data-bind="$regName" autocomplete="off">
     </div>
-    {% with sig = 'reg' %}{% include "partials/delivery_fields.html" %}{% endwith %}
+    <div class="col-auto">
+      <div class="form-check mb-0">
+        <input class="form-check-input" type="checkbox" id="reg-client" name="is_client" data-bind="$reg_client">
+        <label class="form-check-label" for="reg-client">Client <span class="visually-hidden">(new agent)</span></label>
+      </div>
+    </div>
+    <div class="col-auto">
+      <div class="form-check mb-0">
+        <input class="form-check-input" type="checkbox" id="reg-provider" name="is_provider" data-bind="$reg_provider">
+        <label class="form-check-label" for="reg-provider">Provider <span class="visually-hidden">(new agent)</span></label>
+      </div>
+    </div>
+    <div class="col-auto">
+      <button class="btn btn-sm btn-primary" type="submit" data-attr-disabled="!$regValid">Register</button>
+    </div>
+    <div class="col-12">
+      {% with sig = 'reg' %}{% include "partials/delivery_fields.html" %}{% endwith %}
+    </div>
   </form>
+  <div id="agent-register-error" class="mb-3"></div>
 
+  <div id="agent-key-reveal" class="mb-3"></div>
+  <div id="agent-detail-region" class="mb-3"></div>
+
+  <div class="table-responsive">
   <table class="table table-sm table-hover table-striped align-middle">
-    <thead><tr><th>Name</th><th>Capabilities</th><th>Status</th><th>Key</th><th></th></tr></thead>
+    <thead><tr>
+      <th>Name</th>
+      <th>Capabilities</th>
+      <th>Status</th>
+      <th>Key</th>
+      <th>Delivery</th>
+      <th>Registered</th>
+      <th></th>
+    </tr></thead>
     <tbody>
     {% for agent in agents %}
       <tr>
-        <td><a href="#" data-on:click="@get('/admin/agents/{{ agent.id }}')">{{ agent.name }}</a></td>
-        <td class="small text-body-secondary">{{ 'client' if agent.is_client }}{{ ' provider' if agent.is_provider }}</td>
-        <td>{{ 'disabled' if agent.disabled else 'enabled' }}</td>
-        <td id="agent-{{ agent.id }}-key-state">{{ 'set' if agent.api_key_hash else 'revoked' }}</td>
         <td>
-          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/agents/{{ agent.id }}/revoke-key', {contentType: 'form'})">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="btn btn-sm btn-danger small text-body-secondary">Revoke key</button>
-          </form>
-          <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post('/admin/agents/{{ agent.id }}/new-key', {contentType: 'form'})">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="small text-body-secondary">New key</button>
-          </form>
+          <button type="button" class="btn btn-link p-0" data-on:click="@get('/admin/agents/{{ agent.id }}')">{{ agent.name }}</button>
+        </td>
+        <td>
+          {% if agent.is_client %}<span class="badge text-bg-secondary">Client</span>{% endif %}
+          {% if agent.is_provider %}<span class="badge text-bg-secondary">Provider</span>{% endif %}
+        </td>
+        <td>{{ state_badge('disabled' if agent.disabled else 'enabled') }}</td>
+        <td id="agent-{{ agent.id }}-key-state">{{ state_badge('set' if agent.api_key_hash else 'revoked') }}</td>
+        <td>
+          {% set dsum = delivery_summary(agent.delivery_config) %}
+          <span class="small text-body-secondary d-inline-block text-truncate" style="max-width: 16rem" title="{{ dsum }}">{{ dsum }}</span>
+        </td>
+        <td class="small text-body-secondary">{{ when(agent.created_at) }}</td>
+        <td>
+          <div class="d-flex flex-column gap-2 align-items-start">
+          {% with confirm_key="rk-" ~ agent.id, button_label="Revoke key", confirm_label="Revoke",
+                  message="Revoke the API key for " ~ agent.name ~ "? Clients will fail until a new key is issued.",
+                  post_url="/admin/agents/" ~ agent.id ~ "/revoke-key" %}
+            {% include "partials/confirm_destructive.html" %}
+          {% endwith %}
+          {% with confirm_key="nk-" ~ agent.id, button_label="New key", confirm_label="Issue key",
+                  btn_class="btn-outline-secondary",
+                  message="Issue a new API key for " ~ agent.name ~ "? The current key stops working immediately.",
+                  post_url="/admin/agents/" ~ agent.id ~ "/new-key" %}
+            {% include "partials/confirm_destructive.html" %}
+          {% endwith %}
+          </div>
         </td>
       </tr>
     {% endfor %}
     </tbody>
   </table>
-  <div class="d-flex flex-wrap gap-2 align-items-center my-3">
-    <span class="small text-body-secondary">{{ total }} total &mdash; page {{ page }}</span>
   </div>
-  <div id="agent-detail-region"></div>
+  <div class="d-flex flex-wrap gap-2 align-items-center my-3">
+    <span class="small text-body-secondary">{{ pager_summary(total, page, per_page) }}</span>
+    {% if page > 1 %}<button type="button" class="btn btn-sm btn-outline-secondary" data-on:click="@get('{{ pager_prev | safe }}')">Prev</button>{% endif %}
+    {% if page * per_page < total %}<button type="button" class="btn btn-sm btn-outline-secondary" data-on:click="@get('{{ pager_next | safe }}')">Next</button>{% endif %}
+  </div>
 </div>

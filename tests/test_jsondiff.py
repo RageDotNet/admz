@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from llmdmz.core.jsondiff import canonical, diff, diff_payloads
+from llmdmz.core.jsondiff import compact_payload_diff, canonical, diff, diff_payloads
 
 SCHEMA_V1 = {
     "type": "object",
@@ -61,3 +61,24 @@ def test_payload_diff_per_field():
     assert set(result) == {"description", "request_schema"}
     assert result["description"][0]["new"] == "v2"
     assert any(e["path"] == "request_schema.properties.email" for e in result["request_schema"])
+
+
+def test_compact_payload_diff_skips_risk_and_shortens_field_ops():
+    old = {
+        "id": "crm_search",
+        "description": "v1",
+        "request_risk": "low",
+        "request_schema": SCHEMA_V1,
+    }
+    new = {
+        "id": "crm_search",
+        "description": "v2",
+        "request_risk": "high",
+        "request_schema": SCHEMA_V2,
+    }
+    compact = compact_payload_diff(old, new)
+    assert "request_risk" not in compact
+    assert "id" not in compact
+    assert compact["description"] == ["changed"]
+    assert "added properties.email" in compact["request_schema"]
+    assert not any("changed request_schema" == lab for lab in compact["request_schema"])

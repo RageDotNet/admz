@@ -1,25 +1,49 @@
+{% if rows %}
+<div class="table-responsive">
 <table class="table table-sm table-hover table-striped align-middle">
   <thead><tr><th>Client</th><th>Action</th><th>Requested</th><th></th></tr></thead>
   <tbody>
   {% for row in rows %}
-    <tr id="enrollment-{{ row.enrollment.id }}">
-      <td>{{ row.agent.name if row.agent else row.enrollment.agent_id }}</td>
-      <td>{{ row.enrollment.action_id }}</td>
-      <td class="small text-body-secondary">{{ row.enrollment.requested_at }}</td>
+    {% set e = row.enrollment %}
+    <tr id="enrollment-{{ e.id }}">
       <td>
-        <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post(&quot;/admin/enrollment/{{ row.enrollment.id }}/approve&quot;, {contentType: &quot;form&quot;})">
+        {% if row.agent %}
+        <button type="button" class="btn btn-link p-0" data-on:click="$tab = 'agents'; location.hash = 'agents'; @get('/admin/agents/{{ row.agent.id }}')">{{ row.agent.name }}</button>
+        {% else %}
+        <span class="small font-monospace">{{ e.agent_id }}</span>
+        {% endif %}
+      </td>
+      <td>
+        <button type="button" class="btn btn-link p-0" data-on:click="$tab = 'directory'; location.hash = 'directory'; $openAction = '{{ e.action_id }}'; @get('/admin/partials/action/{{ e.action_id }}')">{{ e.action_id }}</button>
+      </td>
+      <td class="small text-body-secondary">{{ when(e.requested_at) }}</td>
+      <td>
+        <form class="row g-2 align-items-end" data-on:submit="@post('/admin/enrollment/{{ e.id }}/approve', {contentType: 'form'})">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <input type="text" name="notes" class="form-control form-control-sm small text-body-secondary" placeholder="notes">
-          <button class="btn btn-sm btn-primary" type="submit">Approve</button>
+          <div class="col-auto">
+            <label class="form-label mb-1" for="enq-{{ e.id }}-a-notes">Notes</label>
+            <input type="text" id="enq-{{ e.id }}-a-notes" name="notes" class="form-control form-control-sm" style="min-width: 12rem">
+          </div>
+          <div class="col-auto">
+            <button class="btn btn-sm btn-primary" type="submit">Approve</button>
+          </div>
         </form>
-        <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@post(&quot;/admin/enrollment/{{ row.enrollment.id }}/reject&quot;, {contentType: &quot;form&quot;})">
+        <form class="row g-2 align-items-end mt-1" data-on:submit="@post('/admin/enrollment/{{ e.id }}/reject', {contentType: 'form'})">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <button class="btn btn-sm btn-danger" type="submit">Reject</button>
+          <div class="col-auto">
+            <label class="form-label mb-1" for="enq-{{ e.id }}-r-notes">Notes</label>
+            <input type="text" id="enq-{{ e.id }}-r-notes" name="notes" class="form-control form-control-sm" style="min-width: 12rem">
+          </div>
+          <div class="col-auto">
+            <button class="btn btn-sm btn-danger" type="submit">Reject</button>
+          </div>
         </form>
       </td>
     </tr>
-  {% else %}
-    <tr><td colspan="4" class="small text-body-secondary">No pending enrollment requests.</td></tr>
   {% endfor %}
   </tbody>
 </table>
+</div>
+{% else %}
+<p class="text-body-secondary py-3 mb-0">No pending enrollment requests.</p>
+{% endif %}

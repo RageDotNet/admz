@@ -2,14 +2,31 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
+from urllib.parse import urlencode
 
 from flask import abort, current_app, render_template, request
+from markupsafe import escape
+from sqlalchemy.exc import IntegrityError
 
 from llmdmz.core import storage
-from llmdmz.core.jsondiff import diff_payloads
+from llmdmz.core.jsondiff import compact_payload_diff
 
-from .admin import _actor, _audit, _db, _render_partial, admin_required, bp, sse_merge
+from .admin import (
+    _actor,
+    _audit,
+    _db,
+    _render_partial,
+    admin_required,
+    audit_detail_summary,
+    audit_event_label,
+    bp,
+    csrf_token,
+    sse_merge,
+    state_badge,
+    state_label,
+)
 
 __all__ = []
 
@@ -31,6 +48,38 @@ def _paged(default_per: int = 50, cap: int = 100):
     return page, per_page
 
 
+_DIRECTORY_STATES = frozenset({"pending", "active", "withdrawn"})
+_DIRECTORY_DEFAULT_PER = 50
+_ENROLL_DECIDED = frozenset({"enrolled", "rejected", "revoked"})
+_ENROLL_DEFAULT_PER = 20
+_AGENTS_DEFAULT_PER = 50
+_LOG_DEFAULT_PER = 50
+_IN_FLIGHT_OUTCOMES = (
+    "received",
+    "arbiter_reviewing_request",
+    "dispatching",
+    "arbiter_reviewing_response",
+)
+_REQUEST_DETAIL_TARGETS = {
+    "log": "#request-detail",
+    "action": "#action-request-detail",
+}
+_AUDIT_DEFAULT_PER = 50
+_AUDIT_TRAFFIC_EVENTS = ("request.invoked", "request.invoked")
+_AUDIT_KINDS = frozenset({"lifecycle", "traffic", "all"})
+
+
+def _directory_partial_url(*, page: int, q: str, state: str, per_page: int) -> str:
+    params: dict[str, str | int] = {"page": page}
+    if q:
+        params["q"] = q
+    if state:
+        params["state"] = state
+    if per_page != _DIRECTORY_DEFAULT_PER:
+        params["per_page"] = per_page
+    return "/admin/partials/directory?" + urlencode(params)
+
+
 # --- T4.8/T4.9: dashboard shell + stats ----------------------------------------
 
 
@@ -42,7 +91,6 @@ def dashboard():
     return render_template(
         "dashboard.html",
         admin=current_admin(),
-        pending_versions=_pending_versions_html(),  # defined below in this module
     )
 
 
@@ -58,13 +106,15 @@ def partial_stats():
 @bp.get("/partials/directory")
 @admin_required(page=False, csrf=False)
 def partial_directory():
-    page, per_page = _paged()
-    q = request.args.get("q") or None
-    state = request.args.get("state") or None
+    page, per_page = _paged(default_per=_DIRECTORY_DEFAULT_PER)
+    q = (request.args.get("q") or "").strip() or None
+    state = (request.args.get("state") or "").strip() or None
+    if state not in _DIRECTORY_STATES:
+        state = None
     with _db() as session:
-        actions, total = storage.list_actions(session, page=page, per_page=per_page, q=q)
-        if state:
-            actions = [a for a in actions if a.state == state]
+        actions, total = storage.list_actions(
+            session, page=page, per_page=per_page, q=q, state=state
+        )
         rows = []
         for a in actions:
             # Force-load the lazy `versions` relationship while the session is
@@ -82,6 +132,8 @@ def partial_directory():
                     "enrolled_count": enroll_total,
                 }
             )
+    q_s = q or ""
+    state_s = state or ""
     return _render_partial(
         "partials/directory.html",
         target="#directory-list",
@@ -89,8 +141,15 @@ def partial_directory():
         page=page,
         per_page=per_page,
         total=total,
-        q=q or "",
-        state=state or "",
+        q=q_s,
+        state=state_s,
+        pager_prev=_directory_partial_url(
+            page=page - 1, q=q_s, state=state_s, per_page=per_page
+        ),
+        pager_next=_directory_partial_url(
+            page=page + 1, q=q_s, state=state_s, per_page=per_page
+        ),
+        filters_active=bool(q_s or state_s),
     )
 
 
@@ -106,10 +165,14 @@ def partial_action(action_id: str):
             abort(404)
         versions = storage.list_versions(session, action_id)
         active = action.active_version
-        diffs = {}
+        diffs: dict[int, dict] = {}
+        prev = None
         for v in versions:
-            if active is not None and v.id != active.id:
-                diffs[v.version_number] = diff_payloads(active.payload, v.payload)
+            if prev is None:
+                diffs[v.version_number] = {}
+            else:
+                diffs[v.version_number] = compact_payload_diff(prev.payload, v.payload)
+            prev = v
         enrollments, _ = storage.list_enrollments(
             session, action_id=action_id, page=1, per_page=100
         )
@@ -118,9 +181,15 @@ def partial_action(action_id: str):
         )
         owner = storage.get_agent(session, action.owner_agent_id)
         agent_names = {}
+        enrolled_ids = set()
         for e in enrollments:
+            enrolled_ids.add(e.agent_id)
             owner_agent = storage.get_agent(session, e.agent_id)
             agent_names[e.agent_id] = owner_agent.name if owner_agent else e.agent_id
+        agents, _ = storage.list_agents(session, page=1, per_page=500)
+        enrollable = [
+            a for a in agents if a.is_client and a.id not in enrolled_ids and not a.disabled
+        ]
     return _render_partial(
         "partials/action_detail.html",
         target="#action-detail",
@@ -130,6 +199,7 @@ def partial_action(action_id: str):
         diffs=diffs,
         enrollments=enrollments,
         agent_names=agent_names,
+        enrollable=enrollable,
         requests=requests,
         owner=owner,
     )
@@ -142,8 +212,7 @@ def _queue_patches(extra: list[tuple[str, str]]) -> Any:
 
     patches = list(extra)
     patches.append(("#stats-bar", _stats_html()))
-    patches.append(("#pending-versions", _pending_versions_html()))
-    patches.append(("#pending-enrollments", _pending_enrollments_html()))
+    patches.append(("#enrollments-panel", _enrollments_panel_html()))
     return patches
 
 
@@ -169,27 +238,77 @@ def _stats_html() -> str:
     )
 
 
-def _pending_versions_html() -> str:
-    with _db() as session:
-        pending = []
-        actions, _ = storage.list_actions(session, page=1, per_page=500)
-        for a in actions:
-            v = storage.submitted_version(session, a.id)
-            if v is not None:
-                pending.append({"action": a, "version": v})
-    return _render_partial("partials/pending_versions.html", pending=pending)
+def _enrollments_partial_url(
+    *, page: int, action_id: str, client: str, state: str, per_page: int
+) -> str:
+    params: dict[str, str | int] = {"page": page}
+    if action_id:
+        params["action_id"] = action_id
+    if client:
+        params["client"] = client
+    if state:
+        params["state"] = state
+    if per_page != _ENROLL_DEFAULT_PER:
+        params["per_page"] = per_page
+    return "/admin/partials/enrollments?" + urlencode(params)
 
 
-def _pending_enrollments_html() -> str:
+def _enrollments_panel_html() -> str:
+    page, per_page = _paged(default_per=_ENROLL_DEFAULT_PER)
+    action_q = (request.args.get("action_id") or "").strip() or None
+    client_q = (request.args.get("client") or "").strip() or None
+    state = (request.args.get("state") or "").strip() or None
+    if state not in _ENROLL_DECIDED:
+        state = None
+    decided_states = [state] if state else list(_ENROLL_DECIDED)
     with _db() as session:
-        enrollments, _ = storage.list_enrollments(
+        pending, _ = storage.list_enrollments(
             session, state="requested", page=1, per_page=100
         )
-        rows = [
+        pending_rows = [
             {"enrollment": e, "agent": storage.get_agent(session, e.agent_id)}
-            for e in enrollments
+            for e in pending
         ]
-    return _render_partial("partials/enrollment_queue.html", rows=rows)
+        decided, total = storage.list_enrollments(
+            session,
+            states=decided_states,
+            action_q=action_q,
+            client_q=client_q,
+            order="decided",
+            page=page,
+            per_page=per_page,
+        )
+        decided_rows = [
+            {"enrollment": e, "agent": storage.get_agent(session, e.agent_id)}
+            for e in decided
+        ]
+    filters_active = bool(action_q or client_q or state)
+    return _render_partial(
+        "partials/enrollments.html",
+        pending_rows=pending_rows,
+        decided_rows=decided_rows,
+        total=total,
+        page=page,
+        per_page=per_page,
+        action_id=action_q or "",
+        client=client_q or "",
+        state=state or "",
+        filters_active=filters_active,
+        pager_prev=_enrollments_partial_url(
+            page=page - 1,
+            action_id=action_q or "",
+            client=client_q or "",
+            state=state or "",
+            per_page=per_page,
+        ),
+        pager_next=_enrollments_partial_url(
+            page=page + 1,
+            action_id=action_q or "",
+            client=client_q or "",
+            state=state or "",
+            per_page=per_page,
+        ),
+    )
 
 
 @bp.post("/action-version/<version_id>/approve")
@@ -212,8 +331,9 @@ def approve_version(version_id: str):
         version_id_str = str(version.id)
     return sse_merge(
         _queue_patches([
-            (f"#version-{version_id_str}-state", '<span class="badge active">active</span>'),
-            (f"#action-{action.id}-state", '<span class="badge active">active</span>'),
+            (f"#version-{version_id_str}-state", str(state_badge("active"))),
+            (f"#action-{action.id}-state", str(state_badge("active"))),
+            (f"#dir-action-{action.id}-state", str(state_badge("active"))),
         ])
     )
 
@@ -238,7 +358,7 @@ def reject_version(version_id: str):
         version_id_str = str(version.id)
     return sse_merge(
         _queue_patches([
-            (f"#version-{version_id_str}-state", '<span class="badge rejected">rejected</span>'),
+            (f"#version-{version_id_str}-state", str(state_badge("rejected"))),
         ])
     )
 
@@ -254,7 +374,8 @@ def admin_withdraw(action_id: str):
         _audit(session, "action.withdrawn", "action", action_id, {"by": "admin"})
     return sse_merge(
         _queue_patches([
-            (f"#action-{action_id}-state", '<span class="badge withdrawn">withdrawn</span>'),
+            (f"#action-{action_id}-state", str(state_badge("withdrawn"))),
+            (f"#dir-action-{action_id}-state", str(state_badge("withdrawn"))),
         ])
     )
 
@@ -265,7 +386,7 @@ def admin_withdraw(action_id: str):
 @bp.get("/partials/enrollments")
 @admin_required(page=False, csrf=False)
 def partial_enrollments():
-    return sse_merge([("#pending-enrollments", _pending_enrollments_html())])
+    return sse_merge([("#enrollments-panel", _enrollments_panel_html())])
 
 
 def _enrollment_or_404(session, enrollment_id):
@@ -291,7 +412,8 @@ def approve_enrollment(enrollment_id: str):
             session, e, decision="approved", decided_by=_actor(), notes=notes
         )
         _audit(session, "enrollment.approved", "enrollment", enrollment_id, {"notes": notes})
-    return sse_merge(_enrollment_patches())
+        action_id = e.action_id
+    return sse_merge(_enrollment_patches() + [("#action-access", _action_access_html(action_id))])
 
 
 @bp.post("/enrollment/<enrollment_id>/reject")
@@ -304,7 +426,8 @@ def reject_enrollment(enrollment_id: str):
             session, e, decision="rejected", decided_by=_actor(), notes=notes
         )
         _audit(session, "enrollment.rejected", "enrollment", enrollment_id, {"notes": notes})
-    return sse_merge(_enrollment_patches())
+        action_id = e.action_id
+    return sse_merge(_enrollment_patches() + [("#action-access", _action_access_html(action_id))])
 
 
 @bp.post("/enrollment/<enrollment_id>/revoke")
@@ -314,7 +437,8 @@ def revoke_enrollment(enrollment_id: str):
         e = _enrollment_or_404(session, enrollment_id)
         storage.decide_enrollment(session, e, decision="revoked", decided_by=_actor())
         _audit(session, "enrollment.revoked", "enrollment", enrollment_id)
-    return sse_merge(_enrollment_patches())
+        action_id = e.action_id
+    return sse_merge(_enrollment_patches() + [("#action-access", _action_access_html(action_id))])
 
 
 @bp.post("/enrollment/<enrollment_id>/reset")
@@ -328,6 +452,34 @@ def reset_enrollment(enrollment_id: str):
         storage.decide_enrollment(session, e, decision="reset", decided_by=_actor())
         _audit(session, "enrollment.reset", "enrollment", enrollment_id)
     return sse_merge(_enrollment_patches())
+
+
+def _action_access_html(action_id: str) -> str:
+    with _db() as session:
+        action = storage.get_action(session, action_id)
+        if action is None:
+            abort(404)
+        enrollments, _ = storage.list_enrollments(
+            session, action_id=action_id, page=1, per_page=100
+        )
+        agent_names = {}
+        enrolled_ids = set()
+        for e in enrollments:
+            enrolled_ids.add(e.agent_id)
+            owner_agent = storage.get_agent(session, e.agent_id)
+            agent_names[e.agent_id] = owner_agent.name if owner_agent else e.agent_id
+        agents, _ = storage.list_agents(session, page=1, per_page=500)
+        enrollable = [
+            a for a in agents if a.is_client and a.id not in enrolled_ids and not a.disabled
+        ]
+    return render_template(
+        "partials/action_access.html",
+        csrf_token=csrf_token(),
+        action=action,
+        enrollments=enrollments,
+        agent_names=agent_names,
+        enrollable=enrollable,
+    )
 
 
 @bp.post("/action/<action_id>/enroll")
@@ -348,7 +500,7 @@ def admin_enroll(action_id: str):
         session.flush()
         _audit(session, "enrollment.admin_granted", "enrollment", str(e.id),
                {"action_id": action_id, "agent_id": agent_id})
-    return sse_merge(_enrollment_patches())
+    return sse_merge(_enrollment_patches() + [("#action-access", _action_access_html(action_id))])
 
 
 # --- T4.17: agents tab ----------------------------------------------------------
@@ -404,15 +556,33 @@ def _compose_delivery(data: dict[str, str]) -> dict[str, Any]:
     return cfg
 
 
+def _register_error_html(message: str) -> str:
+    return (
+        f'<div class="alert alert-danger py-2 mb-0" role="alert">{escape(message)}</div>'
+    )
+
+
+def _agents_partial_url(*, page: int, per_page: int) -> str:
+    params: dict[str, str | int] = {"page": page}
+    if per_page != _AGENTS_DEFAULT_PER:
+        params["per_page"] = per_page
+    return "/admin/partials/agents?" + urlencode(params)
+
+
 @bp.get("/partials/agents")
 @admin_required(page=False, csrf=False)
 def partial_agents():
-    page, per_page = _paged()
+    page, per_page = _paged(default_per=_AGENTS_DEFAULT_PER)
     with _db() as session:
         agents, total = storage.list_agents(session, page=page, per_page=per_page)
     return _render_partial(
         "partials/agents.html",
-        agents=agents, page=page, per_page=per_page, total=total,
+        agents=agents,
+        page=page,
+        per_page=per_page,
+        total=total,
+        pager_prev=_agents_partial_url(page=page - 1, per_page=per_page),
+        pager_next=_agents_partial_url(page=page + 1, per_page=per_page),
         target="#agents-list",
     )
 
@@ -424,28 +594,44 @@ def register_agent():
     data = _data()
     name = (data.get("name") or "").strip()
     if not name:
-        abort(400)
+        return sse_merge([("#agent-register-error", _register_error_html("Name is required."))])
     is_client = data.get("is_client") in ("on", "true", True, 1)
     is_provider = data.get("is_provider") in ("on", "true", True, 1)
     if not (is_client or is_provider):
-        abort(400)
-    with _db() as session:
-        payload_chars = current_app.config["DMZ"].key_payload_chars
-        agent, key = storage.register_agent(
-            session,
-            name=name,
-            is_client=is_client,
-            is_provider=is_provider,
-            key_payload_chars=payload_chars,
-        )
-        if is_provider:
-            agent.delivery_config = _compose_delivery(data)
-        agent_id = agent.id
-        _audit(session, "agent.registered", "agent", agent_id, {"name": name})
-    # Delivery config is accepted but never echoed back in any listing.
-    return _render_partial("partials/key_reveal.html", key=key, agent_id=agent_id,
-        target="#agent-detail-region",
-    )
+        return sse_merge([
+            (
+                "#agent-register-error",
+                _register_error_html("Pick at least one capability (client or provider)."),
+            )
+        ])
+    try:
+        with _db() as session:
+            payload_chars = current_app.config["DMZ"].key_payload_chars
+            agent, key = storage.register_agent(
+                session,
+                name=name,
+                is_client=is_client,
+                is_provider=is_provider,
+                key_payload_chars=payload_chars,
+            )
+            if is_provider:
+                agent.delivery_config = _compose_delivery(data)
+            agent_id = agent.id
+            _audit(session, "agent.registered", "agent", agent_id, {"name": name})
+    except IntegrityError:
+        return sse_merge([
+            (
+                "#agent-register-error",
+                _register_error_html("An agent with that name already exists."),
+            )
+        ])
+    return sse_merge([
+        ("#agent-register-error", ""),
+        (
+            "#agent-key-reveal",
+            _render_partial("partials/key_reveal.html", key=key, agent_id=agent_id),
+        ),
+    ])
 
 
 @bp.get("/agents/<agent_id>")
@@ -498,7 +684,7 @@ def agent_revoke_key(agent_id: str):
         from llmdmz.core.keys import hash_key
         agent.api_key_hash = hash_key("revoked:" + _secrets.token_urlsafe(32))
         _audit(session, "agent.key_revoked", "agent", agent_id)
-    return sse_merge([(f"#agent-{agent_id}-key-state", "<em class=\"muted\">revoked</em>")])
+    return sse_merge([(f"#agent-{agent_id}-key-state", str(state_badge("revoked")))])
 
 
 @bp.post("/agents/<agent_id>/new-key")
@@ -510,29 +696,50 @@ def agent_new_key(agent_id: str):
             abort(404)
         key = storage.issue_key(session, agent, key_payload_chars=current_app.config["DMZ"].key_payload_chars)
         _audit(session, "agent.key_issued", "agent", agent_id)
-    return _render_partial(
-        "partials/key_reveal.html", key=key, agent_id=agent_id,
-        target=f"#agent-{agent_id}-detail",
-    )
+    return sse_merge([
+        (
+            "#agent-key-reveal",
+            _render_partial("partials/key_reveal.html", key=key, agent_id=agent_id),
+        ),
+        (f"#agent-{agent_id}-key-state", str(state_badge("set"))),
+    ])
 
 
 # --- T4.19: request log ---------------------------------------------------------
 
 
+def _log_partial_url(*, page: int, action_id: str, outcome: str, per_page: int) -> str:
+    params: dict[str, str | int] = {"page": page}
+    if action_id:
+        params["action_id"] = action_id
+    if outcome:
+        params["outcome"] = outcome
+    if per_page != _LOG_DEFAULT_PER:
+        params["per_page"] = per_page
+    return "/admin/partials/log?" + urlencode(params)
+
+
 @bp.get("/partials/log")
 @admin_required(page=False, csrf=False)
 def partial_log():
-    page, per_page = _paged()
-    outcome = request.args.get("outcome") or None
+    page, per_page = _paged(default_per=_LOG_DEFAULT_PER)
+    filter_outcome = (request.args.get("outcome") or "").strip()
+    query_outcome = filter_outcome or None
     outcomes = None
-    if outcome == "in_flight":
-        # Pseudo-filter: any of the in-flight progress states.
-        outcomes = ["received", "arbiter_reviewing_request", "dispatching", "arbiter_reviewing_response"]
-        outcome = None
-    action_id = request.args.get("action_id") or None
+    if filter_outcome == "in_flight":
+        # Pseudo-filter: any of the in-flight progress states. Keep
+        # filter_outcome so the dropdown stays on in_flight after submit.
+        outcomes = list(_IN_FLIGHT_OUTCOMES)
+        query_outcome = None
+    action_id = (request.args.get("action_id") or "").strip()
     with _db() as session:
         rows, total = storage.list_requests(
-            session, action_id=action_id, outcome=outcome, outcomes=outcomes, page=page, per_page=per_page
+            session,
+            action_id=action_id or None,
+            outcome=query_outcome,
+            outcomes=outcomes,
+            page=page,
+            per_page=per_page,
         )
     return _render_partial(
         "partials/log.html",
@@ -541,8 +748,15 @@ def partial_log():
         page=page,
         per_page=per_page,
         total=total,
-        outcome=outcome or "",
-        action_id=action_id or "",
+        outcome=filter_outcome,
+        action_id=action_id,
+        filters_active=bool(action_id or filter_outcome),
+        pager_prev=_log_partial_url(
+            page=page - 1, action_id=action_id, outcome=filter_outcome, per_page=per_page
+        ),
+        pager_next=_log_partial_url(
+            page=page + 1, action_id=action_id, outcome=filter_outcome, per_page=per_page
+        ),
     )
 
 
@@ -554,23 +768,178 @@ def partial_request_detail(request_id: str):
         if row is None:
             abort(404)
         attempts = storage.list_attempts(session, request_id)
-    return _render_partial("partials/request_detail.html", req=row, attempts=attempts,
-        target="#request-detail",)
+    # Directory action cards use #action-request-detail; the Request log uses
+    # #request-detail. Only these two selectors are accepted (no free-form CSS).
+    into = (request.args.get("into") or "log").strip()
+    if into not in _REQUEST_DETAIL_TARGETS:
+        into = "log"
+    target = _REQUEST_DETAIL_TARGETS[into]
+    return _render_partial(
+        "partials/request_detail.html",
+        req=row,
+        attempts=attempts,
+        into=into,
+        target=target,
+    )
 
 
 # --- T4.20: audit trail ---------------------------------------------------------
 
 
+def _audit_partial_url(*, page: int, actor: str, target_type: str, kind: str, per_page: int) -> str:
+    params: dict[str, str | int] = {"page": page, "kind": kind}
+    if actor:
+        params["actor"] = actor
+    if target_type:
+        params["target_type"] = target_type
+    if per_page != _AUDIT_DEFAULT_PER:
+        params["per_page"] = per_page
+    return "/admin/partials/audit?" + urlencode(params)
+
+
+def _audit_view_rows(session, events: list) -> list[SimpleNamespace]:
+    from llmdmz.core.models import Action, ActionVersion, Agent, Enrollment
+    from sqlalchemy import select
+
+    agent_ids: set[str] = set()
+    enrollment_ids: set[str] = set()
+    version_ids: set[str] = set()
+    action_ids: set[str] = set()
+    for event in events:
+        if event.actor_type == "agent":
+            agent_ids.add(event.actor_id)
+        if event.target_type == "agent":
+            agent_ids.add(event.target_id)
+        elif event.target_type == "action":
+            action_ids.add(event.target_id)
+        elif event.target_type == "enrollment":
+            enrollment_ids.add(event.target_id)
+        elif event.target_type in ("action_version", "version"):
+            version_ids.add(event.target_id)
+        detail = event.detail or {}
+        if detail.get("agent_id"):
+            agent_ids.add(str(detail["agent_id"]))
+        if detail.get("action_id"):
+            action_ids.add(str(detail["action_id"]))
+
+    enrollments: dict[str, Enrollment] = {}
+    if enrollment_ids:
+        enrollments = {
+            row.id: row
+            for row in session.scalars(select(Enrollment).where(Enrollment.id.in_(enrollment_ids)))
+        }
+        for row in enrollments.values():
+            agent_ids.add(row.agent_id)
+            action_ids.add(row.action_id)
+
+    versions: dict[str, ActionVersion] = {}
+    if version_ids:
+        versions = {
+            row.id: row
+            for row in session.scalars(select(ActionVersion).where(ActionVersion.id.in_(version_ids)))
+        }
+        for row in versions.values():
+            action_ids.add(row.action_id)
+
+    agents: dict[str, Agent] = {}
+    if agent_ids:
+        agents = {row.id: row for row in session.scalars(select(Agent).where(Agent.id.in_(agent_ids)))}
+
+    existing_actions: set[str] = set()
+    if action_ids:
+        existing_actions = set(session.scalars(select(Action.id).where(Action.id.in_(action_ids))))
+
+    rows = []
+    for event in events:
+        detail = event.detail or {}
+        actor_agent_id = event.actor_id if event.actor_type == "agent" and event.actor_id in agents else None
+        actor_name = event.actor_id
+        if actor_agent_id:
+            actor_name = agents[actor_agent_id].name
+        elif event.actor_type == "admin":
+            actor_name = event.actor_id or "admin"
+
+        action_id = detail.get("action_id") if isinstance(detail.get("action_id"), str) else None
+        agent_id = detail.get("agent_id") if isinstance(detail.get("agent_id"), str) else None
+        action_label = None
+        agent_label = None
+        fallback = event.target_id
+        if event.target_type == "action":
+            action_id = event.target_id
+            action_label = event.target_id
+        elif event.target_type == "agent":
+            agent_id = event.target_id
+            agent = agents.get(event.target_id)
+            agent_label = agent.name if agent is not None else event.target_id
+        elif event.target_type == "enrollment":
+            enrollment = enrollments.get(event.target_id)
+            if enrollment is not None:
+                action_id = enrollment.action_id
+                agent_id = enrollment.agent_id
+                agent = agents.get(enrollment.agent_id)
+                agent_label = agent.name if agent is not None else enrollment.agent_id
+                action_label = enrollment.action_id
+            else:
+                fallback = event.target_id
+        elif event.target_type in ("action_version", "version"):
+            version = versions.get(event.target_id)
+            if version is not None:
+                action_id = version.action_id
+                action_label = f"{version.action_id} v{version.version_number}"
+            elif action_id:
+                action_label = str(action_id)
+
+        live_action_id = action_id if action_id in existing_actions else None
+        live_agent_id = agent_id if agent_id in agents else None
+        target_label = " ".join(bit for bit in (agent_label, action_label) if bit) or fallback
+
+        rows.append(
+            SimpleNamespace(
+                occurred_at=event.occurred_at,
+                actor_name=actor_name,
+                actor_title=f"{event.actor_type}:{event.actor_id}",
+                actor_agent_id=actor_agent_id,
+                event=event.event,
+                event_label=audit_event_label(event.event),
+                target_type_label=state_label(event.target_type),
+                target_label=target_label,
+                target_title=f"{event.target_type}/{event.target_id}",
+                action_id=live_action_id,
+                action_label=action_label or (action_id or ""),
+                agent_id=live_agent_id,
+                agent_label=agent_label or "",
+                detail_summary=audit_detail_summary(detail if isinstance(detail, dict) else None),
+            )
+        )
+    return rows
+
+
 @bp.get("/partials/audit")
 @admin_required(page=False, csrf=False)
 def partial_audit():
-    page, per_page = _paged()
-    actor_id = request.args.get("actor_id") or None
-    target_type = request.args.get("target_type") or None
+    page, per_page = _paged(default_per=_AUDIT_DEFAULT_PER)
+    actor = (request.args.get("actor") or request.args.get("actor_id") or "").strip()
+    target_type = (request.args.get("target_type") or "").strip()
+    kind = (request.args.get("kind") or "lifecycle").strip()
+    if kind not in _AUDIT_KINDS:
+        kind = "lifecycle"
+    events_filter = None
+    exclude_events = None
+    if kind == "lifecycle":
+        exclude_events = list(_AUDIT_TRAFFIC_EVENTS)
+    elif kind == "traffic":
+        events_filter = list(_AUDIT_TRAFFIC_EVENTS)
     with _db() as session:
-        rows, total = storage.list_audit_events(
-            session, actor_id=actor_id, target_type=target_type, page=page, per_page=per_page
+        events, total = storage.list_audit_events(
+            session,
+            actor_q=actor or None,
+            target_type=target_type or None,
+            events=events_filter,
+            exclude_events=exclude_events,
+            page=page,
+            per_page=per_page,
         )
+        rows = _audit_view_rows(session, events)
     return _render_partial(
         "partials/audit.html",
         target="#audit-list",
@@ -578,7 +947,15 @@ def partial_audit():
         page=page,
         per_page=per_page,
         total=total,
-        actor_id=actor_id or "",
-        target_type=target_type or "",
+        actor=actor,
+        target_type=target_type,
+        kind=kind,
+        filters_active=bool(actor or target_type or kind != "lifecycle"),
+        pager_prev=_audit_partial_url(
+            page=page - 1, actor=actor, target_type=target_type, kind=kind, per_page=per_page
+        ),
+        pager_next=_audit_partial_url(
+            page=page + 1, actor=actor, target_type=target_type, kind=kind, per_page=per_page
+        ),
     )
 

@@ -1,38 +1,69 @@
 <div>
-  <form class="d-flex flex-wrap gap-2 align-items-center" method="get" data-on:submit="@get('/admin/partials/directory', {contentType: 'form'})"
-       data-indicator="loading">
-    <input type="text" name="q" class="form-control form-control-sm" value="{{ q }}" placeholder="filter by id/state">
-    <select name="state" class="form-select form-select-sm">
-      <option value="">any state</option>
-      {% for s in ("pending", "active", "withdrawn") %}
-      <option value="{{ s }}" {% if state == s %}selected{% endif %}>{{ s }}</option>
-      {% endfor %}
-    </select>
-    <button type="submit" class="btn btn-sm btn-outline-secondary">Filter</button>
+  <form class="row row-cols-lg-auto g-2 align-items-end mb-3" method="get"
+        data-indicator="dirLoading"
+        data-on:submit="@get('/admin/partials/directory', {contentType: 'form'}); $openAction = ''">
+    <div class="col-12">
+      <label class="form-label mb-1" for="dir-q">Search</label>
+      <input type="text" id="dir-q" name="q" class="form-control form-control-sm" style="min-width: 12rem" value="{{ q }}" placeholder="action id or description">
+    </div>
+    <div class="col-12">
+      <label class="form-label mb-1" for="dir-state">State</label>
+      <select id="dir-state" name="state" class="form-select form-select-sm">
+        <option value="">any</option>
+        {% for s in ("pending", "active", "withdrawn") %}
+        <option value="{{ s }}" {% if state == s %}selected{% endif %}>{{ state_label(s) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12">
+      <button type="submit" class="btn btn-sm btn-outline-secondary" data-attr-disabled="$dirLoading">
+        <span data-show="!$dirLoading">Filter</span>
+        <span data-show="$dirLoading">Filtering…</span>
+      </button>
+      {% if filters_active %}
+      <button type="button" class="btn btn-sm btn-outline-secondary ms-1" data-on:click="@get('/admin/partials/directory'); $openAction = ''">Clear</button>
+      {% endif %}
+    </div>
   </form>
-  <table class="table table-sm table-hover table-striped align-middle">
-    <thead><tr><th>Action</th><th>Owner</th><th>State</th><th>Active ver.</th><th>Pending ver.</th><th>Enrolled</th></tr></thead>
-    <tbody>
-    {% for row in rows %}
-      <tr>
-        <td><a href="#" data-on:click="@get('/admin/partials/action/{{ row.action.id }}')"
-               >{{ row.action.id }}</a></td>
-
-        <td>{{ row.owner.name if row.owner }}</td>
-        <td id="action-{{ row.action.id }}-state"><span class="badge text-bg-{{ state_tag(row.action.state) }}">{{ row.action.state }}</span></td>
-        <td>{% if row.action.active_version %}{{ row.action.active_version.version_number }}{% else %}&mdash;{% endif %}</td>
-        <td>{% if row.pending_version %}{{ row.pending_version.version_number }}{% else %}&mdash;{% endif %}</td>
-        <td>{{ row.enrolled_count }}</td>
-      </tr>
-    {% else %}
-      <tr><td colspan="6" class="small text-body-secondary">No actions.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  {% if rows %}
+  <div class="table-responsive">
+    <table class="table table-sm table-hover table-striped align-middle">
+      <thead><tr>
+        <th>Action</th>
+        <th>Owner</th>
+        <th>State</th>
+        <th>Active <span class="visually-hidden">version</span></th>
+        <th>Pending <span class="visually-hidden">version</span></th>
+        <th>Enrolled</th>
+      </tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr class="{% if row.pending_version %}table-warning{% endif %}{% if row.action.state == 'withdrawn' %} text-body-secondary{% endif %}"
+            data-class:table-active="$openAction === '{{ row.action.id }}'">
+          <td>
+            <button type="button" class="btn btn-link p-0" data-on:click="$openAction = '{{ row.action.id }}'; @get('/admin/partials/action/{{ row.action.id }}')">{{ row.action.id }}</button>
+            {% set desc = (row.action.active_version.payload.get('description') if row.action.active_version else none) or (row.pending_version.payload.get('description') if row.pending_version else none) %}
+            {% if desc is string and desc %}
+            <div class="small text-body-secondary" title="{{ desc }}">{{ desc[:100] }}{% if desc|length > 100 %}…{% endif %}</div>
+            {% endif %}
+          </td>
+          <td>{% if row.owner %}{{ row.owner.name }}{% elif row.action.owner_agent_id %}<span class="small font-monospace">{{ row.action.owner_agent_id }}</span>{% else %}unknown{% endif %}</td>
+          <td id="dir-action-{{ row.action.id }}-state">{{ state_badge(row.action.state) }}</td>
+          <td>{% if row.action.active_version %}{{ row.action.active_version.version_number }}{% else %}&mdash;{% endif %}</td>
+          <td>{% if row.pending_version %}<span class="badge text-bg-warning">{{ row.pending_version.version_number }}</span>{% else %}&mdash;{% endif %}</td>
+          <td>{{ row.enrolled_count }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-body-secondary py-3 mb-0">No actions match this filter.</p>
+  {% endif %}
   <div class="d-flex flex-wrap gap-2 align-items-center my-3">
-    <span class="small text-body-secondary">{{ total }} total &mdash; page {{ page }} ({{ per_page }}/page)</span>
-    {% if page > 1 %}<a class="btn btn-sm btn-outline-secondary btn btn-sm btn-outline-secondary" href="#" data-on:click="@get('/admin/partials/directory?page={{ page - 1 }}')">Prev</a>{% endif %}
-    {% if page * per_page < total %}<a class="btn btn-sm btn-outline-secondary btn btn-sm btn-outline-secondary" href="#" data-on:click="@get('/admin/partials/directory?page={{ page + 1 }}')">Next</a>{% endif %}
+    <span class="small text-body-secondary">{{ pager_summary(total, page, per_page) }}</span>
+    {% if page > 1 %}<button type="button" class="btn btn-sm btn-outline-secondary" data-on:click="@get('{{ pager_prev | safe }}'); $openAction = ''">Prev</button>{% endif %}
+    {% if page * per_page < total %}<button type="button" class="btn btn-sm btn-outline-secondary" data-on:click="@get('{{ pager_next | safe }}'); $openAction = ''">Next</button>{% endif %}
   </div>
   <div id="action-detail"></div>
 </div>

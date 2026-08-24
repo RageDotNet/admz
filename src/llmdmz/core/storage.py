@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 
 from llmdmz.core.keys import DEFAULT_PAYLOAD_CHARS, generate_agent_key, hash_key
 from llmdmz.core.models import (
@@ -101,12 +101,26 @@ def list_actions(
     page: int = 1,
     per_page: int = 100,
     q: str | None = None,
+    state: str | None = None,
 ) -> tuple[list[Action], int]:
+    """Page actions. `state` and `q` are applied in SQL so `total` matches the page.
+
+    `q` matches action id or the active version's description — not state
+    (state is a separate filter).
+    """
     stmt = select(Action)
+    if state:
+        stmt = stmt.where(Action.state == state)
     if q:
         like = f"%{q.lower()}%"
-        stmt = stmt.where(
-            or_(func.lower(Action.id).like(like), func.lower(Action.state).like(like))
+        active = aliased(ActionVersion)
+        stmt = stmt.outerjoin(active, Action.active_version_id == active.id).where(
+            or_(
+                func.lower(Action.id).like(like),
+                func.lower(
+                    func.coalesce(func.json_extract(active.payload, "$.description"), "")
+                ).like(like),
+            )
         )
     total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     rows = (
@@ -168,20 +182,36 @@ def list_enrollments(
     action_id: str | None = None,
     agent_id: str | None = None,
     state: str | None = None,
+    states: list[str] | None = None,
+    action_q: str | None = None,
+    client_q: str | None = None,
+    order: str = "requested",
     page: int = 1,
     per_page: int = 100,
 ) -> tuple[list[Enrollment], int]:
     stmt = select(Enrollment)
+    if client_q:
+        stmt = stmt.join(Agent, Agent.id == Enrollment.agent_id).where(
+            Agent.name.ilike(f"%{client_q}%")
+        )
     if action_id:
         stmt = stmt.where(Enrollment.action_id == action_id)
+    if action_q:
+        stmt = stmt.where(Enrollment.action_id.ilike(f"%{action_q}%"))
     if agent_id:
         stmt = stmt.where(Enrollment.agent_id == agent_id)
-    if state:
+    if states:
+        stmt = stmt.where(Enrollment.state.in_(states))
+    elif state:
         stmt = stmt.where(Enrollment.state == state)
     total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    if order == "decided":
+        order_by = func.coalesce(Enrollment.decided_at, Enrollment.requested_at).desc()
+    else:
+        order_by = Enrollment.requested_at.desc()
     rows = (
         session.scalars(
-            stmt.order_by(Enrollment.requested_at.desc())
+            stmt.order_by(order_by)
             .offset((page - 1) * per_page)
             .limit(per_page)
         )
@@ -362,15 +392,31 @@ def list_audit_events(
     session: Session,
     *,
     actor_id: str | None = None,
+    actor_q: str | None = None,
     target_type: str | None = None,
+    events: list[str] | None = None,
+    exclude_events: list[str] | None = None,
     page: int = 1,
     per_page: int = 50,
 ) -> tuple[list[AuditEvent], int]:
     stmt = select(AuditEvent)
     if actor_id:
         stmt = stmt.where(AuditEvent.actor_id == actor_id)
+    q = (actor_q or "").strip()
+    if q:
+        name_ids = list(
+            session.scalars(select(Agent.id).where(Agent.name.ilike(f"%{q}%"))).all()
+        )
+        actor_match = [AuditEvent.actor_id.ilike(f"%{q}%")]
+        if name_ids:
+            actor_match.append(AuditEvent.actor_id.in_(name_ids))
+        stmt = stmt.where(or_(*actor_match))
     if target_type:
         stmt = stmt.where(AuditEvent.target_type == target_type)
+    if events:
+        stmt = stmt.where(AuditEvent.event.in_(events))
+    if exclude_events:
+        stmt = stmt.where(AuditEvent.event.notin_(exclude_events))
     total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     rows = (
         session.scalars(

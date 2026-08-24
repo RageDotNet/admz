@@ -179,7 +179,12 @@ def run_invoke(
     # 1. Structural request validation (terminal, transparent detail).
     errors = validate_payload(payload["request_schema"], request_payload)
     if errors:
-        storage.finish_request(session, request_row, outcome="request_schema_invalid")
+        storage.finish_request(
+            session,
+            request_row,
+            outcome="request_schema_invalid",
+            request_verdict={"schema_errors": errors},
+        )
         _log_step("request schema invalid", request_row.id, errors=errors)
         return InvokeResult(422, "request_schema_invalid", detail={"errors": errors})
 

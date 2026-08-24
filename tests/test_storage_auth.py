@@ -218,6 +218,27 @@ def test_audit_writer_append_only_shape(session):
     assert total == 1 and events[0].id == row.id
 
 
+def test_list_audit_events_actor_q_and_exclude(session):
+    agent, _ = storage.register_agent(session, name="crm", is_client=True, is_provider=False)
+    audit(
+        session, actor_type="agent", actor_id=agent.id, event="request.invoked",
+        target_type="action", target_id="crm_search",
+    )
+    audit(
+        session, actor_type="admin", actor_id="admin", event="version.approved",
+        target_type="action", target_id="crm_search", detail={"notes": ""},
+    )
+    session.flush()
+    by_name, total = storage.list_audit_events(session, actor_q="crm")
+    assert total == 1 and by_name[0].event == "request.invoked"
+    by_admin, total = storage.list_audit_events(session, actor_q="admin")
+    assert total == 1 and by_admin[0].actor_id == "admin"
+    lifecycle, total = storage.list_audit_events(
+        session, exclude_events=["request.invoked", "request.invoked"]
+    )
+    assert total == 1 and lifecycle[0].event == "version.approved"
+
+
 def test_resolve_bearer(session, config):
     agent, key = storage.register_agent(session, name="acme", is_client=True, is_provider=False)
     ident = resolve_bearer(session, config, key)
@@ -237,3 +258,33 @@ def test_resolve_bearer(session, config):
     # vice versa, even with identical suffixes.
     assert resolve_bearer(session, config, AGENT_PREFIX + "collide") is None
     assert resolve_bearer(session, config, ADMIN_PREFIX + "collide") is None
+
+
+def test_list_actions_state_filter_is_in_query_not_after_page(session):
+    """Filtering after pagination made `total` disagree with the visible set."""
+    from llmdmz.core.models import Action
+
+    owner, _ = storage.register_agent(
+        session, name="provider", is_client=False, is_provider=True
+    )
+    session.add(Action(id="crm_add_note", owner_agent_id=owner.id, state="active"))
+    session.add(Action(id="crm_search", owner_agent_id=owner.id, state="active"))
+    session.add(Action(id="old_thing", owner_agent_id=owner.id, state="withdrawn"))
+    session.commit()
+
+    rows, total = storage.list_actions(session, page=1, per_page=1, state="active")
+    assert total == 2
+    assert len(rows) == 1
+    assert rows[0].state == "active"
+
+    rows, total = storage.list_actions(session, page=1, per_page=50, state="withdrawn")
+    assert total == 1
+    assert [a.id for a in rows] == ["old_thing"]
+
+    rows, total = storage.list_actions(session, page=1, per_page=50, q="crm_search")
+    assert total == 1
+    assert rows[0].id == "crm_search"
+
+    # `q` matches id, not the state column (state is a separate filter).
+    rows, total = storage.list_actions(session, page=1, per_page=50, q="withdrawn")
+    assert total == 0

@@ -251,6 +251,14 @@ class TestInvokeRejections:
         body = resp.get_json()["error"]
         assert body["code"] == "request_schema_invalid"
         assert body["detail"]["errors"]
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            req = s.scalars(select(Request)).first()
+            assert req is not None
+            assert req.outcome == "request_schema_invalid"
+            assert req.request_verdict and req.request_verdict.get("schema_errors")
+            s.close()
 
     def test_arbiter_rejected_verbatim_reason(self, app_fixture, client_http):
         key = _enrolled_action(app_fixture, client_http)
@@ -352,6 +360,35 @@ class TestInvokeRetries:
             attempts = s.scalars(select(DispatchAttempt)).all()
             assert len(attempts) == 3
             assert attempts[0].error_class == "arbiter_transport"
+            s.close()
+
+    def test_response_arbiter_exhaustion_log_outcome_is_arbiter_rejected(
+        self, app_fixture, client_http
+    ):
+        from llmdmz.admin import log_outcome
+        from llmdmz.dispatch.interfaces import Verdict
+
+        class AlwaysRejectResponse(ApprovingArbiter):
+            def check(self, *, side, action_id, payload, extra_instructions=""):
+                if side == "response":
+                    return Verdict(approved=False, reason="leaked identifiers")
+                return Verdict(approved=True, reason="ok")
+
+        key = _enrolled_action(app_fixture, client_http)
+        resp = _invoke(
+            client_http,
+            key,
+            arbiter=AlwaysRejectResponse(),
+            transport=ScriptedTransport([GOOD_RESPONSE] * 3),
+        )
+        assert resp.status_code == 502
+        assert resp.get_json()["error"]["code"] == "provider_failed"
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            req = s.scalars(select(Request)).first()
+            assert [a.error_class for a in req.attempts] == ["arbiter_rejected"] * 3
+            assert log_outcome(req) == "arbiter_rejected"
             s.close()
 
     def test_request_verdict_immutable_across_retries(self, app_fixture, client_http):

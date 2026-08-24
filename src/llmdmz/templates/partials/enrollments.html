@@ -1,0 +1,83 @@
+<div>
+  <h2 class="h5 mt-3 mb-3">Enrollment requests</h2>
+  {% with rows = pending_rows %}
+  {% include "partials/enrollment_queue.html" %}
+  {% endwith %}
+
+  <h2 class="h6 text-uppercase text-body-secondary mt-4 mb-2">Recently decided</h2>
+  <form class="row row-cols-lg-auto g-2 align-items-end mb-3" method="get"
+        data-indicator="enrollLoading"
+        data-on:submit="@get('/admin/partials/enrollments', {contentType: 'form'})">
+    <div class="col-12">
+      <label class="form-label mb-1" for="enroll-action">Action</label>
+      <input type="text" id="enroll-action" name="action_id" class="form-control form-control-sm" style="min-width: 12rem" value="{{ action_id }}" placeholder="action id">
+    </div>
+    <div class="col-12">
+      <label class="form-label mb-1" for="enroll-client">Client</label>
+      <input type="text" id="enroll-client" name="client" class="form-control form-control-sm" style="min-width: 10rem" value="{{ client }}" placeholder="agent name">
+    </div>
+    <div class="col-12">
+      <label class="form-label mb-1" for="enroll-state">State</label>
+      <select id="enroll-state" name="state" class="form-select form-select-sm">
+        <option value="">any decided</option>
+        {% for s in ("enrolled", "rejected", "revoked") %}
+        <option value="{{ s }}" {% if state == s %}selected{% endif %}>{{ state_label(s) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12">
+      <button type="submit" class="btn btn-sm btn-outline-secondary" data-attr-disabled="$enrollLoading">
+        <span data-show="!$enrollLoading">Filter</span>
+        <span data-show="$enrollLoading">Filtering…</span>
+      </button>
+      {% if filters_active %}
+      <button type="button" class="btn btn-sm btn-outline-secondary ms-1" data-on:click="@get('/admin/partials/enrollments')">Clear</button>
+      {% endif %}
+    </div>
+  </form>
+  {% if decided_rows %}
+  <div class="table-responsive">
+  <table class="table table-sm table-hover table-striped align-middle">
+    <thead><tr><th>Client</th><th>Action</th><th>State</th><th>Decided</th><th>Actor</th><th>Notes</th><th></th></tr></thead>
+    <tbody>
+    {% for row in decided_rows %}
+      {% set e = row.enrollment %}
+      <tr>
+        <td>
+          {% if row.agent %}
+          <button type="button" class="btn btn-link p-0" data-on:click="$tab = 'agents'; location.hash = 'agents'; @get('/admin/agents/{{ row.agent.id }}')">{{ row.agent.name }}</button>
+          {% else %}
+          <span class="small font-monospace">{{ e.agent_id }}</span>
+          {% endif %}
+        </td>
+        <td>
+          <button type="button" class="btn btn-link p-0" data-on:click="$tab = 'directory'; location.hash = 'directory'; $openAction = '{{ e.action_id }}'; @get('/admin/partials/action/{{ e.action_id }}')">{{ e.action_id }}</button>
+        </td>
+        <td>{{ state_badge(e.state) }}</td>
+        <td class="small text-body-secondary">{{ when(e.decided_at) }}</td>
+        <td class="small text-body-secondary">{{ e.decided_by or '—' }}</td>
+        <td class="small text-body-secondary">{{ e.decision_notes or '—' }}</td>
+        <td>
+          {% if e.state == 'rejected' %}
+          <form class="m-0" data-on:submit="@post('/admin/enrollment/{{ e.id }}/reset', {contentType: 'form'})">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">Reset</button>
+          </form>
+          {% else %}
+          —
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="text-body-secondary py-3 mb-0">{% if filters_active %}No decided enrollments match this filter.{% else %}No decided enrollments yet.{% endif %}</p>
+  {% endif %}
+  <div class="d-flex flex-wrap gap-2 align-items-center my-3">
+    <span class="small text-body-secondary">{{ pager_summary(total, page, per_page) }}</span>
+    {% if page > 1 %}<button type="button" class="btn btn-sm btn-outline-secondary" data-on:click="@get('{{ pager_prev | safe }}')">Prev</button>{% endif %}
+    {% if page * per_page < total %}<button type="button" class="btn btn-sm btn-outline-secondary" data-on:click="@get('{{ pager_next | safe }}')">Next</button>{% endif %}
+  </div>
+</div>

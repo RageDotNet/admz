@@ -1,0 +1,19 @@
+{# Shared two-step confirm. Expects confirm_key, message, post_url, button_label.
+   Optional: confirm_label, btn_class. Uses $pendingConfirm on #admin-root.
+   Do not put Bootstrap d-flex on the same node as data-show: d-flex is
+   !important and wins over Datastar's inline display:none. #}
+{% set confirm_label = confirm_label|default("Confirm") %}
+{% set btn_class = btn_class|default("btn-danger") %}
+<button type="button" class="btn btn-sm {{ btn_class }}"
+        data-show="$pendingConfirm !== '{{ confirm_key }}'"
+        data-on:click="$pendingConfirm = '{{ confirm_key }}'">{{ button_label }}</button>
+<div data-show="$pendingConfirm === '{{ confirm_key }}'">
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    <span class="small">{{ message }}</span>
+    <form class="d-inline m-0" data-on:submit="@post('{{ post_url }}', {contentType: 'form'}); $pendingConfirm = ''">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-sm {{ btn_class }}">{{ confirm_label }}</button>
+    </form>
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-on:click="$pendingConfirm = ''">Cancel</button>
+  </div>
+</div>

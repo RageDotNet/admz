@@ -1,33 +1,78 @@
 <div>
-  <form class="d-flex flex-wrap gap-2 align-items-center" data-on:submit="@get(&quot;/admin/partials/audit&quot;, {contentType: &quot;form&quot;})">
-    <input type="text" name="actor_id" class="form-control form-control-sm" value="{{ actor_id }}" placeholder="actor id">
-    <select name="target_type" class="form-select form-select-sm">
-      <option value="">any target</option>
-      {% for t in ("action", "action_version", "enrollment", "agent") %}
-      <option value="{{ t }}" {% if target_type == t %}selected{% endif %}>{{ t }}</option>
-      {% endfor %}
-    </select>
-    <button type="submit" class="btn btn-sm btn-outline-secondary">Filter</button>
+  <form class="row row-cols-lg-auto g-2 align-items-end mb-3" method="get"
+        data-indicator="auditLoading"
+        data-on:submit="@get('/admin/partials/audit', {contentType: 'form'})">
+    <div class="col-12">
+      <label class="form-label mb-1" for="audit-actor">Actor</label>
+      <input type="text" id="audit-actor" name="actor" class="form-control form-control-sm" style="min-width: 12rem" value="{{ actor }}" placeholder="name or id">
+    </div>
+    <div class="col-12">
+      <label class="form-label mb-1" for="audit-target">Target</label>
+      <select id="audit-target" name="target_type" class="form-select form-select-sm">
+        <option value="">any</option>
+        {% for t in ("action", "action_version", "enrollment", "agent") %}
+        <option value="{{ t }}" {% if target_type == t %}selected{% endif %}>{{ state_label(t) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12">
+      <label class="form-label mb-1" for="audit-kind">Events</label>
+      <select id="audit-kind" name="kind" class="form-select form-select-sm">
+        <option value="lifecycle" {% if kind == "lifecycle" %}selected{% endif %}>Lifecycle</option>
+        <option value="traffic" {% if kind == "traffic" %}selected{% endif %}>Invocations</option>
+        <option value="all" {% if kind == "all" %}selected{% endif %}>All</option>
+      </select>
+    </div>
+    <div class="col-12">
+      <button type="submit" class="btn btn-sm btn-outline-secondary" data-attr-disabled="$auditLoading">
+        <span data-show="!$auditLoading">Filter</span>
+        <span data-show="$auditLoading">Filtering…</span>
+      </button>
+      {% if filters_active %}
+      <button type="button" class="btn btn-sm btn-outline-secondary ms-1" data-on:click="@get('/admin/partials/audit')">Clear</button>
+      {% endif %}
+    </div>
   </form>
-  <table class="table table-sm table-hover table-striped align-middle">
-    <thead><tr><th>When</th><th>Actor</th><th>Event</th><th>Target</th><th>Detail</th></tr></thead>
-    <tbody>
-    {% for e in rows %}
-      <tr>
-        <td class="small text-body-secondary">{{ e.occurred_at }}</td>
-        <td class="small text-body-secondary">{{ e.actor_type }}:{{ e.actor_id }}</td>
-        <td class="small text-body-secondary">{{ e.event }}</td>
-        <td class="small text-body-secondary">{{ e.target_type }}/{{ e.target_id[:12] }}</td>
-        <td class="small text-body-secondary">{{ (e.detail | tojson) if e.detail else "" }}</td>
-      </tr>
-    {% else %}
-      <tr><td colspan="5" class="small text-body-secondary">No events.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  {% if rows %}
+  <div class="table-responsive">
+    <table class="table table-sm table-hover table-striped align-middle">
+      <thead><tr><th>When</th><th>Actor</th><th>Event</th><th>Target</th><th>Detail</th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td class="small text-body-secondary">{{ when(row.occurred_at) }}</td>
+          <td class="small" title="{{ row.actor_title }}">
+            {% if row.actor_agent_id %}
+            <button type="button" class="btn btn-link p-0" data-on:click="$tab = 'agents'; location.hash = 'agents'; @get('/admin/agents/{{ row.actor_agent_id }}')">{{ row.actor_name }}</button>
+            {% else %}
+            {{ row.actor_name }}
+            {% endif %}
+          </td>
+          <td class="small" title="{{ row.event }}">{{ row.event_label }}</td>
+          <td class="small" title="{{ row.target_title }}">
+            <span class="text-body-secondary">{{ row.target_type_label }}</span>
+            {% if row.agent_id %}
+            <button type="button" class="btn btn-link p-0" data-on:click="$tab = 'agents'; location.hash = 'agents'; @get('/admin/agents/{{ row.agent_id }}')">{{ row.agent_label }}</button>
+            {% endif %}
+            {% if row.action_id %}
+            <button type="button" class="btn btn-link p-0" data-on:click="$tab = 'directory'; location.hash = 'directory'; $openAction = '{{ row.action_id }}'; @get('/admin/partials/action/{{ row.action_id }}')">{{ row.action_label }}</button>
+            {% endif %}
+            {% if not row.agent_id and not row.action_id %}
+            {{ row.target_label }}
+            {% endif %}
+          </td>
+          <td class="small text-body-secondary">{{ row.detail_summary }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-body-secondary py-3 mb-0">No events match this filter.</p>
+  {% endif %}
   <div class="d-flex flex-wrap gap-2 align-items-center my-3">
-    <span class="small text-body-secondary">{{ total }} total — page {{ page }}</span>
-    {% if page > 1 %}<a class="btn btn-sm btn-outline-secondary btn btn-sm btn-outline-secondary" href="#" data-on:click="@get(&quot;/admin/partials/audit?page={{ page - 1 }}&quot;)">Prev</a>{% endif %}
-    {% if page * per_page < total %}<a class="btn btn-sm btn-outline-secondary btn btn-sm btn-outline-secondary" href="#" data-on:click="@get(&quot;/admin/partials/audit?page={{ page + 1 }}&quot;)">Next</a>{% endif %}
+    <span class="small text-body-secondary">{{ pager_summary(total, page, per_page) }}</span>
+    {% if page > 1 %}<button type="button" class="btn btn-sm btn-outline-secondary" data-on:click="@get('{{ pager_prev | safe }}')">Prev</button>{% endif %}
+    {% if page * per_page < total %}<button type="button" class="btn btn-sm btn-outline-secondary" data-on:click="@get('{{ pager_next | safe }}')">Next</button>{% endif %}
   </div>
 </div>
