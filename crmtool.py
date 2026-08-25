@@ -1,4 +1,4 @@
-"""Simple flat-file CRM for the internal LLM agent."""
+"""Mock CRM contact store used by crm_provider.py."""
 
 from __future__ import annotations
 

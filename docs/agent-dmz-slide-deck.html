@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The LLM DMZ — rage.net</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f8f9fa; --slide-bg: #ffffff; --accent: #ea580c; --accent2: #d68910;
+    --accent3: #1e8449; --accent4: #1a1a2e; --text: #1a1a2e; --muted: #6b7280;
+    --card-bg: #f8f9fa; --border: #e5e7eb; --brand: #ea580c; --brand-dark: #c2410c;
+  }
+  .dark {
+    --bg: #0f1117; --slide-bg: #1a1d27; --accent: #ea580c; --accent2: #f39c12;
+    --accent3: #2ecc71; --accent4: #9ca3af; --text: #f3f4f6; --muted: #9ca3af;
+    --card-bg: #232738; --border: #2c3e50;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--text); overflow:hidden; height:100vh; width:100vw; }
+  .deck { width:100vw; height:100vh; position:relative; }
+  .slide { position:absolute; top:0; left:0; width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; padding:60px 80px 80px; opacity:0; pointer-events:none; transition:opacity .35s; background:var(--slide-bg); overflow-y:auto; }
+  .slide.active { opacity:1; pointer-events:auto; z-index:1; }
+  .slide-num { position:absolute; bottom:16px; left:80px; font-size:13px; color:var(--muted); opacity:.5; }
+  .slide-title { font-size:48px; font-weight:700; margin-bottom:8px; line-height:1.15; }
+  .slide-subtitle { font-size:22px; color:var(--muted); margin-bottom:36px; }
+  .slide h2 { font-size:38px; font-weight:700; margin-bottom:28px; line-height:1.2; }
+  .slide h3 { font-size:24px; font-weight:600; margin-bottom:14px; .color:var(--accent4); }
+  .slide p,.slide li { font-size:20px; line-height:1.55; }
+  .slide ul { list-style:none; padding-left:0; }
+  .slide ul li { padding:5px 0 5px 28px; position:relative; }
+  .slide ul li::before { content:"▸"; color:var(--accent); position:absolute; left:0; font-weight:bold; }
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:36px; margin-top:20px; }
+  .three-col { display:grid; grid-template-columns:1fr 1fr 1fr; gap:22px; margin-top:20px; }
+  .card { background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:24px; }
+  .card.red { border-color:var(--accent); } .card.yellow { border-color:var(--accent2); }
+  .card.green { border-color:var(--accent3); } .card.blue { border-.color:var(--accent4); }
+  .big-number { font-size:64px; font-weight:800; line-height:1; }
+  .big-number.red { color:var(--accent); } .big-number.yellow { color:#b7950b; }
+  .big-number.green { color:var(--accent3); } .big-number.blue { .color:var(--accent4); }
+  .badge { display:inline-block; padding:4px 14px; border-radius:20px; font-size:14px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-bottom:12px; }
+  .badge.critical { background:var(--accent); color:#fff; } .badge.warning { background:var(--accent2); color:#1c2833; }
+  .badge.info { background:#1a1a2e; color:#fff; } .badge.safe { background:var(--accent3); color:#1c2833; }
+  .tenet-card { background:var(--card-bg); border-radius:12px; padding:22px; border-left:4px solid var(--brand); }
+  .tenet-card h3 { font-size:19px; color:var(--brand); margin-bottom:6px; }
+  .tenet-card p { font-size:16px; line-height:1.5; }
+  .flow-visual { display:grid; grid-template-columns:1fr; gap:10px; margin:20px 0; }
+  .flow-step { background:var(--card-bg); border:1px solid var(--border); border-radius:10px; padding:12px 20px; font-size:17px; display:flex; align-items:center; gap:14px; }
+  .flow-step .n { background:var(--brand); color:#fff; min-width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0; }
+  .flow-step.fail { border-left:4px solid var(--accent); }
+  .flow-step.ok { border-left:4px solid var(--accent3); }
+  .trifecta-visual { display:grid; grid-template-columns:1fr 1fr 1fr; gap:24px; text-align:center; margin:20px 0; }
+  .trifecta-item { background:var(--card-bg); border:2px solid var(--brand); border-radius:16px; padding:28px 18px; }
+  .trifecta-item .icon { font-size:44px; margin-bottom:10px; }
+  .trifecta-item h3 { font-size:20px; margin-bottom:8px; color:var(--brand); }
+  .trifecta-item p { font-size:16px; color:var(--muted); }
+  table { width:100%; border-collapse:collapse; margin-top:14px; font-size:17px; }
+  th,td { padding:10px 14px; text-align:left; border-bottom:1px solid var(--border); }
+  th { font-weight:600; color:var(--brand); font-size:15px; text-transform:uppercase; letter-spacing:.5px; }
+  .red-text { color:var(--accent); font-weight:700; } .green-text { color:var(--accent3); font-weight:700; }
+  .muted { color:var(--muted); }
+  .highlight-box { background:linear-gradient(135deg,#ea580c,#c2410c); border-radius:12px; padding:24px 30px; margin:16px 0; }
+  .highlight-box p { font-size:22px; font-weight:600; line-height:1.4; color:#fff; }
+  .title-slide { text-align:center; justify-content:center; align-items:center; }
+  .title-slide .slide-title { font-size:56px; margin-bottom:16px; }
+  .title-slide .slide-subtitle { font-size:26px; }
+  .title-slide .meta { margin-top:40px; font-size:18px; color:var(--muted); }
+  code { background:var(--card-bg); padding:2px 8px; border-radius:4px; font-size:.85em; border:1px solid var(--border); }
+  .progress { position:fixed; top:0; left:0; height:3px; background:var(--accent); transition:width .4s; z-index:500; }
+
+  .controls-bar { position:fixed; bottom:0; left:0; right:0; height:52px; display:flex; align-items:center; justify-content:space-between; padding:0 24px; z-index:9999; background:var(--slide-bg); border-top:1px solid var(--border); }
+  .nav-group,.center-group,.right-group { display:flex; align-items:center; gap:10px; }
+  .ctrl-btn { background:var(--card-bg); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:7px 16px; font-size:14px; cursor:pointer; transition:background .15s; font-family:inherit; }
+  .ctrl-btn:hover { background:var(--border); }
+  .ctrl-btn:active { transform:scale(.97); }
+  .ctrl-btn.icon-btn { width:38px; height:38px; padding:0; display:flex; align-items:center; justify-content:center; font-size:18px; border-radius:10px; }
+  .counter { font-size:14px; color:var(--muted); min-width:56px; text-align:center; }
+
+  .notes-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.45); z-index:10000; display:none; justify-content:center; align-items:center; }
+  .notes-overlay.visible { display:flex; }
+  .notes-panel { background:var(--slide-bg); width:90vw; max-width:900px; height:82vh; border-radius:16px; box-shadow:0 12px 48px rgba(0,0,0,.25); display:flex; flex-direction:column; overflow:hidden; border:1px solid var(--border); }
+  .notes-header { display:flex; align-items:center; justify-content:space-between; padding:18px 28px; border-bottom:1px solid var(--border); background:var(--card-bg); flex-shrink:0; }
+  .notes-header h3 { font-size:18px; color:var(--brand); margin:0; }
+  .notes-header .slide-label { font-size:14px; color:var(--muted); }
+  .notes-close { background:none; border:1px solid var(--border); border-radius:8px; width:36px; height:36px; font-size:18px; cursor:pointer; color:var(--muted); display:flex; align-items:center; justify-content:center; font-family:inherit; }
+  .notes-close:hover { background:var(--border); color:var(--text); }
+  .notes-body { flex:1; overflow-y:auto; padding:32px 36px; font-size:16px; line-height:1.7; color:var(--text); }
+  .notes-body h4 { color:var(--brand); font-size:20px; margin:24px 0 10px; }
+  .notes-body h4:first-child { margin-top:0; }
+  .notes-body p { margin-bottom:12px; }
+  .notes-body ul { margin:8px 0 16px 20px; }
+  .notes-body li { margin-bottom:6px; }
+
+  @media (max-width:900px) { .slide{padding:40px 32px 70px;} .slide-title{font-size:32px;} .slide h2{font-size:28px;} .two-col,.three-col{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<div class="deck" id="deck">
+
+<!-- SLIDE 1: Title -->
+<div class="slide title-slide active" data-notes="THE LLM DMZ — v2
+
+A directory-driven broker that sits between untrusted LLM agents. Providers register actions (validated API capabilities); clients discover those actions, request enrollment, and invoke them. Every request and response passing through the DMZ is validated against a JSON Schema and judged by an LLM security arbiter before reaching the other side.
+
+V2 design goals:
+- Synchronous processing — every request handled in one round trip; the client gets a final answer immediately. No manual review or quarantine state for individual requests.
+- Self-service directory — providers manage their own actions via REST; clients browse and request enrollment; admins approve actions, updates, and enrollments.
+- Governance by approval, not interception — human review moves upstream: actions and access are approved before any traffic flows, so live traffic needs no human gate.
+- Portability — SQLite default, structured so switching to MariaDB/PostgreSQL is a configuration change, not a code change.
+
+MVP scope: one synchronous REST application — agent identity, action directory with versioning and approval, access control, validated request/response brokering with arbitration and retries, request logging, and an admin webui.">
+  <div class="slide-title">The LLM DMZ</div>
+  <div class="slide-subtitle">A Directory-Driven Broker Between Untrusted AI Agents</div>
+  <div class="badge info">System Design v2</div>
+  <div class="meta"><span style="color:var(--brand);font-weight:700">rage</span><span style="color:#9ca3af">.</span>net &nbsp;·&nbsp; Architecture &amp; Product Review &nbsp;·&nbsp; 2026</div>
+  <div class="slide-num">1</div>
+</div>
+
+<!-- SLIDE 2: The Problem -->
+<div class="slide" data-notes="WHY A DMZ FOR AGENTS?
+
+The DMZ sits between untrusted external clients and trusted internal providers. Two validation layers guard every message crossing it:
+
+1. Structural validation — payloads are checked against declared JSON Schemas.
+2. LLM arbiter — payloads are screened for malicious intent (requests) and data exfiltration (responses) by an LLM security arbiter.
+
+In v2, providers submit their schemas to the DMZ over a web endpoint. After human review and approval, each submission becomes a callable action on the DMZ that clients can discover and invoke.
+
+The core insight: agents talking directly to each other have no neutral ground. One side's prompt is the other side's attack surface. The DMZ is that neutral ground — the meeting point where every payload is structurally validated and semantically judged before it crosses the boundary.">
+  <h2>The Problem</h2>
+  <div class="two-col">
+    <div class="card red">
+      <h3>Direct agent-to-agent</h3>
+      <ul>
+        <li>Client prompts are an injection surface</li>
+        <li>Provider responses can exfiltrate data</li>
+        <li>No neutral contract between parties</li>
+        <li>No audit trail of what crossed</li>
+      </ul>
+    </div>
+    <div class="card green">
+      <h3>Through the DMZ</h3>
+      <ul>
+        <li>Every payload validated against a JSON Schema</li>
+        <li>LLM arbiter judges intent on both sides</li>
+        <li>Human approval happens <em>before</em> traffic</li>
+        <li>Full request log for after-the-fact review</li>
+      </ul>
+    </div>
+  </div>
+  <div class="highlight-box"><p>One side's prompt is the other side's attack surface. The DMZ is the neutral ground between them.</p></div>
+  <div class="slide-num">2</div>
+</div>
+
+<!-- SLIDE 3: What it is -->
+<div class="slide" data-notes="DIRECTORY-DRIVEN BROKER — CORE MODEL
+
+Providers register actions (validated API capabilities); clients discover those actions, request enrollment, and invoke them. Every request and response is validated against a JSON Schema and judged by an LLM security arbiter before reaching the other side.
+
+Key terms:
+- Action: an API endpoint that a provider serves and other agents can call — a named capability with a request schema, a response schema, and arbiter/model-facing instructions.
+- Agent: any registered participant — a client, a provider, or both. Every agent has a bearer key.
+- Client: an agent that calls actions.
+- Provider: an agent that registers and responds on actions.
+- Admin: a human administrator (multiple allowed; defined in config).
+- Directory: the catalog of all registered actions, filterable per client by access state.
+- Enrollment: a client's granted permission to invoke a specific action, requested by the client and approved by an admin.
+- Action version: a specific revision of an action's definition; only one version is active at a time.">
+  <h2>What the DMZ Is</h2>
+  <div class="trifecta-visual">
+    <div class="trifecta-item">
+      <div class="icon">📡</div>
+      <h3>Directory</h3>
+      <p>Catalog of registered actions — filterable per client by access state</p>
+    </div>
+    <div class="trifecta-item">
+      <div class="icon">🛂</div>
+      <h3>Broker</h3>
+      <p>Validates, arbitrates, dispatches, retries — every message crosses guarded</p>
+    </div>
+    <div class="trifecta-item">
+      <div class="icon">📋</div>
+      <h3>Log</h3>
+      <p>Every request, decision, and state change persisted for review</p>
+    </div>
+  </div>
+  <ul>
+    <li><strong>Action</strong> — a named capability: request schema + response schema + arbiter/model-facing instructions</li>
+    <li><strong>Agent</strong> — any registered participant (client, provider, or both); every agent has a bearer key</li>
+    <li><strong>Enrollment</strong> — client permission to invoke a specific action, approved by an admin</li>
+  </ul>
+  <div class="slide-num">3</div>
+</div>
+
+<!-- SLIDE 4: Trust model / governance -->
+<div class="slide" data-notes="GOVERNANCE BY APPROVAL, NOT INTERCEPTION
+
+Human review moves upstream: actions and access are approved before any traffic flows, so live traffic needs no human gate.
+
+Three independent human gates precede any dispatch:
+1. An administrator registers the provider agent and sets its delivery configuration.
+2. An administrator approves the action (and every new version).
+3. An administrator approves each client's enrollment.
+
+A registered provider is therefore semi-trusted: its outputs are treated as untrusted (validated and arbitrated), but its processes are trusted by necessity of the design. The trust boundary is WHO becomes a provider, not WHAT the process can do.
+
+Once traffic flows, everything is automatic: no code path leaves a client waiting on human action. Rejections are immediate and final for that request; the client's model self-corrects on the next attempt. Logging is observational — nothing waits on a human.">
+  <h2>Governance: Approval Upstream, Automation Live</h2>
+  <div class="three-col">
+    <div class="card blue">
+      <span class="badge info">Gate 1</span>
+      <h3>Register provider</h3>
+      <p>Admin registers the agent and sets its delivery configuration</p>
+    </div>
+    <div class="card blue">
+      <span class="badge info">Gate 2</span>
+      <h3>Approve action</h3>
+      <p>Admin reviews and approves the schema package — every version</p>
+    </div>
+    <div class="card blue">
+      <span class="badge info">Gate 3</span>
+      <h3>Approve enrollment</h3>
+      <p>Admin approves each client's access to each action</p>
+    </div>
+  </div>
+  <div class="two-col" style="margin-top:28px">
+    <div class="tenet-card">
+      <h3>Providers are semi-trusted</h3>
+      <p>Outputs treated as <strong>untrusted</strong> — validated and arbitrated. The trust boundary is <em>who becomes a provider</em>, not what their process can do.</p>
+    </div>
+    <div class="tenet-card">
+      <h3>No human in the live loop</h3>
+      <p>No code path leaves a client waiting on human action. Rejections are immediate and final; the client's model self-corrects on its next attempt.</p>
+    </div>
+  </div>
+  <div class="slide-num">4</div>
+</div>
+
+<!-- SLIDE 5: Roles -->
+<div class="slide" data-notes="AGENT IDENTITY & CAPABILITY FLAGS
+
+Agents are registered by an administrator through the webui. On registration the system generates a bearer key; the admin delivers it to the agent owner out of band.
+
+An agent has a role: client, provider, or both. Roles are stored as INDEPENDENT CAPABILITY FLAGS (is_client, is_provider) — 'both' is not a stored value but simply the state where both flags are true.
+
+Every endpoint checks only the capability it requires — invoking actions requires client capability; registering actions requires provider capability. There is no role == 'both'-style conditional anywhere. This keeps roles non-brittle: new capabilities become new flags, and an admin can revoke one capability (e.g. provider duty) independently of the other.
+
+Providers have exactly one endpoint configuration (endpoint-per-provider, not endpoint-per-action). All of a provider's actions are served through that endpoint.
+
+Keys can be revoked/disabled by an admin, immediately cutting off the agent. Admins authenticate with username/password (webui) or bearer token (API). Agents are NOT in the config file — agent registrations live in the database, created/managed through the admin webui.">
+  <h2>Agents &amp; Capability Flags</h2>
+  <div class="two-col">
+    <div class="card">
+      <h3>Identity</h3>
+      <ul>
+        <li>Admin registers agents via webui; bearer key generated and shown <strong>exactly once</strong></li>
+        <li>Key revocation cuts the agent off immediately</li>
+        <li>Agents live in the <strong>database</strong>, never in config files</li>
+      </ul>
+    </div>
+    <div class="card green">
+      <h3>Roles = independent flags</h3>
+      <ul>
+        <li><code>is_client</code> and <code>is_provider</code> — not a role enum</li>
+        <li>"Both" is just both flags true — no special-case code</li>
+        <li>Revoke one capability without touching the other</li>
+        <li>New capabilities become new flags</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card yellow" style="margin-top:24px">
+    <h3>Endpoint-per-provider</h3>
+    <p>One delivery configuration per provider — all of its actions are served through it. Not endpoint-per-action.</p>
+  </div>
+  <div class="slide-num">5</div>
+</div>
+
+<!-- SLIDE 6: Action lifecycle -->
+<div class="slide" data-notes="ACTION LIFECYCLE & VERSIONING
+
+Providers manage their actions via a REST CRUD API (authenticated with their bearer key). An action version's lifecycle: submitted → active (approved by an admin) or rejected.
+
+VERSIONING RULE: when a provider edits an action, a NEW VERSION is created in submitted state; the previously approved version remains active and callable until the new version is approved. Approval swaps the active version atomically. There is no separate version-creation endpoint — versioning IS PUT (PUT /v2/actions/{id} submits a new version).
+
+WITHDRAWAL is immediate but soft: withdrawing (DELETE /v2/actions/{id}, called withdraw) takes the action out of service — it disappears from discovery and becomes non-invokable — while its history and logs are retained. Existing enrollments do not block a withdraw.
+
+Canonical version states: submitted (stored, automated checks passed, awaiting admin decision), active (approved and currently serving; exactly one per action), superseded (was active; replaced by a newer approved version), rejected (terminal for that version).
+
+Canonical action states (derived from versions): pending (never had an approved version), active (has an active version; callable by enrolled clients), withdrawn (soft delete; not discoverable or invokeable, history retained).
+
+Each action version carries a JSON request schema, a JSON response schema (draft 2020-12), per-schema arbiter instructions, client instructions (what calling agents see), and provider instructions (what the provider should know about serving the action).">
+  <h2>Action Lifecycle &amp; Versioning</h2>
+  <div class="flow-visual">
+    <div class="flow-step"><span class="n">1</span> Provider submits schema package via <code>POST /v2/actions</code> → version <code>submitted</code></div>
+    <div class="flow-step"><span class="n">2</span> Automated checks: duplicate id, schema compilation — fail fast with 4xx</div>
+    <div class="flow-step"><span class="n">3</span> Admin reviews full submission in webui → <strong>approve</strong> or <strong>reject</strong></div>
+    <div class="flow-step ok"><span class="n">4</span> Approve → version <code>active</code> atomically; prior version becomes <code>superseded</code></div>
+  </div>
+  <div class="two-col" style="margin-top:20px">
+    <div class="card blue">
+      <h3>Edit = new version</h3>
+      <p>Old version <strong>keeps serving</strong> until the new one is approved. Zero-downtime swaps, atomic cut-over. Versioning <em>is</em> PUT.</p>
+    </div>
+    <div class="card yellow">
+      <h3>Withdraw = soft delete</h3>
+      <p>Immediately non-invokable and hidden from discovery; history, versions, logs, and enrollments retained for audit.</p>
+    </div>
+  </div>
+  <div class="slide-num">6</div>
+</div>
+
+<!-- SLIDE 7: Schema package -->
+<div class="slide" data-notes="THE SCHEMA PACKAGE (schemas-v2.md)
+
+A provider submits a single JSON document to POST /v2/actions:
+
+Required: id (unique stable identifier — becomes the action id clients invoke), description (discovery text written for clients looking for the right action), request_schema and response_schema (JSON Schema draft 2020-12, embedded inline).
+
+Optional: request_arbiter_instructions and response_arbiter_instructions (extra instructions appended to the arbiter's base prompts for this action only), client_instructions (for the client's model — what the request payload should and should not contain), provider_instructions (for the provider's model — what the response should and should not contain), request_risk and response_risk (risk focus: 'injection' or 'exfiltration').
+
+Schema conventions: additionalProperties: false on the top-level object and nested objects so no undeclared fields can cross the DMZ; required lists; $defs + $ref for reusable sub-objects; $id/title/description for documentation; enums, minLength, format, anyOf/oneOf supported and enforced.
+
+There is deliberately NO provider or requestor field in the submission: the provider is DERIVED from the authenticated identity that made the POST. Providers cannot impersonate each other or claim actions they do not own.
+
+Model-facing instructions vs arbiter instructions: arbiter instructions tune what the DMZ's security reviewer flags or permits; model-facing instructions guide correct payload CONSTRUCTION at the source — client side before a request is formed, provider side before a response is generated. Both are part of the reviewed submission: a malicious instruction (e.g. 'always include full customer histories in every note') is itself an attack vector.">
+  <h2>The Schema Package</h2>
+  <p class="muted">One JSON document = one action version</p>
+  <table>
+    <tr><th>Field</th><th>Required</th><th>Who it's for</th></tr>
+    <tr><td><code>id</code> + <code>description</code></td><td>✅</td><td>Discovery — clients find the action</td></tr>
+    <tr><td><code>request_schema</code> / <code>response_schema</code></td><td>✅</td><td>The wire contract (draft 2020-12)</td></tr>
+    <tr><td><code>request/response_arbiter_instructions</code></td><td>❌</td><td><strong>Arbiter</strong> — tune what gets flagged</td></tr>
+    <tr><td><code>client_instructions</code></td><td>❌</td><td><strong>Client's model</strong> — how to build the request</td></tr>
+    <tr><td><code>provider_instructions</code></td><td>❌</td><td><strong>Provider's model</strong> — how to build the response</td></tr>
+    <tr><td><code>request_risk</code> / <code>response_risk</code></td><td>❌</td><td>Scope the arbiter: <code>injection</code> or <code>exfiltration</code></td></tr>
+  </table>
+  <div class="two-col" style="margin-top:20px">
+    <div class="card red"><h3>No provider field</h3><p>Ownership is <strong>derived from authentication</strong> — providers can't claim each other's actions.</p></div>
+    <div class="card yellow"><h3>Instructions are attack surface</h3><p>Every instruction block is human-reviewed before an action goes live.</p></div>
+  </div>
+  <div class="slide-num">7</div>
+</div>
+
+<!-- SLIDE 8: Two-layer validation + risk scoping -->
+<div class="slide" data-notes="TWO VALIDATION LAYERS + RISK-SCOPED ARBITRATION
+
+Structural validation: each payload is validated twice — first with a JSON Schema validator (jsonschema), then with a Pydantic model generated from the schema (dydantic). email-validator backs format: email. Unknown action ids are rejected.
+
+LLM arbiter: base prompts (one for requests, one for responses) are maintained in code and cover universal checks. Request checks: prompt injection/jailbreak attempts, schema-bypass via hidden instructions, requests for unrelated sensitive operations, social engineering aimed at downstream systems. Response checks: private data beyond what the request justified, bulk dumps, credentials, steganographic/encoded leakage.
+
+Per-action arbiter instructions are appended to the base prompt, giving action context the generic prompt can't know ('notes fields are expected to contain free text').
+
+RISK-SCOPED FOCUS: judging every security class at once makes LLM arbiters over-reject — they start judging data QUALITY (repetition, verbosity, 'could be interpreted as an instruction' hedging) instead of SECURITY. request_risk: 'injection' means screen only for instructions imperatively addressed to a model or system — everything else is data, not an attack, and must be approved. response_risk: 'exfiltration' means screen only for data leaving beyond what the contract justifies — contract-conforming content must be approved even when repetitive or verbose. Quality is the provider's problem, not the arbiter's.
+
+All four arbiter prompt texts are overridable per deployment via config.yaml keys — operators tune prompts without a code change; an override replaces the built-in entirely, including its invariant clauses.
+
+Verdict format: JSON {approved: bool, reason: string}. Unparseable verdict = failed check. An unparseable verdict rejects a request, or counts as a retryable failed attempt on the response side.">
+  <h2>Two Validation Layers</h2>
+  <div class="two-col">
+    <div class="card blue">
+      <span class="badge info">Layer 1</span>
+      <h3>Structural</h3>
+      <ul>
+        <li>JSON Schema (draft 2020-12) validation</li>
+        <li>Second pass: Pydantic model via <code>dydantic</code></li>
+        <li><code>additionalProperties: false</code> — nothing undeclared crosses</li>
+      </ul>
+    </div>
+    <div class="card red">
+      <span class="badge critical">Layer 2</span>
+      <h3>LLM Arbiter</h3>
+      <ul>
+        <li><strong>Requests</strong> → injection, jailbreak, schema-bypass</li>
+        <li><strong>Responses</strong> → exfiltration, bulk dumps, leakage</li>
+        <li>Per-action instructions appended to base prompts</li>
+      </ul>
+    </div>
+  </div>
+  <div class="highlight-box" style="margin-top:24px">
+    <p>Risk scoping fixes arbiter over-rejection: judge <strong>security</strong>, not data <strong>quality</strong>. "Could be interpreted as an instruction" is not an attack — it's data.</p>
+  </div>
+  <ul>
+    <li><code>request_risk: injection</code> — only imperative instructions to a model count; everything else is data</li>
+    <li><code>response_risk: exfiltration</code> — only content beyond the contract counts; verbose ≠ malicious</li>
+    <li>Verdict: <code>{"approved": bool, "reason": "..."}</code> — unparseable verdict = failed check</li>
+  </ul>
+  <div class="slide-num">8</div>
+</div>
+
+<!-- SLIDE 9: Lethal trifecta -->
+<div class="slide" data-notes="THE LETHAL TRIFECTA (Simon Willison)
+
+An AI agent becomes catastrophically exploitable when it combines three capabilities at once:
+1. Access to private data
+2. Exposure to untrusted content (web pages, emails, documents — or other agents' prompts)
+3. Ability to take consequential external actions
+
+Any two are manageable; all three together mean a prompt injection in the untrusted content can weaponize the data access and the action capability. Injection is the hinge — it's what turns three benign features into one attack path.
+
+HOW THE DMZ ADDRESSES IT — not by removing the three legs (an agent broker's whole job is connecting them), but by breaking the injection path between them:
+
+- PRIVATE DATA: provider responses can only cross through the response schema + exfiltration-scoped arbiter. Bulk dumps, credentials, and contract-unjustified fields never reach the client. additionalProperties: false means no undeclared field can smuggle data out.
+- UNTRUSTED CONTENT: every client request is structurally validated and injection-screened before it touches a provider. 'Could be interpreted as an instruction' is not an attack — but imperative instructions addressed to a model are, and they're rejected with the verbatim reason.
+- EXTERNAL ACTIONS: an agent cannot invoke anything until a human approves its enrollment, per action. Blast radius is enrollment-scoped, revocable instantly, and every call is logged with payloads and verdicts.
+
+The DMZ's core move: it accepts that all three trifecta legs exist in an agent network, and inserts a validated, arbitrated choke point on every wire between them — so the legs never touch each other directly.">
+  <h2>The Lethal Trifecta — and Where the DMZ Cuts It</h2>
+  <div class="trifecta-visual">
+    <div class="trifecta-item"><div class="icon">🔑</div><h3>Private data</h3><p>Response schema + exfiltration arbiter gate every outbound payload. No undeclared field crosses.</p></div>
+    <div class="trifecta-item"><div class="icon">📥</div><h3>Untrusted content</h3><p>Request schema + injection arbiter screen every inbound payload before it reaches a provider.</p></div>
+    <div class="trifecta-item"><div class="icon">⚡</div><h3>External actions</h3><p>Human-approved enrollment per action. Blast radius scoped, instantly revocable, fully logged.</p></div>
+  </div>
+  <div class="highlight-box"><p>The DMZ doesn't remove the three legs — it inserts a validated, arbitrated choke point on every wire between them. Injection never gets a straight path.</p></div>
+  <div class="slide-num">9</div>
+</div>
+
+<!-- SLIDE 10: Request flow -->
+<div class="slide" data-notes="THE SYNCHRONOUS REQUEST PIPELINE (system-prd-v2.md)
+
+One request, one response — no intermediate states a client must poll:
+
+1. AUTHENTICATE — caller presents its bearer key; agent and role resolved.
+2. AUTHORIZE — the client must hold approved access to the requested action.
+3. REQUEST VALIDATION — payload validated against the action's active request schema, then judged by the LLM arbiter with that action's arbiter instructions. Any failure → immediate rejection to the client with a specific error.
+4. DISPATCH — the DMZ invokes the provider's endpoint using the configured protocol (completions, exec, or post) with the validated input.
+5. RESPONSE VALIDATION WITH RETRIES — provider's response validated against the response schema and judged by the arbiter. On failure, dispatch + validation is retried up to the configured limit (default 2 retries). If all attempts fail, the client receives a 'provider failed to provide a valid response' error.
+6. DELIVER — the validated response returned to the client immediately.
+7. LOG — the request (payloads, validation/arbitration outcomes, retries, final result) is persisted for admin review. Logging is observational; nothing waits on a human.
+
+Error transparency: when a request is rejected, the client is told exactly why (validation error or arbiter verdict, verbatim) so it can correct the request in its next attempt. Rejections are final for that request — no pending state, no human in the loop.">
+  <h2>The Request Flow — One Round Trip</h2>
+  <div class="two-col">
+    <div class="flow-visual">
+      <div class="flow-step"><span class="n">1</span> Authenticate (bearer key → agent + flags)</div>
+      <div class="flow-step"><span class="n">2</span> Authorize (enrolled on this action?)</div>
+      <div class="flow-step fail"><span class="n">3</span> Validate request: schema → arbiter · <span class="red-text">fail = immediate rejection</span></div>
+      <div class="flow-step"><span class="n">4</span> Dispatch to provider endpoint</div>
+      <div class="flow-step fail"><span class="n">5</span> Validate response · <span class="red-text">fail = retry ×2, then 502</span></div>
+    </div>
+    <div>
+      <div class="card green" style="margin-bottom:18px">
+        <h3>6 · Deliver</h3>
+        <p>Validated response returned <strong>immediately</strong> — result, action id, and active version number.</p>
+      </div>
+      <div class="card blue">
+        <h3>7 · Log</h3>
+        <p>Payloads, outcomes, retries, verdicts — persisted for admin review. Observational only.</p>
+      </div>
+      <div class="card yellow" style="margin-top:18px">
+        <h3>Transparent failures</h3>
+        <p>Rejections carry the <em>verbatim</em> reason — schema errors or arbiter verdict — so the client's model self-corrects next attempt.</p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">10</div>
+</div>
+
+<!-- SLIDE 11: Dispatch protocols -->
+<div class="slide" data-notes="DISPATCH — DMZ-TO-PROVIDER DELIVERY (dispatch-v2.md)
+
+One endpoint per provider; three protocol types cover the three realistic provider shapes:
+
+POST — plain HTTP endpoint. DMZ POSTs the unstructured payload with configured headers. HTTP 2xx body must parse as JSON and satisfy the response schema; anything else is a failed attempt.
+
+EXEC — a local program on the DMZ host (subprocess.Popen). The entire unstructured payload is written to stdin; the candidate response is read from stdout. Exit 0 + parseable schema-valid stdout = candidate; non-zero exit, unparseable stdout, or timeout = failed attempt, stderr captured for the request log. NO sandbox, container, or resource limit around the subprocess in this version.
+
+COMPLETIONS — an OpenAI-compatible chat-completions URL. System prompt = instructions + response schema; user prompt = request JSON. Retry turns are appended to the conversation (assistant turn with the failed response, user turn describing the errors) letting the model self-correct. Candidate = first choice's message.content, must parse and validate.
+
+INPUT FRAMING: unstructured framing (post/exec) is a single plain-text payload: instructions, then any error block from the previous attempt on retries, then the response schema, then 'REQUEST JSON FOLLOWS:' and the exact validated request.
+
+RETRY WITH FEEDBACK: every failure class is retryable — transport error, timeout, protocol error, invalid response, arbiter-rejected response. The retry carries the previous error back to the provider so it can self-correct, mirroring how the DMZ treats clients.
+
+BOUNDED DURATION: per-attempt timeout default 180s (providers commonly chain multiple tool invocations of their own — dispatch is long-running by design). Worst case = timeout × (retries + 1), up to ~9 minutes at defaults; the HTTP server's own timeouts must respect this bound.">
+  <h2>Dispatch: Three Provider Protocols</h2>
+  <div class="three-col">
+    <div class="card blue">
+      <span class="badge info">post</span>
+      <h3>HTTP endpoint</h3>
+      <p>Plain POST with passthrough headers. 2xx body must parse + validate.</p>
+    </div>
+    <div class="card yellow">
+      <span class="badge warning">exec</span>
+      <h3>Local program</h3>
+      <p>Pipe payload to stdin, read stdout. No sandbox in v1 — trust the provider, validate the output.</p>
+    </div>
+    <div class="card green">
+      <span class="badge safe">completions</span>
+      <h3>LLM endpoint</h3>
+      <p>OpenAI-compatible. System = instructions + schema; user = request JSON.</p>
+    </div>
+  </div>
+  <div class="two-col" style="margin-top:24px">
+    <div class="tenet-card">
+      <h3>Retry with feedback</h3>
+      <p>Every failure class is retryable, and the retry <strong>carries the previous error to the provider</strong> so it can self-correct — the same courtesy the DMZ extends to clients.</p>
+    </div>
+    <div class="tenet-card">
+      <h3>Bounded worst case</h3>
+      <p>180s timeout × (2 retries + 1) ≈ 9 min max. A hung provider can never hold a connection indefinitely.</p>
+    </div>
+  </div>
+  <div class="slide-num">10</div>
+</div>
+
+<!-- SLIDE 12: Security posture -->
+<div class="slide" data-notes="SECURITY POSTURE (dispatch-v2.md)
+
+PROVIDER OUTPUTS ARE UNTRUSTED. Regardless of protocol, everything a provider returns goes through schema validation and arbitration before reaching a client. The provider cannot bypass this by any response content.
+
+EXEC GRANTS LOCAL CODE EXECUTION ON THE DMZ HOST — a deliberate design decision. A provider with the exec protocol can run arbitrary code on the host that runs the DMZ. There is no sandbox, container, or resource limit around the subprocess in this version. This is acceptable because the trust boundary is WHO becomes a provider, not WHAT the process can do: three independent human gates precede any exec dispatch (admin registers the provider + delivery config; admin approves the action; admin approves each client's enrollment). A registered provider is semi-trusted: outputs untrusted (validated/arbitrated), local processes trusted by necessity. The system explicitly does NOT claim isolation from a malicious trusted provider, who could access the database, keys, or other secrets on the host.
+
+CONFIGURATION IS SENSITIVE. Delivery configurations (including header values carrying credentials) are admin-managed, protected at rest, and never returned to agents through the REST API. Authentication to provider endpoints is not a built-in system — whatever the endpoint expects is expressed as configured headers, passed through as-is.
+
+LONG TIMEOUTS ARE BOUNDED. Finite timeout and retry counts mean a hung provider cannot hold a client connection or worker indefinitely.
+
+Sandboxing/containerization of exec is a candidate future hardening item, explicitly out of scope for this version.">
+  <h2>Security Posture</h2>
+  <div class="two-col">
+    <div class="card green">
+      <h3>What's guaranteed</h3>
+      <ul>
+        <li>Provider outputs can't bypass validation — no response content escapes the pipeline</li>
+        <li>Delivery configs never returned to agents via API</li>
+        <li>Every request, decision, and state change persisted</li>
+        <li>Worst-case duration is finite and configured</li>
+      </ul>
+    </div>
+    <div class="card red">
+      <h3>The deliberate trade-off</h3>
+      <ul>
+        <li><code>exec</code> = arbitrary local code on the DMZ host. <strong>No sandbox in v2.</strong></li>
+        <li>Accepted because 3 human gates precede any exec dispatch</li>
+        <li>Explicit non-claim: no isolation from a malicious trusted provider</li>
+        <li>Containerization = future hardening item</li>
+      </ul>
+    </div>
+  </div>
+  <div class="highlight-box"><p>The trust boundary is <strong>who becomes a provider</strong> — not what their process can do.</p></div>
+  <div class="slide-num">12</div>
+</div>
+
+<!-- SLIDE 13: REST API -->
+<div class="slide" data-notes="AGENT-FACING REST API (rest-api-v2.md)
+
+Goals: Bootstrappable (an agent with only a bearer key learns everything from GET /v2/skill), resource-oriented (actions is the single core collection), transparent failures (rejections tell the client exactly why — verbatim), synchronous (no polling, no job IDs).
+
+Conventions: base /v2/, JSON only, Authorization: Bearer key on every request. Missing/unknown key → 401; known key used for a role it doesn't hold → 403. One error envelope: {error: {code, message, detail}} — code is a stable machine-readable token, detail carries structured context (JSON Schema errors, arbiter verdict).
+
+Endpoint reference: GET /v2/skill (role-appropriate skill document); GET /v2/actions (directory, role-projected); POST /v2/actions (create); GET /v2/actions/{id} (detail, projection depends on caller); PUT /v2/actions/{id} (new version); DELETE /v2/actions/{id} (withdraw, soft); GET /v2/actions/{id}/versions (history); POST /v2/actions/{id}/invoke; POST /v2/actions/{id}/enroll; GET /v2/actions/{id}/enroll.
+
+Client directory projection: available (active, no enrollment yet), requested (pending admin approval), enrolled (may invoke now), unavailable (withdrawn or never approved — invoking returns not_found).
+
+Status codes: 200 success, 201 created, 400 malformed JSON, 401 auth, 403 capability/ownership, 404 unknown or hidden, 409 conflict (duplicate id, already enrolled), 422 semantic validation failure, 502 provider failure (retries exhausted), 503 arbiter unavailable (no request dispatched; client may retry).
+
+Enrollment applies to the action, not a version — approved enrollments carry forward across version swaps. Providers do not get an endpoint listing invocations of their actions in this version; invocation history is admin-visible in the request log.">
+  <h2>Agent-Facing REST API</h2>
+  <table>
+    <tr><th>Endpoint</th><th>Who</th><th>Purpose</th></tr>
+    <tr><td><code>GET /v2/skill</code></td><td>any</td><td>Skill doc for the caller's role(s) — full bootstrap</td></tr>
+    <tr><td><code>GET /v2/actions</code></td><td>client/provider</td><td>Directory, role-projected</td></tr>
+    <tr><td><code>POST</code> / <code>PUT</code> / <code>DELETE /v2/actions/{id}</code></td><td>provider</td><td>Create · new version · withdraw</td></tr>
+    <tr><td><code>POST /v2/actions/{id}/invoke</code></td><td>client</td><td>Synchronous invocation</td></tr>
+    <tr><td><code>POST/GET /v2/actions/{id}/enroll</code></td><td>client</td><td>Request / check enrollment</td></tr>
+  </table>
+  <div class="two-col" style="margin-top:20px">
+    <div class="card">
+      <h3>Client directory view</h3>
+      <p><span class="badge safe">available</span> <span class="badge info">requested</span> <span class="badge critical">rejected</span> <span class="badge safe">enrolled</span></p>
+      <p class="muted">A projection of enrollment + action state — not separate entities.</p>
+    </div>
+    <div class="card yellow">
+      <h3>Failure taxonomy</h3>
+      <ul>
+        <li><code>4xx</code> — your fault; reason returned verbatim, fix and retry</li>
+        <li><code>502 provider_failed</code> — provider's fault after retries</li>
+        <li><code>503 arbiter_unavailable</code> — no dispatch happened; safe to retry</li>
+      </ul>
+    </div>
+  </div>
+  <div class="slide-num">12</div>
+</div>
+
+<!-- SLIDE 14: /skill -->
+<div class="slide" data-notes="THE /skill ENDPOINT
+
+The DMZ exposes GET /v2/skill returning TWO skill documents:
+
+CLIENT SKILL — machine/model-facing instructions for client agents: how to authenticate, browse the directory, interpret enrollment states, request enrollment, and invoke actions — including the meaning of immediate rejections and provider-failure responses.
+
+PROVIDER SKILL — instructions for provider agents: how to authenticate, register and version actions, submit schemas and instructions, interpret approval states, and what the DMZ guarantees when invoking their endpoint.
+
+Agents with both flags get both documents in one response. The document states the DMZ base URL and the caller's capabilities, so an agent can bootstrap its use of the DMZ from this single call.
+
+Why this matters: the DMZ is designed for LLM agents as first-class API consumers. A bearer key plus one GET is the entire onboarding — no docs site, no SDK, no human explanation. The skill document IS the integration contract.">
+  <h2>Bootstrap: <code>GET /v2/skill</code></h2>
+  <div class="two-col">
+    <div class="card blue">
+      <h3>Client skill</h3>
+      <ul>
+        <li>Authenticate, browse, interpret enrollment states</li>
+        <li>Request enrollment, invoke actions</li>
+        <li>What rejections and provider-failures mean</li>
+      </ul>
+    </div>
+    <div class="card green">
+      <h3>Provider skill</h3>
+      <ul>
+        <li>Register and version actions</li>
+        <li>Submit schemas + instruction fields</li>
+        <li>Interpret approval states; dispatch guarantees</li>
+      </ul>
+    </div>
+  </div>
+  <div class="highlight-box"><p>Bearer key + one GET = complete onboarding. The skill document <em>is</em> the integration contract — no docs site, no SDK.</p></div>
+  <div class="slide-num">14</div>
+</div>
+
+<!-- SLIDE 15: Admin webui -->
+<div class="slide" data-notes="ADMIN CONSOLE (webui-v2.md)
+
+Server-rendered console mounted under /admin on the single Flask app. Zero custom JavaScript — interactivity via Datastar (server-rendered HTML fragments, multi-patch responses); styling via Bootstrap 5, vendored; no npm/Node, no build step.
+
+One dashboard: stats bar (agents, actions by state, pending enrollments, request totals by outcome) + six tabs:
+- Directory — all actions, all versions, lifecycle states, owning providers; inline Approve/Reject on pending versions; per-action detail (definition & version history with diffs, enrollment management, invocation log) in one place.
+- Enrollment requests — cross-action queue with approve/reject, optional notes; recently decided requests for context.
+- Agents — register agents, toggle capability flags independently, configure delivery (protocol/endpoint/command/timeout/retries), revoke/reissue keys (reveal-once).
+- Request log — all traffic with outcomes, which stage decided, full payloads and verdicts on expansion. Observational only.
+- Audit trail — every state change: approvals, enrollments/revocations, agent registration, key issuance/revocation. Append-only.
+
+API equivalence: every mutating POST /admin/... endpoint accepts the admin bearer token — the full decision surface is scriptable. Read routes are session-only.
+
+Success criteria: any pending version or enrollment resolved in ≤ 2 clicks; lists usable at thousands of rows (server-side pagination + filters); the console shows exactly the state an API consumer sees (single shared data layer); bearer keys revealed exactly once and never retrievable.">
+  <h2>Admin Console — Where Humans Decide</h2>
+  <div class="three-col">
+    <div class="card">
+      <h3>Directory</h3>
+      <p>All actions &amp; versions, inline approve/reject, per-action detail: definition, versions + diffs, access, invocations — one screen.</p>
+    </div>
+    <div class="card">
+      <h3>Enrollments</h3>
+      <p>Cross-action queue; approve/reject in ≤ 2 clicks. Same store as per-action view — two views, one state.</p>
+    </div>
+    <div class="card">
+      <h3>Agents</h3>
+      <p>Register, toggle flags, configure delivery, revoke/reissue keys — reveal-once, never retrievable.</p>
+    </div>
+  </div>
+  <div class="three-col">
+    <div class="card blue">
+      <h3>Request log</h3>
+      <p>Every call: payloads, verdicts, retries, deciding stage. Observational — no manual actions.</p>
+    </div>
+    <div class="card blue">
+      <h3>Audit trail</h3>
+      <p>Every state change, append-only, filterable, linked to objects.</p>
+    </div>
+    <div class="card green">
+      <h3>Zero JS, zero build</h3>
+      <p>Datastar + Bootstrap 5. No npm, no Node, no bundler.</p>
+    </div>
+  </div>
+  <div class="highlight-box"><p>Every mutating console endpoint also takes the admin bearer token — the whole decision surface is <strong>scriptable</strong>.</p></div>
+  <div class="slide-num">14</div>
+</div>
+
+<!-- SLIDE 16: Stack -->
+<div class="slide" data-notes="TECHNOLOGY STACK (infra-v2.md)
+
+Language: Python 3.11+, packaged application via pyproject.toml (installed, not run from a checkout). Console-script entry points; templates ship as package data.
+
+Web: Flask — a SINGLE application hosts the synchronous broker pipeline, the agent-facing REST API, and the admin console. In-process; no task queue, no Celery.
+
+Frontend: Datastar + Bootstrap 5, buildless, no Node.
+
+Storage: SQLAlchemy 2.x ORM; SQLite default via DMZ_DATABASE_URL DSN — Postgres-ready by configuration only, no code change. Alembic migrations; nothing created ad hoc at runtime. The storage module exposes a stable query interface; ORM queries are an implementation detail.
+
+LLM: LiteLLM for every model call, routed through OpenRouter (OPENROUTER_API_KEY; ARBITER_MODEL configurable).
+
+Validation: jsonschema + dydantic (Pydantic generation) for two-pass validation; email-validator for format: email.
+
+Config: YAML for system settings + admin accounts ONLY — agents and schemas live in the database. python-dotenv for local dev; env vars injected via compose in containers. Fail fast at startup on malformed config.
+
+Deployment: Docker + docker-compose; single image; alembic upgrade head runs as entrypoint before app start; committed compose config validated in CI.
+
+Workflows: Fabric (fabfile.py) — fab dev.up, fab test, fab lint, fab db.migrate, fab deploy.
+
+Quality: pytest fully offline (LLM and provider calls mocked); ruff lint/format enforced in the test workflow; CI = lint → tests → compose config validation → image build.">
+  <h2>The Stack — Deliberately Boring</h2>
+  <table>
+    <tr><th>Layer</th><th>Choice</th></tr>
+    <tr><td>App</td><td>Python 3.11+ · single Flask app (broker + API + console) · <strong>no queue, no Celery</strong></td></tr>
+    <tr><td>Frontend</td><td>Datastar + Bootstrap 5 — buildless, <strong>no npm/Node</strong></td></tr>
+    <tr><td>Storage</td><td>SQLAlchemy 2.x + Alembic · SQLite default, <strong>Postgres by config change</strong></td></tr>
+    <tr><td>LLM</td><td>LiteLLM → OpenRouter · arbiter model configurable</td></tr>
+    <tr><td>Validation</td><td>jsonschema + dydantic/Pydantic + email-validator</td></tr>
+    <tr><td>Deploy</td><td>Docker/compose, single image, migrations at entrypoint</td></tr>
+    <tr><td>Workflow</td><td>Fabric (<code>fab test / lint / deploy</code>) · offline pytest, ruff in CI</td></tr>
+  </table>
+  <div class="slide-num">16</div>
+</div>
+
+<!-- SLIDE 17: Canonical states -->
+<div class="slide" data-notes="CANONICAL STATE MODELS
+
+These are the authoritative vocabularies for the whole system — every document and UI badge uses these exact tokens.
+
+VERSION STATES (each submitted schema package is a version):
+- submitted: stored, automated checks passed, awaiting admin decision
+- active: approved and currently serving; exactly one per action
+- superseded: was active; replaced by a newer approved version
+- rejected: admin rejected; terminal for that version
+
+ACTION STATES (derived from the action's versions):
+- pending: exists but never had an approved version
+- active: has an active version; callable by enrolled clients
+- withdrawn: provider withdrew (soft delete); not discoverable or invokeable, history retained
+
+ENROLLMENT STATES (per client + action):
+- requested: client asked; awaiting admin decision
+- enrolled: admin approved; client may invoke
+- rejected: admin rejected; client cannot re-request without admin action
+- revoked: admin revoked a previously granted enrollment; immediate effect
+
+The client directory's available/requested/enrolled/unavailable annotations are a PROJECTION of enrollment + action state, not separate entity states: available = no enrollment + action active; unavailable = action withdrawn or pending.">
+  <h2>Canonical State Models</h2>
+  <div class="three-col">
+    <div class="card yellow">
+      <h3>Version</h3>
+      <p><code>submitted</code> → <code>active</code> ⇄ <code>superseded</code><br><code>submitted</code> → <code>rejected</code> (terminal)</p>
+      <p class="muted">Exactly one active per action — always.</p>
+    </div>
+    <div class="card blue">
+      <h3>Action</h3>
+      <p><code>pending</code> → <code>active</code> → <code>withdrawn</code></p>
+      <p class="muted">Withdrawn = soft delete; history retained.</p>
+    </div>
+    <div class="card green">
+      <h3>Enrollment</h3>
+      <p><code>requested</code> → <code>enrolled</code> / <code>rejected</code><br><code>enrolled</code> → <code>revoked</code></p>
+      <p class="muted">Revocation takes effect immediately.</p>
+    </div>
+  </div>
+  <div class="highlight-box"><p>These tokens are <strong>authoritative</strong> — every API response, document, and UI badge speaks exactly this vocabulary. Client directory views are projections of it.</p></div>
+  <div class="slide-num">16</div>
+</div>
+
+<!-- SLIDE 18: Non-goals / roadmap -->
+<div class="slide" data-notes="NON-GOALS & ROADMAP (v2)
+
+Explicitly out for this version:
+- A2A and MCP endpoints — REST only; additional front-door protocols may be revisited later.
+- Long-running work conventions — providers needing async implement their own queue/tracking-ID/polling pattern or push results to a client's own action. Provider implementation detail; may become a best-practices doc later.
+- Sandboxing/containerization of exec — candidate future hardening item; explicitly out of scope.
+- Per-admin permission tiers or SSO — all admins equal.
+- Streaming, webhooks, rate limiting — synchronous request/response only.
+- Realtime push in the console — polling/refresh-on-interaction is sufficient.
+
+NON-FUNCTIONAL REQUIREMENTS:
+- Offline test suite — the full suite runs with no network access (LLM and provider calls mocked).
+- Startup validation — config parsing at boot; bad config crashes loudly rather than misbehaving at runtime.
+- Portability — no SQLite-specific constructs in app code.
+- Auditability — every request, decision, and state change persisted with enough context for after-the-fact review.
+- Immediate feedback — no code path leaves a client waiting on a human; the only human gates are upstream.">
+  <h2>Non-Goals &amp; NFRs</h2>
+  <div class="two-col">
+    <div class="card red">
+      <h3>Out for v2</h3>
+      <ul>
+        <li>A2A / MCP front doors — REST only</li>
+        <li>Async conventions — provider's own problem</li>
+        <li><code>exec</code> sandboxing — future hardening</li>
+        <li>Streaming, webhooks, rate limits</li>
+      </ul>
+    </div>
+    <div class="card green">
+      <h3>Must hold</h3>
+      <ul>
+        <li>Test suite fully offline (mocked LLM/providers)</li>
+        <li>Bad config crashes loudly at boot</li>
+        <li>No SQL dialect leaks — DB swap = config change</li>
+        <li>Everything auditable, nothing waits on a human</li>
+      </ul>
+    </div>
+  </div>
+  <div class="slide-num">18</div>
+</div>
+
+<!-- SLIDE 19: Closing -->
+<div class="slide" data-notes="SUMMARY
+
+The LLM DMZ in one sentence: a directory-driven broker where untrusted agents meet on validated, arbitrated, human-approved terms.
+
+The five pillars:
+1. Directory — providers publish capabilities; clients discover and enroll.
+2. Two-layer validation — JSON Schema structure + LLM arbiter intent on every message, both directions.
+3. Governance upstream — three human gates before traffic; zero humans in the live loop.
+4. Self-correcting feedback — clients get verbatim rejection reasons; providers get retry-with-error framing. Everyone can fix their own output.
+5. Boring, portable build — single Flask app, ORM-portable storage, buildless frontend, offline tests.
+
+v2 documentation set: system-prd-v2.md (overall system), rest-api-v2.md (agent API), dispatch-v2.md (provider delivery), schemas-v2.md (registry), webui-v2.md (admin console), infra-v2.md (stack/deployment). Each is standalone; cross-references point to companions for deeper detail.">
+  <h2>The DMZ in One Slide</h2>
+  <div class="trifecta-visual">
+    <div class="trifecta-item"><div class="icon">📚</div><h3>Directory</h3><p>Providers publish · clients discover &amp; enroll</p></div>
+    <div class="trifecta-item"><div class="icon">🛡️</div><h3>Validate + Arbitrate</h3><p>Schema structure + LLM intent — every message, both directions</p></div>
+    <div class="trifecta-item"><div class="icon">👤</div><h3>Govern Upstream</h3><p>3 human gates before traffic · 0 humans in the live loop</p></div>
+  </div>
+  <ul>
+    <li><strong>Self-correcting feedback</strong> — clients see verbatim rejection reasons; providers get retry-with-error framing</li>
+    <li><strong>Boring, portable build</strong> — one Flask app, ORM-portable storage, buildless frontend, offline tests</li>
+  </ul>
+  <div class="highlight-box"><p>The trifecta meets its match</p></div>
+  <div class="slide-num">19</div>
+</div>
+
+</div>
+
+<div class="controls-bar">
+  <div class="nav-group">
+    <button class="ctrl-btn" id="btnPrev">← Prev</button>
+    <button class="ctrl-btn" id="btnNext">Next →</button>
+  </div>
+  <div class="center-group">
+    <span class="counter" id="counter">1 / 19</span>
+  </div>
+  <div class="right-group">
+    <button class="ctrl-btn icon-btn" id="btnNotes" title="Speaker Notes (N)">📋</button>
+    <button class="ctrl-btn icon-btn" id="btnTheme" title="Toggle Light/Dark (T)">🌙</button>
+  </div>
+</div>
+
+<div class="notes-overlay" id="notesOverlay">
+  <div class="notes-panel">
+    <div class="notes-header">
+      <h3 id="notesTitle">Speaker Notes</h3>
+      <span class="slide-label" id="notesSlide">Slide 1</span>
+      <button class="notes-close" id="btnNotesClose">✕</button>
+    </div>
+    <div class="notes-body" id="notesBody"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var slides = document.querySelectorAll('.slide');
+  var titles = ['Title','The Problem','What the DMZ Is','Governance','Agents & Capability Flags','Action Lifecycle & Versioning','The Schema Package','Two Validation Layers','Lethal Trifecta','The Request Flow','Dispatch Protocols','Security Posture','REST API','Bootstrap: /skill','Admin Console','The Stack','Canonical State Models','Non-Goals & NFRs','The DMZ in One Slide'];
+  var current = 0;
+
+  function show(n) {
+    if (n < 0 || n >= slides.length) return;
+    slides[current].classList.remove('active');
+    current = n;
+    slides[current].classList.add('active');
+    document.getElementById('counter').textContent = (current + 1) + ' / ' + slides.length;
+    document.getElementById('progress').style.width = (((current + 1) / slides.length) * 100) + '%';
+  }
+  function go(n) { show((n + slides.length) % slides.length); }
+  function openNotes() {
+    var notes = slides[current].getAttribute('data-notes') || 'No notes for this slide.';
+    document.getElementById('notesBody').textContent = notes;
+    document.getElementById('notesTitle').textContent = titles[current] || 'Speaker Notes';
+    document.getElementById('notesSlide').textContent = 'Slide ' + (current + 1);
+    document.getElementById('notesOverlay').classList.add('visible');
+  }
+  function closeNotes() { document.getElementById('notesOverlay').classList.remove('visible'); }
+  function toggleTheme() { document.body.classList.toggle('dark'); }
+
+  document.getElementById('btnPrev').onclick = function() { go(current - 1); };
+  document.getElementById('btnNext').onclick = function() { go(current + 1); };
+  document.getElementById('btnNotes').onclick = openNotes;
+  document.getElementById('btnNotesClose').onclick = closeNotes;
+  document.getElementById('btnTheme').onclick = toggleTheme;
+  document.getElementById('notesOverlay').onclick = function(e) { if (e.target === this) closeNotes(); };
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight') go(current + 1);
+    else if (e.key === 'ArrowLeft') go(current - 1);
+    else if (e.key.toLowerCase() === 'n') { document.getElementById('notesOverlay').classList.contains('visible') ? closeNotes() : openNotes(); }
+    else if (e.key.toLowerCase() === 't') toggleTheme();
+    else if (e.key === 'Escape') closeNotes();
+  });
+
+  var touchX = null;
+  document.addEventListener('touchstart', function(e) { touchX = e.touches[0].clientX; });
+  document.addEventListener('touchend', function(e) {
+    if (touchX === null) return;
+    var dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 60) { dx < 0 ? go(current + 1) : go(current - 1); }
+    touchX = null;
+  });
+
+  show(0);
+})();
+</script>
+</body>
+</html>

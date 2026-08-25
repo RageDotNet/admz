@@ -11,10 +11,9 @@
 Top-level layout (conceptual — exact names may shift):
 
 ```
-src/               Packaged application code (app, core, agents)
-templates/         Admin console Jinja2 templates (package data)
+src/admz/          Packaged application (API, dispatch, admin templates/static)
 migrations/        Alembic migration scripts
-config/            YAML configuration (system settings, admin accounts)
+config.yaml        YAML configuration (system settings, admin accounts)
 deploy/            Dockerfiles, compose files, deployment configs
 fabfile.py         Fabric workflow helpers
 tests/             Offline test suite

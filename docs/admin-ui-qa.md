@@ -300,4 +300,3 @@ Present in the UI today, but incomplete or wrong:
 - Confirm `payload.description[:120]` against a version with a missing description (likely a 500).
 - Confirm delivery-form save on an `exec` provider does not persist leftover `endpoint`/`headers` from the visible POST fields.
 - Theme toggle vs "always light for the admin console" is a product choice; pick one.
-- The old A2A console under `templates/admin/` is a different app. Do not mix its copy ("A2A DMZ", reviewer agent id) into this console.

@@ -1,6 +1,6 @@
 # Admin console UI — implementation todo
 
-> **Read this first:** [`docs/admin-ui-qa.md`](admin-ui-qa.md) (findings from the 2026-08-24 walkthrough) and [`docs/webui-v2.md`](webui-v2.md) (product spec). Bootstrap 5 CSS + Datastar only — no custom JS bundle, no npm. Do not copy copy/layout from the old A2A console under `templates/admin/`.
+> **Read this first:** [`docs/admin-ui-qa.md`](admin-ui-qa.md) (findings from the 2026-08-24 walkthrough) and [`docs/webui-v2.md`](webui-v2.md) (product spec). Bootstrap 5 CSS + Datastar only — no custom JS bundle, no npm.
 >
 > Revert point: git tag `pre-admin-ui` (`b9fa66b`, before this pass).
 >
@@ -101,4 +101,3 @@
 - `type="password"` + show toggle on delivery header values.
 - Stopping `openWhenHidden` on the agents partial (performance only).
 - Mutating live `crm` / `redmain` keys or withdrawing live actions.
-- The old A2A admin under `templates/admin/`.
