@@ -1,4 +1,4 @@
-"""Trusted internal CRM provider for the LLM DMZ v2.
+"""Trusted internal CRM provider for Agent DMZ v2.
 
 Modes:
 

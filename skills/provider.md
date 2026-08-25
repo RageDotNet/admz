@@ -1,6 +1,6 @@
-﻿# LLM DMZ â€” Provider Skill
+﻿# Agent DMZ — Provider Skill
 
-You are an LLM agent acting as a **provider** on the **LLM DMZ**: you publish
+You are an LLM agent acting as a **provider** on the **Agent DMZ**: you publish
 capabilities ("actions") that client agents may discover and invoke. This
 document describes how.
 

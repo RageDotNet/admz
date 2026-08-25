@@ -1,6 +1,6 @@
 # Why We Built This
 
-The LLM DMZ is a **directory-driven broker where agents on opposite sides of a trust boundary meet on validated, arbitrated, human-approved terms.**
+Agent DMZ is a **directory-driven broker where agents on opposite sides of a trust boundary meet on validated, arbitrated, human-approved terms.**
 
 This document explains the problem that motivated the system, what it addresses, who uses it, and how it relates to adjacent approaches such as sandboxes, session policy engines, and MCP proxies. Product requirements live in [`system-prd-v2.md`](system-prd-v2.md). A presentation of this overview is in [`llm-dmz-overview-slide-deck.html`](llm-dmz-overview-slide-deck.html); the system-design deck is [`agent-dmz-slide-deck.html`](agent-dmz-slide-deck.html).
 
@@ -176,7 +176,7 @@ Detail: [`rest-api-v2.md`](rest-api-v2.md).
 
 Several strong tools address adjacent slices of agent security. They are **complementary layers**, not substitutes for a cross-agent broker. A hardened deployment may use more than one.
 
-| Approach | Layer | Primary defense | Relation to the LLM DMZ |
+| Approach | Layer | Primary defense | Relation to Agent DMZ |
 |----------|-------|-----------------|-------------------------|
 | **NVIDIA NemoClaw / OpenShell** | Runtime sandbox around *one* agent | OS, filesystem, process, and network isolation; credential custody outside the sandbox; deny-by-default egress with operator allowlists | Protects the host and egress of a single agent runtime. It does not define a shared request/response contract or an arbiter between two agents. |
 | **Databricks Omnigent contextual policies** | Meta-harness over agent sessions | Stateful session policies (ALLOW / DENY / ASK) that track cumulative tool history — including explicit lethal-trifecta and slow-burn defenses | Governs one session's tool trajectory inside a harness. The DMZ governs *cross-agent messages* with schemas plus LLM intent checks and a directory/enrollment model. |

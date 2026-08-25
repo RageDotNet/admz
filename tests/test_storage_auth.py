@@ -8,17 +8,17 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from llmdmz.core import storage
-from llmdmz.core.audit import audit
-from llmdmz.core.auth import resolve_bearer
-from llmdmz.core.keys import (
+from admz.core import storage
+from admz.core.audit import audit
+from admz.core.auth import resolve_bearer
+from admz.core.keys import (
     ADMIN_PREFIX,
     AGENT_PREFIX,
     generate_admin_token,
     generate_agent_key,
     hash_key,
 )
-from llmdmz.core.models import Base
+from admz.core.models import Base
 
 
 @pytest.fixture()
@@ -32,7 +32,7 @@ def session():
 
 
 def test_key_generation_prefixes_and_hashes():
-    from llmdmz.core.keys import (
+    from admz.core.keys import (
         CHECKSUM_CHARS,
         CHECKSUMMED_BODY_CHARS,
         PAYLOAD_CHARS,
@@ -54,7 +54,7 @@ def test_key_generation_prefixes_and_hashes():
 
 
 def test_key_checksum_rejects_typos_and_accepts_legacy():
-    from llmdmz.core.keys import (
+    from admz.core.keys import (
         AGENT_PREFIX,
         PAYLOAD_CHARS,
         KeyChecksumError,
@@ -76,20 +76,20 @@ def test_key_checksum_rejects_typos_and_accepts_legacy():
 
     truncated = key[:-1]
     assert key_checksum_status(truncated) == "invalid"
-    from llmdmz.core.keys import LEGACY_UNCHECKED_BODY_CHARS
+    from admz.core.keys import LEGACY_UNCHECKED_BODY_CHARS
 
     legacy = AGENT_PREFIX + "A" * LEGACY_UNCHECKED_BODY_CHARS
     assert key_checksum_status(legacy) == "legacy"
     assert_key_checksum(legacy)  # does not raise
     assert key_checksum_status("garbage") == "other"
     # Config-file admin tokens are free-form length; don't checksum-reject them.
-    from llmdmz.core.keys import ADMIN_PREFIX
+    from admz.core.keys import ADMIN_PREFIX
 
     assert key_checksum_status(ADMIN_PREFIX + "testtoken0000000000000000000000000") == "legacy"
 
 
 def test_intermediate_43_plus_6_checksum_still_accepted():
-    from llmdmz.core.keys import (
+    from admz.core.keys import (
         AGENT_PREFIX,
         KeyChecksumError,
         _checksum,
@@ -107,7 +107,7 @@ def test_intermediate_43_plus_6_checksum_still_accepted():
 
 
 def test_configurable_payload_length():
-    from llmdmz.core.keys import (
+    from admz.core.keys import (
         AGENT_PREFIX,
         CHECKSUM_CHARS,
         generate_agent_key,
@@ -122,8 +122,8 @@ def test_configurable_payload_length():
 
 
 def test_legacy_key_without_checksum_still_resolves(session, config):
-    from llmdmz.core.keys import AGENT_PREFIX, LEGACY_UNCHECKED_BODY_CHARS
-    from llmdmz.core.models import Agent
+    from admz.core.keys import AGENT_PREFIX, LEGACY_UNCHECKED_BODY_CHARS
+    from admz.core.models import Agent
 
     legacy = AGENT_PREFIX + "B" * LEGACY_UNCHECKED_BODY_CHARS
     session.add(
@@ -159,7 +159,7 @@ def test_unique_constraints(session):
 
     with pytest.raises(IntegrityError):
         storage.register_agent(session, name="one", is_client=True, is_provider=False)
-    from llmdmz.core.models import Action, ActionVersion, Enrollment
+    from admz.core.models import Action, ActionVersion, Enrollment
 
     session.rollback()
     action = Action(id="act", owner_agent_id=a1.id, state="pending")
@@ -262,7 +262,7 @@ def test_resolve_bearer(session, config):
 
 def test_list_actions_state_filter_is_in_query_not_after_page(session):
     """Filtering after pagination made `total` disagree with the visible set."""
-    from llmdmz.core.models import Action
+    from admz.core.models import Action
 
     owner, _ = storage.register_agent(
         session, name="provider", is_client=False, is_provider=True

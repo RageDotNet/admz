@@ -1,4 +1,4 @@
-# LLM DMZ — v2 PRD Index
+# Agent DMZ — v2 PRD Index
 
 The v2 documentation set. Each PRD is standalone; cross-references point to companion documents for deeper detail.
 

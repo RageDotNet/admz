@@ -1,4 +1,4 @@
-﻿"""Flask application factory for the LLM DMZ v2."""
+﻿"""Flask application factory for the Agent DMZ v2."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import os
 
 from flask import Flask, request
 
-from llmdmz.core.config import Config, load_config
+from admz.core.config import Config, load_config
 
 
 def create_app(config: Config | None = None) -> Flask:
@@ -20,7 +20,7 @@ def create_app(config: Config | None = None) -> Flask:
         config = load_config(os.environ.get("DMZ_CONFIG"))
 
     app = Flask(
-        "llmdmz",
+        "admz",
         template_folder="templates",
         static_folder="static",
     )
@@ -38,18 +38,18 @@ def create_app(config: Config | None = None) -> Flask:
         app.json.ensure_ascii = False
 
     # Blueprints are registered in later phases (api v2, admin console).
-    from llmdmz.core.db import init_db
+    from admz.core.db import init_db
 
     init_db(app, config)
 
-    from llmdmz.api_v2 import ApiError
-    from llmdmz.api_v2 import bp as api_v2_bp
-    from llmdmz.api_v2 import error as api_error
+    from admz.api_v2 import ApiError
+    from admz.api_v2 import bp as api_v2_bp
+    from admz.api_v2 import error as api_error
 
     app.register_blueprint(api_v2_bp)
 
-    from llmdmz import admin_console  # noqa: F401 — registers routes on bp
-    from llmdmz.admin import bp as admin_bp
+    from admz import admin_console  # noqa: F401 — registers routes on bp
+    from admz.admin import bp as admin_bp
 
     app.register_blueprint(admin_bp)
 

@@ -1,4 +1,4 @@
-# LLM DMZ v2 — Deployment Checklist
+# Agent DMZ v2 — Deployment Checklist
 
 Operational notes for deploying the DMZ container. Read together with
 `docs/infra-v2.md`.
@@ -9,7 +9,7 @@ Operational notes for deploying the DMZ container. Read together with
 
   ```
   gunicorn -w 2 --threads 16 --timeout 900 --graceful-timeout 900 --keep-alive 5 \
-      -b 0.0.0.0:8000 llmdmz.app:create_app_standalone()
+      -b 0.0.0.0:8000 admz.app:create_app_standalone()
   ```
 
 - Invokes are synchronous and I/O-bound; worst case is
@@ -55,7 +55,7 @@ Operational notes for deploying the DMZ container. Read together with
 ## Vendor assets
 
 - Datastar and the utility CSS bundle are vendored under
-  `src/llmdmz/static/vendor/` (no CDN, no runtime fetch, #22). To upgrade,
+  `src/admz/static/vendor/` (no CDN, no runtime fetch, #22). To upgrade,
   edit the pins in `scripts/update_vendor.py` and run it, then commit the
   refreshed files.
 

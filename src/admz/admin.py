@@ -9,7 +9,7 @@ from __future__ import annotations
 import functools
 import secrets
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from datastar_py import ServerSentEventGenerator as SSE
@@ -27,7 +27,7 @@ from flask import (
 )
 from markupsafe import Markup, escape
 
-from llmdmz.core.auth import bearer_token, resolve_bearer
+from admz.core.auth import bearer_token, resolve_bearer
 
 bp = Blueprint("admin", __name__, url_prefix="/admin", template_folder="../templates")
 
@@ -122,13 +122,13 @@ def state_badge(state: str | None) -> Markup:
 
 def _aware(dt: datetime) -> datetime:
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 def fmt_when(dt: datetime) -> str:
     """Relative for recent rows; otherwise date + time without microseconds."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     d = _aware(dt)
     secs = int((now - d).total_seconds())
     if 0 <= secs < 45:
@@ -180,7 +180,6 @@ _AUDIT_EVENT_LABELS = {
     "agent.edited": "Edited agent",
     "agent.key_revoked": "Revoked key",
     "agent.key_issued": "Issued key",
-    "request.invoked": "Invoked action",
     "request.invoked": "Invoked action",
 }
 
@@ -302,7 +301,7 @@ def _admin_from_bearer() -> str | None:
 
 
 def _session_scope():
-    from llmdmz.core.db import session_scope
+    from admz.core.db import session_scope
 
     return session_scope(current_app)
 
@@ -326,7 +325,7 @@ def admin_required(
         def wrapper(*args: Any, **kwargs: Any):
             token = bearer_token()
             if token is not None:
-                from llmdmz.core.keys import CHECKSUM_MESSAGE, KeyChecksumError, assert_key_checksum
+                from admz.core.keys import CHECKSUM_MESSAGE, KeyChecksumError, assert_key_checksum
 
                 try:
                     assert_key_checksum(token)
@@ -413,7 +412,7 @@ def login():
 
 @bp.post("/login")
 def login_post():
-    from llmdmz.core.config import AdminAccount
+    from admz.core.config import AdminAccount
 
     config = current_app.config["DMZ"]
     if request.is_json:
@@ -462,7 +461,7 @@ def logout():
 
 def _db():
     """Session scope bound to the current app."""
-    from llmdmz.core.db import session_scope
+    from admz.core.db import session_scope
 
     return session_scope(current_app)
 
@@ -486,7 +485,7 @@ def _actor() -> str:
 
 
 def _audit(session, event: str, target_type: str, target_id: str, detail=None) -> None:
-    from llmdmz.core.audit import audit
+    from admz.core.audit import audit
 
     audit(
         session,

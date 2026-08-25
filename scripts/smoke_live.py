@@ -17,8 +17,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from llmdmz.core.config import AdminAccount, Config  # noqa: E402
-from llmdmz.dispatch.adapters import LiteLLMArbiterClient  # noqa: E402
+from admz.core.config import AdminAccount, Config  # noqa: E402
+from admz.dispatch.adapters import LiteLLMArbiterClient  # noqa: E402
 
 
 def main() -> int:

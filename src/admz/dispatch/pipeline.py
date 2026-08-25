@@ -18,21 +18,21 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from llmdmz.core import storage
-from llmdmz.core.config import Config
-from llmdmz.core.models import Action, ActionVersion, Agent
-from llmdmz.dispatch.adapters import (
+from admz.core import storage
+from admz.core.config import Config
+from admz.core.models import Action, ActionVersion, Agent
+from admz.dispatch.adapters import (
     build_structured_framing,
     build_unstructured_framing,
 )
-from llmdmz.dispatch.arbiter_prompts import resolve_risk_focus
-from llmdmz.dispatch.interfaces import (
+from admz.dispatch.arbiter_prompts import resolve_risk_focus
+from admz.dispatch.interfaces import (
     ArbiterClient,
     ArbiterTransportError,
     Framing,
     ProviderTransport,
 )
-from llmdmz.registry import validate_payload
+from admz.registry import validate_payload
 
 
 @dataclass
@@ -43,7 +43,7 @@ class InvokeResult:
     detail: Any = field(default=None)
 
 
-_log = logging.getLogger("llmdmz.dispatch")
+_log = logging.getLogger("admz.dispatch")
 
 
 def _log_step(event: str, request_id: str | None = None, **fields: Any) -> None:

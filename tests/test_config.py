@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from werkzeug.security import generate_password_hash
 
-from llmdmz.core.config import ConfigError, load_config
+from admz.core.config import ConfigError, load_config
 
 GOOD_ADMIN = "admins:\n  - username: root\n    password: hunter2\n"
 

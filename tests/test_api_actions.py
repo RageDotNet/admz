@@ -6,9 +6,9 @@ import pytest
 from sqlalchemy import select
 from tests.test_registry import CRM_SEARCH
 
-from llmdmz.app import create_app
-from llmdmz.core import storage
-from llmdmz.core.models import Action, ActionVersion, AuditEvent, Base
+from admz.app import create_app
+from admz.core import storage
+from admz.core.models import Action, ActionVersion, AuditEvent, Base
 
 
 @pytest.fixture()
@@ -39,8 +39,8 @@ def client_http(app_fixture):
 
 def _approve_v1(app_fixture):
     """Promote crm_search's submitted version 1 to active (admin-approval stand-in)."""
-    from llmdmz.core.models import Action as A
-    from llmdmz.core.models import Agent
+    from admz.core.models import Action as A
+    from admz.core.models import Agent
 
     app, _, _ = app_fixture
     with app.app_context():
@@ -131,8 +131,8 @@ class TestPutNewVersion:
 
 def _decide(app_fixture, number, decision, notes=None):
     """Apply an admin decision to version N of crm_search (storage-level)."""
-    from llmdmz.core import storage as st
-    from llmdmz.core.models import ActionVersion
+    from admz.core import storage as st
+    from admz.core.models import ActionVersion
 
     app, _, _ = app_fixture
     with app.app_context():
@@ -230,7 +230,7 @@ class TestWithdraw:
             s = app.extensions["DMZ_SESSION_FACTORY"]()
             from sqlalchemy import select
 
-            from llmdmz.core.models import AuditEvent
+            from admz.core.models import AuditEvent
 
             events = s.scalars(
                 select(AuditEvent).where(AuditEvent.event == "action.withdrawn")
@@ -366,7 +366,7 @@ class TestDirectory:
         app, provider_key, _ = app_fixture
         with app.app_context():
             s = app.extensions["DMZ_SESSION_FACTORY"]()
-            from llmdmz.core.models import Agent
+            from admz.core.models import Agent
 
             row = s.scalars(select(Agent).where(Agent.name == "provider")).first()
             row.is_client = True  # promote to dual-role
@@ -472,7 +472,7 @@ class TestSkill:
         assert resp.status_code == 200
         assert resp.content_type.startswith("text/markdown")
         body = resp.get_data(as_text=True)
-        assert body.startswith("# LLM DMZ")
+        assert body.startswith("# Agent DMZ")
         assert "/v2/actions" in body
         for endpoint in ("/v2/actions", "/enroll", "/invoke"):
             assert endpoint in body
@@ -511,7 +511,7 @@ class TestErrorEnvelope:
 
     def test_transposed_key_checksum_invalid(self, app_fixture, client_http):
         _, _, client_key = app_fixture
-        from llmdmz.core.keys import AGENT_PREFIX, PAYLOAD_CHARS
+        from admz.core.keys import AGENT_PREFIX, PAYLOAD_CHARS
 
         body = client_key[len(AGENT_PREFIX) :]
         payload, check = body[:PAYLOAD_CHARS], body[PAYLOAD_CHARS:]
@@ -527,7 +527,7 @@ class TestErrorEnvelope:
         assert "keystore" in err["message"]
 
     def test_unknown_but_well_formed_key_is_unauthorized(self, client_http):
-        from llmdmz.core.keys import generate_agent_key
+        from admz.core.keys import generate_agent_key
 
         resp = client_http.get("/v2/actions", headers=_hdr(generate_agent_key()))
         assert resp.status_code == 401
@@ -535,7 +535,7 @@ class TestErrorEnvelope:
 
     def test_all_documented_codes_covered(self):
         # rest-api-v2.md stable tokens (incl. arbiter_unavailable, #1).
-        from llmdmz.api_v2 import ApiError
+        from admz.api_v2 import ApiError
 
         codes = {
             "unauthorized", "forbidden", "not_found", "malformed_json",

@@ -1,6 +1,6 @@
 # REST API v2 — Agent-Facing Interface
 
-> Product requirements for the LLM DMZ's agent-facing REST API. This document is self-contained: an agent (or its model) should be able to use the DMZ entirely from this contract plus the live `/v2/skill` document. Companion documents: `system-prd-v2.md` (overall system), `schemas-v2.md` (submission format and validation detail), `infra-v2.md` (stack/deployment), `webui-v2.md` (admin console).
+> Product requirements for Agent DMZ's agent-facing REST API. This document is self-contained: an agent (or its model) should be able to use the DMZ entirely from this contract plus the live `/v2/skill` document. Companion documents: `system-prd-v2.md` (overall system), `schemas-v2.md` (submission format and validation detail), `infra-v2.md` (stack/deployment), `webui-v2.md` (admin console).
 
 ## Overview & goals
 

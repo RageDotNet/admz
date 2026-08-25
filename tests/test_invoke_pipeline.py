@@ -7,14 +7,14 @@ import json
 from sqlalchemy import select
 from tests.test_registry import CRM_SEARCH
 
-from llmdmz.core.models import DispatchAttempt, Enrollment, Request
+from admz.core.models import DispatchAttempt, Enrollment, Request
 
 GOOD_RESPONSE = {"contacts": [{"name": "Ada", "company": "Lovelace", "status": "ok"}]}
 
 
 class ApprovingArbiter:
     def check(self, *, side, action_id, payload, extra_instructions=""):
-        from llmdmz.dispatch.interfaces import Verdict
+        from admz.dispatch.interfaces import Verdict
 
         return Verdict(approved=True, reason="ok")
 
@@ -24,7 +24,7 @@ class RejectingRequestArbiter(ApprovingArbiter):
         self.reason = reason
 
     def check(self, *, side, action_id, payload, extra_instructions=""):
-        from llmdmz.dispatch.interfaces import Verdict
+        from admz.dispatch.interfaces import Verdict
 
         if side == "request":
             return Verdict(approved=False, reason=self.reason)
@@ -38,7 +38,7 @@ class RejectingResponseArbiter(ApprovingArbiter):
         self.rejected_once = False
 
     def check(self, *, side, action_id, payload, extra_instructions=""):
-        from llmdmz.dispatch.interfaces import Verdict
+        from admz.dispatch.interfaces import Verdict
 
         if side == "request":
             self.request_calls += 1
@@ -50,7 +50,7 @@ class RejectingResponseArbiter(ApprovingArbiter):
 
 class TransportErrorArbiterRequest(ApprovingArbiter):
     def check(self, *, side, action_id, payload, extra_instructions=""):
-        from llmdmz.dispatch.interfaces import ArbiterTransportError
+        from admz.dispatch.interfaces import ArbiterTransportError
 
         raise ArbiterTransportError("rate limited")
 
@@ -63,7 +63,7 @@ class TransportErrorArbiterResponse:
         self.rejected_once = False
 
     def check(self, *, side, action_id, payload, extra_instructions=""):
-        from llmdmz.dispatch.interfaces import ArbiterTransportError, Verdict
+        from admz.dispatch.interfaces import ArbiterTransportError, Verdict
 
         if side == "request":
             self.request_calls += 1
@@ -79,7 +79,7 @@ class ScriptedTransport:
         self.framings = []
 
     def deliver(self, framing):
-        from llmdmz.dispatch.interfaces import ProviderResult
+        from admz.dispatch.interfaces import ProviderResult
 
         self.framings.append(framing)
         r = self.results.pop(0)
@@ -89,7 +89,7 @@ class ScriptedTransport:
 
 
 def error_result(cls, detail):
-    from llmdmz.dispatch.interfaces import ProviderResult
+    from admz.dispatch.interfaces import ProviderResult
 
     return ProviderResult(error_class=cls, error_detail=detail)
 
@@ -107,7 +107,7 @@ def _enrolled_action(app_fixture, client_http):
     _approve_v1(app_fixture)
     with app.app_context():
         s = app.extensions["DMZ_SESSION_FACTORY"]()
-        from llmdmz.core.models import Agent
+        from admz.core.models import Agent
 
         agent = s.scalars(select(Agent).where(Agent.name == "client")).first()
         s.add(Enrollment(agent_id=agent.id, action_id="crm_search", state="enrolled"))
@@ -184,7 +184,7 @@ class TestInvokeHappyPath:
         app, _, _ = app_fixture
         with app.app_context():
             s = app.extensions["DMZ_SESSION_FACTORY"]()
-            from llmdmz.core.models import Agent
+            from admz.core.models import Agent
 
             caller = s.scalars(select(Agent).where(Agent.name == "client")).first()
             caller.is_provider = True
@@ -365,8 +365,8 @@ class TestInvokeRetries:
     def test_response_arbiter_exhaustion_log_outcome_is_arbiter_rejected(
         self, app_fixture, client_http
     ):
-        from llmdmz.admin import log_outcome
-        from llmdmz.dispatch.interfaces import Verdict
+        from admz.admin import log_outcome
+        from admz.dispatch.interfaces import Verdict
 
         class AlwaysRejectResponse(ApprovingArbiter):
             def check(self, *, side, action_id, payload, extra_instructions=""):

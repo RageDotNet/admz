@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from llmdmz.dispatch.verdict import parse_verdict
+from admz.dispatch.verdict import parse_verdict
 
 
 def test_clean_json():

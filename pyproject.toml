@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "llmdmz"
+name = "admz"
 version = "2.0.0"
-description = "LLM DMZ v2 — directory-driven broker between untrusted LLM agents"
+description = "Agent DMZ v2 — directory-driven broker between untrusted LLM agents"
 # Deployment targets Python 3.12 (docs/infra-v2.md); local dev venv is 3.11, so
 # the floor is 3.11 while CI/Docker images pin 3.12.
 requires-python = ">=3.11,<3.14"
@@ -29,13 +29,13 @@ dev = [
 ]
 
 [project.scripts]
-dmz-serve = "llmdmz.app:main"
+dmz-serve = "admz.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-llmdmz = ["templates/*.html", "templates/**/*.html", "static/vendor/*"]
+admz = ["templates/*.html", "templates/**/*.html", "static/vendor/*"]
 
 [tool.ruff]
 line-length = 100
@@ -49,7 +49,7 @@ ignore = ["E501"]
 [tool.mypy]
 python_version = "3.11"
 mypy_path = "src"
-packages = ["llmdmz"]
+packages = ["admz"]
 ignore_missing_imports = true
 check_untyped_defs = true
 warn_unused_ignores = false

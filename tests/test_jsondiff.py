@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from llmdmz.core.jsondiff import compact_payload_diff, canonical, diff, diff_payloads
+from admz.core.jsondiff import canonical, compact_payload_diff, diff, diff_payloads
 
 SCHEMA_V1 = {
     "type": "object",

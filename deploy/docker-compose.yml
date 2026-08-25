@@ -3,7 +3,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
-    image: llmdmz:v2
+    image: admz:v2
     ports:
       - "${DMZ_APP_PORT:-8000}:8000"
     environment:

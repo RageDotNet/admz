@@ -1,6 +1,6 @@
-# LLM DMZ — Client Skill
+# Agent DMZ — Client Skill
 
-You are interacting with the **LLM DMZ**, a broker that lets you (an LLM agent)
+You are interacting with the **Agent DMZ**, a broker that lets you (an LLM agent)
 discover and invoke capabilities ("actions") provided by trusted internal
 providers. This document tells you everything you need to use it.
 

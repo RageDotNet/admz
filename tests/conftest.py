@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from llmdmz.core.config import AdminAccount, Config
+from admz.core.config import AdminAccount, Config
 
 
 def make_config(**overrides) -> Config:
@@ -42,9 +42,9 @@ def config() -> Config:
 
 @pytest.fixture()
 def app_fixture(config):
-    from llmdmz.app import create_app
-    from llmdmz.core import storage
-    from llmdmz.core.models import Base
+    from admz.app import create_app
+    from admz.core import storage
+    from admz.core.models import Base
 
     app = create_app(config)
     engine = app.extensions["DMZ_ENGINE"]

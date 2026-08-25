@@ -6,8 +6,7 @@ import json
 
 import pytest
 
-from conftest import make_config
-from llmdmz.dispatch.adapters import (
+from admz.dispatch.adapters import (
     CompletionsTransport,
     ExecTransport,
     LiteLLMArbiterClient,
@@ -15,11 +14,12 @@ from llmdmz.dispatch.adapters import (
     build_structured_framing,
     build_unstructured_framing,
 )
-from llmdmz.dispatch.interfaces import (
+from admz.dispatch.interfaces import (
     ArbiterConfigFault,
     ArbiterTransportError,
     Framing,
 )
+from conftest import make_config
 
 RESPONSE_SCHEMA = {
     "type": "object",
@@ -143,7 +143,7 @@ class TestExecTransport:
         import subprocess
         import sys
 
-        from llmdmz.dispatch.adapters import _default_runner
+        from admz.dispatch.adapters import _default_runner
 
         script = (
             "import sys;"

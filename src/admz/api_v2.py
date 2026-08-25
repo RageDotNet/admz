@@ -8,10 +8,10 @@ from typing import Any
 from flask import Blueprint, Response, current_app, jsonify, request
 from sqlalchemy import select
 
-from llmdmz.core.auth import Identity, bearer_token, resolve_bearer
-from llmdmz.core.db import session_scope
-from llmdmz.core.models import Action, ActionVersion, Agent, Enrollment
-from llmdmz.dispatch.interfaces import ProviderTransport
+from admz.core.auth import Identity, bearer_token, resolve_bearer
+from admz.core.db import session_scope
+from admz.core.models import Action, ActionVersion, Agent, Enrollment
+from admz.dispatch.interfaces import ProviderTransport
 
 bp = Blueprint("api_v2", __name__, url_prefix="/v2")
 
@@ -53,7 +53,7 @@ def authenticate() -> Identity:
     token = bearer_token()
     if token is None:
         raise ApiError("unauthorized", "Missing bearer key.", 401)
-    from llmdmz.core.keys import CHECKSUM_MESSAGE, KeyChecksumError, assert_key_checksum
+    from admz.core.keys import CHECKSUM_MESSAGE, KeyChecksumError, assert_key_checksum
 
     try:
         assert_key_checksum(token)
@@ -86,7 +86,7 @@ def require_client(agent: Agent) -> None:
 
 def validate_and_compile(body: dict[str, Any]) -> dict[str, Any]:
     """Field-validate + compile a schema package; raises 422 ApiError on failure."""
-    from llmdmz.registry import compile_schemas, validate_submission
+    from admz.registry import compile_schemas, validate_submission
 
     validation = validate_submission(body)
     if not validation.ok or validation.normalized is None:
@@ -116,8 +116,8 @@ def create_action():
     require_provider(agent)
     payload = validate_and_compile(parse_json_body())
 
-    from llmdmz.core import storage
-    from llmdmz.core.audit import audit
+    from admz.core import storage
+    from admz.core.audit import audit
 
     with session_scope(current_app) as session:
         if storage.get_action(session, payload["id"]) is not None:
@@ -189,7 +189,7 @@ def _owner_view(action: Action, active: ActionVersion | None) -> dict:
 def get_action_detail(action_id: str):
     agent = authenticate_agent()
 
-    from llmdmz.core import storage
+    from admz.core import storage
 
     with session_scope(current_app) as session:
         action = storage.get_action(session, action_id)
@@ -226,9 +226,9 @@ def submit_new_version(action_id: str):
         )
     payload = validate_and_compile(body)
 
-    from llmdmz.core import storage
-    from llmdmz.core.audit import audit
-    from llmdmz.core.models import ActionVersion
+    from admz.core import storage
+    from admz.core.audit import audit
+    from admz.core.models import ActionVersion
 
     with session_scope(current_app) as session:
         action = storage.get_action(session, action_id)
@@ -288,7 +288,7 @@ def list_versions(action_id: str):
     agent = authenticate_agent()
     require_provider(agent)
     with session_scope(current_app) as session:
-        from llmdmz.core import storage
+        from admz.core import storage
 
         action = storage.get_action(session, action_id)
         if action is None or action.owner_agent_id != agent.id:
@@ -318,8 +318,8 @@ def withdraw_action(action_id: str):
     agent = authenticate_agent()
     require_provider(agent)
     with session_scope(current_app) as session:
-        from llmdmz.core import storage
-        from llmdmz.core.audit import audit
+        from admz.core import storage
+        from admz.core.audit import audit
 
         action = storage.get_action(session, action_id)
         if action is None or action.owner_agent_id != agent.id:
@@ -356,8 +356,8 @@ def list_actions():
     q = (request.args.get("q") or "").strip().lower()
     enrollment_filter = request.args.get("enrollment") or None
 
-    from llmdmz.core import storage
-    from llmdmz.core.models import Action
+    from admz.core import storage
+    from admz.core.models import Action
 
     with session_scope(current_app) as session:
         # Provider-only agents see only their own actions (provider projection).
@@ -433,9 +433,9 @@ def request_enrollment(action_id: str):
     agent = authenticate_agent()
     require_client(agent)
     with session_scope(current_app) as session:
-        from llmdmz.core import storage
-        from llmdmz.core.audit import audit
-        from llmdmz.core.models import Enrollment
+        from admz.core import storage
+        from admz.core.audit import audit
+        from admz.core.models import Enrollment
 
         action = storage.get_action(session, action_id)
         # Enrollment only against listed, invokable actions (#10).
@@ -475,7 +475,7 @@ def enrollment_state(action_id: str):
     agent = authenticate_agent()
     require_client(agent)
     with session_scope(current_app) as session:
-        from llmdmz.core import storage
+        from admz.core import storage
 
         action = storage.get_action(session, action_id)
         if action is None:
@@ -531,7 +531,7 @@ def skill_for_role(role: str):
 
 
 def _production_transport(delivery: dict) -> ProviderTransport:
-    from llmdmz.dispatch.adapters import CompletionsTransport, ExecTransport, PostTransport
+    from admz.dispatch.adapters import CompletionsTransport, ExecTransport, PostTransport
 
     protocol = delivery.get("protocol", "post")
     if protocol == "exec":
@@ -547,10 +547,10 @@ def invoke_action(action_id: str):
     require_client(agent)
     body = parse_json_body()
 
-    from llmdmz.core import storage
-    from llmdmz.core.audit import audit
-    from llmdmz.dispatch.adapters import LiteLLMArbiterClient
-    from llmdmz.dispatch.pipeline import run_invoke
+    from admz.core import storage
+    from admz.core.audit import audit
+    from admz.dispatch.adapters import LiteLLMArbiterClient
+    from admz.dispatch.pipeline import run_invoke
 
     config = current_app.config["DMZ"]
     with session_scope(current_app) as session:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from llmdmz.dispatch.arbiter_prompts import REQUEST_BASE_PROMPT, RESPONSE_BASE_PROMPT
+from admz.dispatch.arbiter_prompts import REQUEST_BASE_PROMPT, RESPONSE_BASE_PROMPT
 
 INVARIANTS = (
     "job",  # states the arbiter's job
@@ -55,7 +55,7 @@ def test_response_prompt_has_benign_content_guidance():
 
 def test_risk_focus_sections_rule_out_false_positive_classes():
     """Each focus section must name the observed false-positive grounds."""
-    from llmdmz.dispatch.arbiter_prompts import (
+    from admz.dispatch.arbiter_prompts import (
         EXFILTRATION_RISK_FOCUS,
         INJECTION_RISK_FOCUS,
     )
@@ -77,7 +77,7 @@ def test_risk_focus_sections_rule_out_false_positive_classes():
 
 
 def test_resolve_risk_focus_unknown_is_empty_and_defaults_resolve():
-    from llmdmz.dispatch.arbiter_prompts import resolve_prompts, resolve_risk_focus
+    from admz.dispatch.arbiter_prompts import resolve_prompts, resolve_risk_focus
 
     assert resolve_risk_focus("") == ""
     assert resolve_risk_focus("nonsense") == ""
@@ -86,7 +86,7 @@ def test_resolve_risk_focus_unknown_is_empty_and_defaults_resolve():
 
 
 def test_config_overrides_replace_prompts(monkeypatch):
-    from llmdmz.dispatch import arbiter_prompts as ap
+    from admz.dispatch import arbiter_prompts as ap
 
     monkeypatch.setattr(
         ap, "_config_overrides",
@@ -105,8 +105,8 @@ def test_config_overrides_replace_prompts(monkeypatch):
 
 
 def test_arbiter_context_prepends_risk_focus():
-    from llmdmz.core.models import Action
-    from llmdmz.dispatch.pipeline import _arbiter_context
+    from admz.core.models import Action
+    from admz.dispatch.pipeline import _arbiter_context
 
     action = Action(id="crm_add_note", owner_agent_id="a" * 36)
     ctx = _arbiter_context(

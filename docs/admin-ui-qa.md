@@ -42,7 +42,7 @@ Do these first; they change how almost every later screen should be built:
 - Page chrome is a bare `<h1>` + tab links. Add a compact header: title, signed-in admin, theme control, log out. Do not put the username on the Log out button (`Log out (admin)`).
 - Dark mode is applied from `localStorage` / `prefers-color-scheme` with no toggle and no way to override. Either add a light/dark control or drop the unused init.
 - No favicon.
-- Document title stays "LLM DMZ Admin" on every tab.
+- Document title stays "Agent DMZ" on every tab.
 - Leftover comment in `admin.py` still talks about the 0build kit.
 - Duplicate Bootstrap classes on Prev/Next: `btn btn-sm btn-outline-secondary btn btn-sm btn-outline-secondary`.
 - Non-Bootstrap class `mono` (agent UUID). Use `font-monospace`.
@@ -81,7 +81,7 @@ Do these first; they change how almost every later screen should be built:
 
 ### Improve
 
-- Show a one-line product name + "Admin" rather than repeating "LLM DMZ — Admin Login" as both `<title>` and `h1`.
+- Show a one-line product name + "Admin" rather than repeating "Agent DMZ — Admin Login" as both `<title>` and `h1`.
 
 ---
 

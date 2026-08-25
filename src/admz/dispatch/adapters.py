@@ -15,16 +15,16 @@ import urllib.request
 from collections.abc import Callable
 from typing import Any
 
-from llmdmz.core.config import Config
-from llmdmz.dispatch.arbiter_prompts import resolve_prompts
-from llmdmz.dispatch.interfaces import (
+from admz.core.config import Config
+from admz.dispatch.arbiter_prompts import resolve_prompts
+from admz.dispatch.interfaces import (
     ArbiterConfigFault,
     ArbiterTransportError,
     Framing,
     ProviderResult,
     Verdict,
 )
-from llmdmz.dispatch.verdict import parse_verdict
+from admz.dispatch.verdict import parse_verdict
 
 # Injectable seams ----------------------------------------------------------
 

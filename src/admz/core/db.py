@@ -9,7 +9,7 @@ from flask import Flask
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from llmdmz.core.config import Config
+from admz.core.config import Config
 
 _ENGINE_KEY = "DMZ_ENGINE"
 _SESSION_FACTORY_KEY = "DMZ_SESSION_FACTORY"

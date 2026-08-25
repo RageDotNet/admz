@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from tests.test_registry import CRM_SEARCH
 
-from llmdmz.core.models import Action, Agent, Enrollment, Request
+from admz.core.models import Action, Agent, Enrollment, Request
 
 ADMIN_TOKEN = "dmzadm_testtoken0000000000000000000000000"
 GOOD = {"contacts": [{"name": "Ada", "company": "Lovelace", "status": "ok"}]}
@@ -13,7 +13,7 @@ GOOD = {"contacts": [{"name": "Ada", "company": "Lovelace", "status": "ok"}]}
 
 class ApprovingArbiter:
     def check(self, *, side, action_id, payload, extra_instructions=""):
-        from llmdmz.dispatch.interfaces import Verdict
+        from admz.dispatch.interfaces import Verdict
 
         return Verdict(approved=True, reason="ok")
 
@@ -24,7 +24,7 @@ class ScriptedTransport:
         self.framings = []
 
     def deliver(self, framing):
-        from llmdmz.dispatch.interfaces import ProviderResult
+        from admz.dispatch.interfaces import ProviderResult
 
         self.framings.append(framing)
         r = self.results.pop(0)
@@ -37,12 +37,12 @@ def _hdr(key):
 
 def _approve_pending_version(client_http):
     """Approve the sole submitted version via the admin-token API."""
-    from llmdmz.core.db import session_scope
+    from admz.core.db import session_scope
 
     app = client_http.application
     with app.test_request_context():
         with session_scope(app) as s:
-            from llmdmz.core.models import ActionVersion
+            from admz.core.models import ActionVersion
 
             v = s.scalars(
                 select(ActionVersion).where(ActionVersion.state == "submitted")
@@ -55,7 +55,7 @@ def _approve_pending_version(client_http):
 
 def _grant_enrollment(client_http, agent_id, action_id):
     """Grant the client's pending enrollment for the action (approve request)."""
-    from llmdmz.core.db import session_scope
+    from admz.core.db import session_scope
 
     app = client_http.application
     with app.test_request_context():
@@ -151,7 +151,7 @@ class TestScenario2Withdrawal:  # T5.2 (#8/#10)
 
 class TestScenario3EdgePaths:  # T5.3
     def test_supersede_rejection_reset_retry_exhaustion_arbiter_outage(self, app_fixture, client_http):
-        from llmdmz.dispatch.interfaces import ArbiterTransportError, ProviderResult, Verdict
+        from admz.dispatch.interfaces import ArbiterTransportError, ProviderResult, Verdict
 
         app, provider_key, client_key = app_fixture
         client_http.post("/v2/actions", json=CRM_SEARCH, headers=_hdr(provider_key))

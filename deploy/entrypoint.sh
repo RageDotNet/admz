@@ -1,5 +1,5 @@
 #!/bin/sh
-# LLM DMZ entrypoint: permissions → migrate → serve (infra-v2.md startup order).
+# Agent DMZ entrypoint: permissions → migrate → serve (infra-v2.md startup order).
 set -e
 
 DB_PATH="${DMZ_DB_FILE:-/var/lib/dmz/dmz.db}"
@@ -18,4 +18,4 @@ if [ -f "$DB_PATH" ]; then
 fi
 
 exec gunicorn -w 2 --threads 16 --timeout 900 --graceful-timeout 900 --keep-alive 5 \
-    -b 0.0.0.0:8000 --worker-class gthread llmdmz.app:create_app_standalone()
+    -b 0.0.0.0:8000 --worker-class gthread admz.app:create_app_standalone()

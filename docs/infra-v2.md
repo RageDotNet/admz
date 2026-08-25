@@ -1,6 +1,6 @@
 # Infra v2 — Technology Stack & Runtime Reference
 
-> Reference document describing the target infrastructure for the LLM DMZ. It is self-contained: an implementer should be able to build the stack from this document alone. The application model — DMZ gateways between untrusted clients and trusted providers, schema validation, LLM arbitration, human review — is assumed; this document covers how it's built, run, and deployed.
+> Reference document describing the target infrastructure for Agent DMZ. It is self-contained: an implementer should be able to build the stack from this document alone. The application model — DMZ gateways between untrusted clients and trusted providers, schema validation, LLM arbitration, human review — is assumed; this document covers how it's built, run, and deployed.
 
 ## Runtime & layout
 
@@ -90,7 +90,7 @@ Key environment variables:
 ## Packaging
 
 - **Python packaging via `pyproject.toml`** as part of the deploy step — the application is installed, not run from a checkout.
-- The package (e.g. `llmdmz`) declares a console-script entry point for the app (plus a review CLI), so the service starts as a named command inside containers.
+- The package (`admz`) declares a console-script entry point for the app (plus a review CLI), so the service starts as a named command inside containers.
 - Templates and static files ship as **package data**.
 - Dependencies are pinned in `pyproject.toml` as the single source of truth.
 - Container images `pip install` the package (from source or a wheel built in CI) — the Dockerfile stays thin.

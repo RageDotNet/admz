@@ -1,6 +1,6 @@
-# System PRD v2 — The LLM DMZ
+# System PRD v2 — Agent DMZ
 
-> Product requirements for the next version of the LLM DMZ. This document is self-contained and describes the overall system: what it does, who uses it, and the behaviors it must implement. Companion documents (referenced for deeper detail, not required reading): `infra-v2.md` (technology stack, deployment), `schemas-v2.md` (schema registry and validation detail), and `webui-v2.md` (admin console UI detail).
+> Product requirements for the next version of Agent DMZ. This document is self-contained and describes the overall system: what it does, who uses it, and the behaviors it must implement. Companion documents (referenced for deeper detail, not required reading): `infra-v2.md` (technology stack, deployment), `schemas-v2.md` (schema registry and validation detail), and `webui-v2.md` (admin console UI detail).
 
 ## Overview & goals
 

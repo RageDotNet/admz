@@ -10,8 +10,8 @@ from flask import abort, current_app, render_template, request
 from markupsafe import escape
 from sqlalchemy.exc import IntegrityError
 
-from llmdmz.core import storage
-from llmdmz.core.jsondiff import compact_payload_diff
+from admz.core import storage
+from admz.core.jsondiff import compact_payload_diff
 
 from .admin import (
     _actor,
@@ -316,7 +316,7 @@ def _enrollments_panel_html() -> str:
 def approve_version(version_id: str):
     notes = _data().get("notes")
     with _db() as session:
-        from llmdmz.core.models import ActionVersion
+        from admz.core.models import ActionVersion
 
         version = session.get(ActionVersion, version_id)
         if version is None or version.state != "submitted":
@@ -343,7 +343,7 @@ def approve_version(version_id: str):
 def reject_version(version_id: str):
     notes = _data().get("notes")
     with _db() as session:
-        from llmdmz.core.models import ActionVersion
+        from admz.core.models import ActionVersion
 
         version = session.get(ActionVersion, version_id)
         if version is None or version.state != "submitted":
@@ -390,7 +390,7 @@ def partial_enrollments():
 
 
 def _enrollment_or_404(session, enrollment_id):
-    from llmdmz.core.models import Enrollment
+    from admz.core.models import Enrollment
 
     e = session.get(Enrollment, enrollment_id)
     if e is None:
@@ -488,7 +488,7 @@ def admin_enroll(action_id: str):
     """Admin-initiated enrollment (client + action)."""
     agent_id = _data().get("agent_id")
     with _db() as session:
-        from llmdmz.core.models import Enrollment
+        from admz.core.models import Enrollment
 
         if storage.get_action(session, action_id) is None or not agent_id:
             abort(404)
@@ -681,7 +681,7 @@ def agent_revoke_key(agent_id: str):
             abort(404)
         import secrets as _secrets
 
-        from llmdmz.core.keys import hash_key
+        from admz.core.keys import hash_key
         agent.api_key_hash = hash_key("revoked:" + _secrets.token_urlsafe(32))
         _audit(session, "agent.key_revoked", "agent", agent_id)
     return sse_merge([(f"#agent-{agent_id}-key-state", str(state_badge("revoked")))])
@@ -798,8 +798,9 @@ def _audit_partial_url(*, page: int, actor: str, target_type: str, kind: str, pe
 
 
 def _audit_view_rows(session, events: list) -> list[SimpleNamespace]:
-    from llmdmz.core.models import Action, ActionVersion, Agent, Enrollment
     from sqlalchemy import select
+
+    from admz.core.models import Action, ActionVersion, Agent, Enrollment
 
     agent_ids: set[str] = set()
     enrollment_ids: set[str] = set()
@@ -828,9 +829,9 @@ def _audit_view_rows(session, events: list) -> list[SimpleNamespace]:
             row.id: row
             for row in session.scalars(select(Enrollment).where(Enrollment.id.in_(enrollment_ids)))
         }
-        for row in enrollments.values():
-            agent_ids.add(row.agent_id)
-            action_ids.add(row.action_id)
+        for enrollment in enrollments.values():
+            agent_ids.add(enrollment.agent_id)
+            action_ids.add(enrollment.action_id)
 
     versions: dict[str, ActionVersion] = {}
     if version_ids:
@@ -838,8 +839,8 @@ def _audit_view_rows(session, events: list) -> list[SimpleNamespace]:
             row.id: row
             for row in session.scalars(select(ActionVersion).where(ActionVersion.id.in_(version_ids)))
         }
-        for row in versions.values():
-            action_ids.add(row.action_id)
+        for version in versions.values():
+            action_ids.add(version.action_id)
 
     agents: dict[str, Agent] = {}
     if agent_ids:
@@ -872,20 +873,20 @@ def _audit_view_rows(session, events: list) -> list[SimpleNamespace]:
             agent = agents.get(event.target_id)
             agent_label = agent.name if agent is not None else event.target_id
         elif event.target_type == "enrollment":
-            enrollment = enrollments.get(event.target_id)
-            if enrollment is not None:
-                action_id = enrollment.action_id
-                agent_id = enrollment.agent_id
-                agent = agents.get(enrollment.agent_id)
-                agent_label = agent.name if agent is not None else enrollment.agent_id
-                action_label = enrollment.action_id
+            enrolled = enrollments.get(event.target_id)
+            if enrolled is not None:
+                action_id = enrolled.action_id
+                agent_id = enrolled.agent_id
+                agent = agents.get(enrolled.agent_id)
+                agent_label = agent.name if agent is not None else enrolled.agent_id
+                action_label = enrolled.action_id
             else:
                 fallback = event.target_id
         elif event.target_type in ("action_version", "version"):
-            version = versions.get(event.target_id)
-            if version is not None:
-                action_id = version.action_id
-                action_label = f"{version.action_id} v{version.version_number}"
+            ver = versions.get(event.target_id)
+            if ver is not None:
+                action_id = ver.action_id
+                action_label = f"{ver.action_id} v{ver.version_number}"
             elif action_id:
                 action_label = str(action_id)
 

@@ -1,6 +1,6 @@
 # Admin Webui v2 — Product Requirements
 
-> Product requirements for the admin console of the next version of the LLM DMZ. This document is self-contained: it specifies the console's pages, interactions, and technical requirements. Companion documents (referenced by name only): `system-prd-v2.md` (overall system), `infra-v2.md` (stack/deployment), `schemas-v2.md` (schema registry). The agent-facing REST API and skills are out of scope here.
+> Product requirements for the admin console of the next version of Agent DMZ. This document is self-contained: it specifies the console's pages, interactions, and technical requirements. Companion documents (referenced by name only): `system-prd-v2.md` (overall system), `infra-v2.md` (stack/deployment), `schemas-v2.md` (schema registry). The agent-facing REST API and skills are out of scope here.
 
 ## Overview & goals
 

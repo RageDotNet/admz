@@ -1,0 +1,2 @@
+[console_scripts]
+dmz-serve = admz.app:main

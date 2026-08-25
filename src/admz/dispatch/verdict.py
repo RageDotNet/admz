@@ -11,7 +11,7 @@ import json
 import re
 from typing import Any
 
-from llmdmz.dispatch.interfaces import Verdict
+from admz.dispatch.interfaces import Verdict
 
 _FALLBACK_RE = re.compile(r"\{.*?\}", re.DOTALL)
 _FAILED = Verdict(approved=False, reason="Arbiter reply was not parseable as a verdict.")

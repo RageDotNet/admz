@@ -66,7 +66,7 @@ def db_upgrade(c):
 @task
 def build(c):
     """Build the Docker image."""
-    _sh(c, ["docker", "build", "-t", "llmdmz:v2", "-f", "deploy/Dockerfile", "."])
+    _sh(c, ["docker", "build", "-t", "admz:v2", "-f", "deploy/Dockerfile", "."])
 
 
 @task

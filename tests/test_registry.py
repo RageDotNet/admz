@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from llmdmz.registry import compile_schemas, validate_payload, validate_submission
+from admz.registry import compile_schemas, validate_payload, validate_submission
 
 CRM_SEARCH = {
     "id": "crm_search",

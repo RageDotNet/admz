@@ -24,4 +24,4 @@ jobs:
       - name: Compose config check
         run: docker compose -f deploy/docker-compose.yml config >/dev/null
       - name: Image build (no push)
-        run: docker build -t llmdmz:ci -f deploy/Dockerfile .
+        run: docker build -t admz:ci -f deploy/Dockerfile .

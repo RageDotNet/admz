@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Directory — LLM DMZ</title>
+  <title>Directory — Agent DMZ</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
   <script>
     // Bootstrap color-mode init (before paint): honour saved or system preference.
@@ -20,7 +20,7 @@
       audit: "Audit trail"
     };
     window.__adminSetTitle = function (tab) {
-      document.title = (window.__adminTabTitles[tab] || "Admin") + " — LLM DMZ";
+      document.title = (window.__adminTabTitles[tab] || "Admin") + " — Agent DMZ";
     };
     window.__adminToggleTheme = function () {
       var next = document.documentElement.getAttribute("data-bs-theme") === "dark" ? "light" : "dark";
@@ -93,7 +93,7 @@
 </script>
   <header class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
     <div>
-      <h1 class="h4 mb-0">LLM DMZ</h1>
+      <h1 class="h4 mb-0">Agent DMZ</h1>
       <p class="small text-body-secondary mb-0">Signed in as {{ admin }}</p>
     </div>
     <div class="d-flex gap-2 align-items-center">

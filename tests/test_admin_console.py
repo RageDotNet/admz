@@ -7,7 +7,7 @@ import re
 from sqlalchemy import select
 from tests.test_registry import CRM_SEARCH
 
-from llmdmz.core.models import Action, ActionVersion, Agent, Enrollment, Request
+from admz.core.models import Action, ActionVersion, Agent, Enrollment, Request
 
 ADMIN_TOKEN = "dmzadm_testtoken0000000000000000000000000"
 EXPECTED_ROUTES = {
@@ -60,7 +60,7 @@ def _seed_action(app_fixture, client):
         s = app.extensions["DMZ_SESSION_FACTORY"]()
         owner = s.scalars(select(Agent).where(Agent.name == "provider")).first()
         agent_client = s.scalars(select(Agent).where(Agent.name == "client")).first()
-        from llmdmz.core.models import Action
+        from admz.core.models import Action
 
         s.add(Action(id="crm_search", owner_agent_id=owner.id, state="pending"))
         s.add(
@@ -260,7 +260,7 @@ class TestQueues:  # T4.16
             assert v.state == "active"
             assert v.decision_notes == "looks good"
             assert v.decided_by == "admin"
-            from llmdmz.core.models import Action, AuditEvent
+            from admz.core.models import Action, AuditEvent
 
             assert s.get(Action, "crm_search").state == "active"
             events = s.scalars(
@@ -566,7 +566,7 @@ class TestRouteTable:  # T4.21
                 continue
             endpoint = app.view_functions[rule.endpoint]
             module = getattr(endpoint, "__module__", "")
-            if "llmdmz.admin" not in module:
+            if "admz.admin" not in module:
                 continue
             methods = rule.methods - {"HEAD", "OPTIONS"}
             for m in methods:
@@ -628,7 +628,7 @@ class TestRequestLogFraming:
 
 class TestDispatchTarget:
     def test_missing_target_is_dash(self):
-        from llmdmz.admin import dispatch_target
+        from admz.admin import dispatch_target
 
         assert dispatch_target({"protocol": "exec"}) == "—"
         assert dispatch_target({"protocol": "post", "endpoint": "  "}) == "—"
@@ -667,7 +667,7 @@ class TestRequestLogFilters:
 
 class TestAuditTrail:
     def test_detail_summary_omits_empty_notes(self):
-        from llmdmz.admin import audit_detail_summary
+        from admz.admin import audit_detail_summary
 
         assert audit_detail_summary({"notes": ""}) == ""
         assert audit_detail_summary({"notes": None}) == ""
@@ -675,7 +675,7 @@ class TestAuditTrail:
         assert audit_detail_summary({"notes": "looks good"}) == "looks good"
 
     def test_lifecycle_default_names_and_pager(self, app_fixture, client_http):
-        from llmdmz.core.audit import audit
+        from admz.core.audit import audit
 
         app, _, _ = app_fixture
         _seed_action(app_fixture, client_http)
@@ -727,7 +727,7 @@ class TestLogOutcome:
     def test_last_attempt_arbiter_rejected(self):
         from types import SimpleNamespace
 
-        from llmdmz.admin import log_outcome
+        from admz.admin import log_outcome
 
         req = SimpleNamespace(
             outcome="provider_failed",
@@ -741,7 +741,7 @@ class TestLogOutcome:
     def test_last_attempt_transport_is_provider_error(self):
         from types import SimpleNamespace
 
-        from llmdmz.admin import log_outcome
+        from admz.admin import log_outcome
 
         req = SimpleNamespace(
             outcome="provider_failed",
@@ -755,7 +755,7 @@ class TestLogOutcome:
     def test_non_exhausted_outcome_unchanged(self):
         from types import SimpleNamespace
 
-        from llmdmz.admin import log_outcome
+        from admz.admin import log_outcome
 
         req = SimpleNamespace(outcome="completed", attempts=[])
         assert log_outcome(req) == "completed"

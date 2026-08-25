@@ -1,4 +1,4 @@
-﻿# LLM DMZ v2 â€” Implementation Todo List
+﻿# Agent DMZ v2 â€” Implementation Todo List
 
 > **Read this first:** To have sufficient context, you must read the v2 PRD set indexed in [`docs/index-v2.md`](docs/index-v2.md) â€” `system-prd-v2.md`, `rest-api-v2.md`, `dispatch-v2.md`, `schemas-v2.md`, `webui-v2.md`, and `infra-v2.md` â€” before starting any task below. Each PRD is standalone; task references to `#N` point to numbered answers in `docs/v2-implementation-clarifications.md`, which is also required reading.
 

@@ -11,7 +11,7 @@ _CONFIGURED: set[str] = set()
 
 
 def get_logger(agent_name: str) -> logging.Logger:
-    name = f"llmdmz.{agent_name}"
+    name = f"admz.{agent_name}"
     if name in _CONFIGURED:
         return logging.getLogger(name)
 

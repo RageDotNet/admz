@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import aliased, selectinload
 
-from llmdmz.core.keys import DEFAULT_PAYLOAD_CHARS, generate_agent_key, hash_key
-from llmdmz.core.models import (
+from admz.core.keys import DEFAULT_PAYLOAD_CHARS, generate_agent_key, hash_key
+from admz.core.models import (
     Action,
     ActionVersion,
     Agent,

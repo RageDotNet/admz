@@ -1,4 +1,4 @@
-"""Alembic environment for the LLM DMZ v2."""
+"""Alembic environment for the Agent DMZ v2."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from sqlalchemy import engine_from_config, pool
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from llmdmz.core.models import Base  # noqa: E402
+from admz.core.models import Base  # noqa: E402
 
 config = context.config
 if config.config_file_name is not None:
@@ -39,7 +39,7 @@ def _db_url() -> str:
                 url = raw.get("database_url")
     if not url:
         # Mirror the app's code default so migrations and server agree.
-        from llmdmz.core.config import _DEFAULTS
+        from admz.core.config import _DEFAULTS
 
         url = _DEFAULTS["database_url"]
     if url:

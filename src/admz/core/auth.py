@@ -13,14 +13,14 @@ from typing import TYPE_CHECKING
 
 from flask import request
 
-from llmdmz.core.keys import ADMIN_PREFIX, AGENT_PREFIX, hash_key
-from llmdmz.core.storage import find_agent_by_key
+from admz.core.keys import ADMIN_PREFIX, AGENT_PREFIX, hash_key
+from admz.core.storage import find_agent_by_key
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
-    from llmdmz.core.config import AdminAccount, Config
-    from llmdmz.core.models import Agent
+    from admz.core.config import AdminAccount, Config
+    from admz.core.models import Agent
 
 
 @dataclass

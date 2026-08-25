@@ -1,4 +1,4 @@
-# LLM DMZ v2 image — Python base, packaged app, non-root (infra-v2.md).
+# Agent DMZ v2 image — Python base, packaged app, non-root (infra-v2.md).
 FROM python:3.12-slim
 
 WORKDIR /app

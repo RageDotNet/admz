@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Re-vendor pinned third-party frontend assets (clarification #22).
 
-Assets live in ``src/llmdmz/static/vendor/`` and are committed to the repo so
+Assets live in ``src/admz/static/vendor/`` and are committed to the repo so
 Docker builds and the offline test suite never touch a network. Run this
 script manually when upgrading a pin; it records versions in VENDOR_VERSIONS.
 
@@ -14,7 +14,7 @@ import pathlib
 import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-VENDOR = ROOT / "src" / "llmdmz" / "static" / "vendor"
+VENDOR = ROOT / "src" / "admz" / "static" / "vendor"
 
 # Pinned versions. Datastar is fetched from the official jsdelivr bundle.
 VENDOR_VERSIONS = {
