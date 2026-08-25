@@ -32,7 +32,6 @@ def test_package_data_includes_favicon():
     text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert "static/*" in text or "static/favicon.svg" in text
     assert (ROOT / "src" / "admz" / "static" / "favicon.svg").is_file()
-    assert (ROOT / "src" / "admz" / "static" / "favicon.ico").is_file()
 
 
 def test_dockerfile_copies_alembic_ini():

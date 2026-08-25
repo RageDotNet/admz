@@ -31,6 +31,63 @@ from .admin import (
 __all__ = []
 
 
+def _public_origin() -> str:
+    """Origin the administrator used (or DMZ_PUBLIC_BASE_URL / public_base_url)."""
+    override = (current_app.config["DMZ"].public_base_url or "").strip().rstrip("/")
+    if override:
+        return override
+    return request.url_root.rstrip("/")
+
+
+def _agent_onboarding_prompt(
+    *, key: str, is_client: bool, is_provider: bool, origin: str
+) -> str:
+    """Plaintext for the admin to paste into a client/provider agent."""
+    lines = [
+        "You have access to Agent DMZ, a broker between you and trusted providers. "
+        "Do not call providers directly.",
+        "",
+        f"Base URL: {origin}",
+        f"Bearer key: {key}",
+        f"Use this header on every request: Authorization: Bearer {key}",
+        "",
+    ]
+    if is_client and is_provider:
+        lines.extend(
+            [
+                "You may act as both a client and a provider. Read both skills:",
+                f"{origin}/v2/skill/client",
+                f"{origin}/v2/skill/provider",
+                "",
+                "Fetch those URLs (no auth required), follow the skills, and use only "
+                "the /v2 API at that base URL.",
+            ]
+        )
+    elif is_client:
+        lines.extend(
+            [
+                "Read your operating instructions from:",
+                f"{origin}/v2/skill/client",
+                "",
+                "Fetch that URL (no auth required), follow the skill, and use only "
+                "the /v2 API at that base URL.",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "You publish and serve actions; clients never talk to you except "
+                "through the DMZ.",
+                "Read your operating instructions from:",
+                f"{origin}/v2/skill/provider",
+                "",
+                "Fetch that URL (no auth required), follow the skill, and use only "
+                "the /v2 API at that base URL.",
+            ]
+        )
+    return "\n".join(lines)
+
+
 def _data() -> dict:
     """Request payload dict from form or JSON body (empty when neither)."""
     if request.mimetype in ('application/x-www-form-urlencoded', 'multipart/form-data'):
@@ -629,7 +686,17 @@ def register_agent():
         ("#agent-register-error", ""),
         (
             "#agent-key-reveal",
-            _render_partial("partials/key_reveal.html", key=key, agent_id=agent_id),
+            _render_partial(
+                "partials/key_reveal.html",
+                key=key,
+                agent_id=agent_id,
+                prompt=_agent_onboarding_prompt(
+                    key=key,
+                    is_client=is_client,
+                    is_provider=is_provider,
+                    origin=_public_origin(),
+                ),
+            ),
         ),
     ])
 
@@ -694,12 +761,24 @@ def agent_new_key(agent_id: str):
         agent = storage.get_agent(session, agent_id)
         if agent is None:
             abort(404)
+        is_client = agent.is_client
+        is_provider = agent.is_provider
         key = storage.issue_key(session, agent, key_payload_chars=current_app.config["DMZ"].key_payload_chars)
         _audit(session, "agent.key_issued", "agent", agent_id)
     return sse_merge([
         (
             "#agent-key-reveal",
-            _render_partial("partials/key_reveal.html", key=key, agent_id=agent_id),
+            _render_partial(
+                "partials/key_reveal.html",
+                key=key,
+                agent_id=agent_id,
+                prompt=_agent_onboarding_prompt(
+                    key=key,
+                    is_client=is_client,
+                    is_provider=is_provider,
+                    origin=_public_origin(),
+                ),
+            ),
         ),
         (f"#agent-{agent_id}-key-state", str(state_badge("set"))),
     ])

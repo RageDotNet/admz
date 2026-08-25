@@ -343,6 +343,46 @@ class TestRevealOnce:  # T4.18
         listing = client_http.get("/admin/partials/agents").get_data(as_text=True)
         assert key.group(0) not in listing
 
+    def test_register_client_onboarding_prompt_uses_host(self, client_http):
+        _login(client_http)
+        resp = client_http.post(
+            "/admin/agents",
+            data={"name": "prompt-client", "is_client": "on"},
+            headers={
+                "Authorization": f"Bearer {ADMIN_TOKEN}",
+                "Host": "dmz.example.com",
+            },
+        )
+        body = resp.get_data(as_text=True)
+        assert "Paste this prompt to your agent:" in body
+        assert "http://dmz.example.com/v2/skill/client" in body
+        assert "/v2/skill/provider" not in body
+        assert "Copy prompt" in body
+
+    def test_register_provider_onboarding_prompt(self, client_http):
+        _login(client_http)
+        resp = client_http.post(
+            "/admin/agents",
+            data={"name": "prompt-provider", "is_provider": "on"},
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+        )
+        body = resp.get_data(as_text=True)
+        assert "/v2/skill/provider" in body
+        assert "/v2/skill/client" not in body
+        assert "publish and serve actions" in body
+
+    def test_register_dual_role_onboarding_prompt(self, client_http):
+        _login(client_http)
+        resp = client_http.post(
+            "/admin/agents",
+            data={"name": "prompt-both", "is_client": "on", "is_provider": "on"},
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+        )
+        body = resp.get_data(as_text=True)
+        assert "/v2/skill/client" in body
+        assert "/v2/skill/provider" in body
+        assert "both a client and a provider" in body
+
     def test_register_empty_name_is_inline_error(self, client_http):
         _login(client_http)
         resp = client_http.post(

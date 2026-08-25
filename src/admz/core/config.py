@@ -43,6 +43,8 @@ _DEFAULTS: dict[str, Any] = {
     "dispatch_retries": 2,  # dispatch-v2.md default
     "dispatch_timeout": 180,  # dispatch-v2.md default
     "key_payload_chars": 14,  # dmz_ body entropy chars; last 2 of body are checksum
+    # Public origin for skill URLs in the admin onboarding prompt (no trailing slash).
+    "public_base_url": "",
     # Optional prompt overrides (empty string = built-in default prompt).
     "arbiter_request_prompt": "",
     "arbiter_response_prompt": "",
@@ -64,6 +66,7 @@ _ENV_MAP = {
     "dispatch_retries": "DMZ_DISPATCH_RETRIES",
     "dispatch_timeout": "DMZ_DISPATCH_TIMEOUT",
     "key_payload_chars": "DMZ_KEY_PAYLOAD_CHARS",
+    "public_base_url": "DMZ_PUBLIC_BASE_URL",
 }
 
 _INT_KEYS = {
@@ -154,6 +157,7 @@ class Config:
     dispatch_retries: int
     dispatch_timeout: int
     key_payload_chars: int
+    public_base_url: str = ""
     arbiter_request_prompt: str = ""
     arbiter_response_prompt: str = ""
     arbiter_injection_focus: str = ""

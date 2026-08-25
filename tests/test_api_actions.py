@@ -620,9 +620,8 @@ def test_favicon_svg_and_ico(client_http):
     svg = client_http.get("/static/favicon.svg")
     assert svg.status_code == 200
     assert b"<svg" in svg.data
-    ico_file = client_http.get("/static/favicon.ico")
-    assert ico_file.status_code == 200
+    assert b'fill="#1e3a5f"' not in svg.data
     ico = client_http.get("/favicon.ico")
     assert ico.status_code == 200
-    assert ico.data[:4] in (b"\x00\x00\x01\x00", b"\x89PNG")
-    assert ico.mimetype in ("image/x-icon", "image/vnd.microsoft.icon")
+    assert b"<svg" in ico.data
+    assert ico.mimetype == "image/svg+xml"

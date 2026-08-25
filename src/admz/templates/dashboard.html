@@ -4,8 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory — Agent DMZ</title>
-  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml" sizes="any">
-  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg', v=2) }}" type="image/svg+xml">
   <script>
     // Bootstrap color-mode init (before paint): honour saved or system preference.
     if (localStorage.getItem("bs-theme") === "dark" ||
@@ -63,10 +62,33 @@
       var el = document.getElementById("action-request-detail");
       if (el) el.replaceChildren();
     };
+    // clipboard.writeText needs HTTPS/localhost; HTTP LAN hosts (Docker) fall back.
+    window.__adminCopyTextFallback = function (text) {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } finally { document.body.removeChild(ta); }
+      return ok;
+    };
     window.__adminCopyText = function (id) {
       var el = document.getElementById(id);
-      if (!el || !navigator.clipboard || !navigator.clipboard.writeText) return;
-      navigator.clipboard.writeText(el.textContent || "");
+      if (!el) return false;
+      var text = (el.tagName === "TEXTAREA" || el.tagName === "INPUT")
+        ? el.value
+        : (el.textContent || "");
+      if (window.isSecureContext && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(function () {
+          window.__adminCopyTextFallback(text);
+        });
+        return true;
+      }
+      return window.__adminCopyTextFallback(text);
     };
   </script>
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-5.3.3.min.css') }}">

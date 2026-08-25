@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 
 from flask import Flask, request, send_from_directory
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from admz.core.config import Config, load_config
 
@@ -24,6 +25,8 @@ def create_app(config: Config | None = None) -> Flask:
         template_folder="templates",
         static_folder="static",
     )
+    # One trusted proxy hop so request.url_root matches the host the admin used.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)  # type: ignore[method-assign]
     app.config["DMZ"] = config
     app.config["SECRET_KEY"] = config.secret_key
     app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -59,7 +62,13 @@ def create_app(config: Config | None = None) -> Flask:
         static_folder = app.static_folder
         if static_folder is None:
             raise RuntimeError("static folder is not configured")
-        return send_from_directory(static_folder, "favicon.ico", mimetype="image/x-icon")
+        # Serve the SVG here too: browsers still GET /favicon.ico, and an
+        # opaque ICO made the tab look like the old grey tile.
+        response = send_from_directory(
+            static_folder, "favicon.svg", mimetype="image/svg+xml"
+        )
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
     @app.errorhandler(ApiError)
     def _api_error(exc: ApiError):
