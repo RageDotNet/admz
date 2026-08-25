@@ -9,6 +9,7 @@ retries.
 from __future__ import annotations
 
 import json
+import logging
 import subprocess  # noqa: S404 — exec transport is a deliberate design decision
 import urllib.error
 import urllib.request
@@ -26,6 +27,8 @@ from admz.dispatch.interfaces import (
 )
 from admz.dispatch.verdict import parse_verdict
 
+_log = logging.getLogger("admz.dispatch")
+
 # Injectable seams ----------------------------------------------------------
 
 Poster = Callable[[str, dict[str, str], bytes, int], tuple[int, str]]
@@ -34,8 +37,8 @@ Poster = Callable[[str, dict[str, str], bytes, int], tuple[int, str]]
 Runner = Callable[[str, str, int], tuple[int, str, str]]
 """command, timeout -> (exit_code, stdout, stderr)."""
 
-Completer = Callable[[str, str, str, int, int, float], str]
-"""model, system, user, timeout, max_tokens, temperature -> reply text."""
+Completer = Callable[..., str]
+"""model, system, user, timeout, max_tokens, temperature[, api_key] -> reply text."""
 
 
 def _default_poster(
@@ -73,17 +76,24 @@ def _litellm_completer(
     timeout: int,
     max_tokens: int,
     temperature: float,
+    api_key: str = "",
 ) -> str:
     import litellm
 
-    response = litellm.completion(
-        model=model,
-        messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-        temperature=temperature,
-        max_tokens=max_tokens,
-        timeout=timeout,
-        num_retries=0,
-    )
+    kwargs: dict[str, Any] = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "timeout": timeout,
+        "num_retries": 0,
+    }
+    if api_key:
+        kwargs["api_key"] = api_key
+    response = litellm.completion(**kwargs)
     return str(response.choices[0].message.content or "")
 
 
@@ -160,6 +170,7 @@ class LiteLLMArbiterClient:
         parts.append(f"Action: {action_id}")
         parts.append(f"{side} payload to inspect:\n{json.dumps(payload, ensure_ascii=False)}")
         parts.append('Reply with ONLY valid JSON: {"approved": ..., "reason": ...}')
+        _log.info("arbiter check side=%s action=%s model=%s", side, action_id, self._config.arbiter_model)
         try:
             reply = self._completer(
                 self._config.arbiter_model,
@@ -168,12 +179,16 @@ class LiteLLMArbiterClient:
                 self._config.arbiter_timeout,
                 self._config.arbiter_max_tokens,
                 self._config.arbiter_temperature,
+                self._config.arbiter_api_key,
             )
         except Exception as exc:  # noqa: BLE001 — classify by LiteLLM exception class
             name = type(exc).__name__
+            detail = str(exc).strip()
+            summary = f"{name}: {detail}" if detail else name
+            _log.exception("arbiter LiteLLM call failed (%s)", summary)
             if any(token in name.lower() for token in ("auth", "key", "badrequest", "notfound")):
-                raise ArbiterConfigFault(f"arbiter configuration fault: {name}") from exc
-            raise ArbiterTransportError(f"arbiter transport failure: {name}") from exc
+                raise ArbiterConfigFault(f"arbiter configuration fault: {summary}") from exc
+            raise ArbiterTransportError(f"arbiter transport failure: {summary}") from exc
         return parse_verdict(reply)
 
 

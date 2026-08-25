@@ -9,7 +9,8 @@ Operational notes for deploying the DMZ container. Read together with
 
   ```
   gunicorn -w 2 --threads 16 --timeout 900 --graceful-timeout 900 --keep-alive 5 \
-      -b 0.0.0.0:8000 admz.app:create_app_standalone()
+      -b 0.0.0.0:8000 --access-logfile - --error-logfile - --capture-output \
+      'admz.app:create_app_standalone()'
   ```
 
 - Invokes are synchronous and I/O-bound; worst case is
@@ -24,10 +25,14 @@ Operational notes for deploying the DMZ container. Read together with
 
 ## OpenRouter / arbiter
 
-- Set `OPENROUTER_API_KEY` (env) or `arbiter_api_key` (YAML); check it at
-  boot by calling `/v2/skill` once with an agent key after registration.
-- Arbiter defaults (configurable): `ARBITER_MODEL=openai/gpt-4o-mini`,
-  temperature 0, `max_tokens=512`, per-call timeout 30s, no LiteLLM retries.
+- Set `OPENROUTER_API_KEY` in the repo-root `.env` (compose loads
+  `deploy/../.env` into the container). Compose's project dir is `deploy/`,
+  so a `.env` next to `docker-compose.yml` is a different file.
+- Compose does **not** default `ARBITER_MODEL` in `environment` (that
+  overrode repo `.env` and `config.yaml` with `openai/gpt-4o-mini`). Model
+  comes from `config.yaml` (`arbiter_model`) or `ARBITER_MODEL` in `.env`.
+  Use the `openrouter/...` prefix so LiteLLM calls OpenRouter, not OpenAI.
+  Call knobs: temperature 0, `max_tokens=512`, per-call timeout 30s, no LiteLLM retries.
 - An invalid key or unknown model surfaces as **`500 internal_error`** on
   invokes — alerts on `internal_error` spikes are the operator's early
   warning that arbiter credentials/config broke (clarification #6).

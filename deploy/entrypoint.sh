@@ -17,5 +17,11 @@ if [ -f "$DB_PATH" ]; then
     chmod 0600 "$DB_PATH"
 fi
 
+# Gunicorn log-level is lowercase; config/env often uses INFO.
+log_level=$(printf '%s' "${LOG_LEVEL:-info}" | tr '[:upper:]' '[:lower:]')
+
 exec gunicorn -w 2 --threads 16 --timeout 900 --graceful-timeout 900 --keep-alive 5 \
-    -b 0.0.0.0:8000 --worker-class gthread admz.app:create_app_standalone()
+    -b 0.0.0.0:8000 --worker-class gthread \
+    --access-logfile - --error-logfile - --capture-output \
+    --log-level "$log_level" \
+    'admz.app:create_app_standalone()'

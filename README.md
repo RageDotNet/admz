@@ -35,8 +35,8 @@ Docker: [`deploy/README.md`](deploy/README.md) and `docker compose -f deploy/doc
 ```
 src/admz/          Packaged Flask app (API, dispatch, admin console)
 migrations/        Alembic
-skills/            Client and provider skill markdown (`/v2/skill`)
-schemas/           Sample CRM JSON Schemas for crm_provider.py
+src/admz/skills/   Client and provider skill markdown (`/v2/skill`)
+examples/          Sample CRM client/provider (`crm_provider.py`)
 deploy/            Dockerfile and compose
 tests/             Offline pytest suite
 docs/              v2 PRDs (index-v2.md)
@@ -44,7 +44,7 @@ config.yaml        Runtime YAML (admins, DSN, arbiter)
 pyproject.toml     Package and tool config
 ```
 
-[`crm_provider.py`](crm_provider.py) (backed by [`crmtool.py`](crmtool.py) mock contacts) registers sample CRM actions, serves completions, and can invoke as a client.
+See [`examples/README.md`](examples/README.md) for the sample CRM client/provider (`crm_provider.py`).
 
 ## Beyond the scope of this document
 

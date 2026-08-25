@@ -614,3 +614,15 @@ class TestCreateAction:
         resp = client_http.post("/v2/actions", json=CRM_SEARCH, headers=_hdr(client_key))
         assert resp.status_code == 403
         assert resp.get_json()["error"]["code"] == "forbidden"
+
+
+def test_favicon_svg_and_ico(client_http):
+    svg = client_http.get("/static/favicon.svg")
+    assert svg.status_code == 200
+    assert b"<svg" in svg.data
+    ico_file = client_http.get("/static/favicon.ico")
+    assert ico_file.status_code == 200
+    ico = client_http.get("/favicon.ico")
+    assert ico.status_code == 200
+    assert ico.data[:4] in (b"\x00\x00\x01\x00", b"\x89PNG")
+    assert ico.mimetype in ("image/x-icon", "image/vnd.microsoft.icon")

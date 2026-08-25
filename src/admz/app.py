@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from flask import Flask, request
+from flask import Flask, request, send_from_directory
 
 from admz.core.config import Config, load_config
 
@@ -52,6 +52,14 @@ def create_app(config: Config | None = None) -> Flask:
     from admz.admin import bp as admin_bp
 
     app.register_blueprint(admin_bp)
+
+    @app.get("/favicon.ico")
+    def favicon():
+        """Browsers request /favicon.ico even when the HTML points at an SVG."""
+        static_folder = app.static_folder
+        if static_folder is None:
+            raise RuntimeError("static folder is not configured")
+        return send_from_directory(static_folder, "favicon.ico", mimetype="image/x-icon")
 
     @app.errorhandler(ApiError)
     def _api_error(exc: ApiError):

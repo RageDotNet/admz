@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import json
 
-from crm_provider import create_serve_app
+from crm_provider import SCHEMA_DIR, _load_schema, create_serve_app
+
+
+def test_schemas_are_loaded_from_examples_directory():
+    assert SCHEMA_DIR.is_dir()
+    assert SCHEMA_DIR.parent.name == "examples"
+    request = _load_schema("crm_search_request")
+    assert request["title"] == "CRM Search Request"
+    assert _load_schema("crm_add_note_request")["title"]
 
 
 def test_chat_completions_search():

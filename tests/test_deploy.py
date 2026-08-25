@@ -8,6 +8,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ENTRYPOINT = ROOT / "deploy" / "entrypoint.sh"
+DOCKERFILE = ROOT / "deploy" / "Dockerfile"
 COMPOSE = ROOT / "deploy" / "docker-compose.yml"
 
 
@@ -21,6 +22,23 @@ def test_entrypoint_order_migrate_then_serve():
     assert text.count("chmod 0600") >= 2
     # Documented gthread settings (#5).
     assert "-w 2 --threads 16 --timeout 900" in text
+    # dash (Debian /bin/sh) treats unquoted () as a syntax error.
+    assert "'admz.app:create_app_standalone()'" in text
+    assert "--access-logfile -" in text
+    assert "--error-logfile -" in text
+
+
+def test_package_data_includes_favicon():
+    text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "static/*" in text or "static/favicon.svg" in text
+    assert (ROOT / "src" / "admz" / "static" / "favicon.svg").is_file()
+    assert (ROOT / "src" / "admz" / "static" / "favicon.ico").is_file()
+
+
+def test_dockerfile_copies_alembic_ini():
+    text = DOCKERFILE.read_text(encoding="utf-8")
+    assert "alembic.ini" in text
+    assert "COPY migrations" in text
 
 
 def test_compose_config_is_deterministic():

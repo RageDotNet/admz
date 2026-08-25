@@ -3,10 +3,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md alembic.ini ./
 COPY src ./src
 COPY migrations ./migrations
-COPY skills ./skills
 RUN pip install --no-cache-dir .
 
 # Entrypoint enforces 0600 on the SQLite DB file (#16), then migrates, then serves.

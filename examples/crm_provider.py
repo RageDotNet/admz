@@ -4,8 +4,8 @@ Modes:
 
 - ``python crm_provider.py register`` — publish the CRM actions
   (``crm_search``, ``crm_add_note``) as schema packages to the DMZ's
-  agent-facing REST API (``POST /v2/actions``), using the schemas in
-  ``./schemas``.
+  agent-facing REST API (``POST /v2/actions``), using the JSON Schema files
+  in ``schemas/`` next to this script (``examples/schemas/``).
 
 - ``python crm_provider.py update`` — submit a NEW VERSION of each action
   (``PUT /v2/actions/{id}``); the active version keeps serving until an
@@ -17,7 +17,8 @@ Modes:
 
 - ``python crm_provider.py client <action_id> [request JSON]`` — invoke an
   action as a client via ``POST /v2/actions/{id}/invoke``; the request
-  payload comes from the argument, or stdin if omitted.
+  payload comes from the argument, or stdin if omitted. Sample files:
+  ``requests/crm_search_request.json``, ``requests/crm_add_note_request.json``.
 
 - ``python crm_provider.py run`` — implement the **exec delivery protocol**
   (dispatch-v2.md): read the unstructured framing on stdin, extract the
@@ -43,16 +44,21 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+# Allow `python examples/crm_provider.py` from the repo root.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 from crmtool import add_contact_note, search_contacts
 
 # Provider bearer key (agent must carry the provider capability). Override
 # with DMZ_PROVIDER_KEY when the key is reissued.
-PROVIDER_KEY = os.getenv("DMZ_PROVIDER_KEY", "dmz_dtLE62fWaxmMBZ2QzBabmPJwlWf9jVglTMAYe1_RjLY")
+PROVIDER_KEY = os.getenv("DMZ_PROVIDER_KEY", "dmz_9P743qIGQaCzfHrm")
 # Client-capability key used by `enroll` and `client` (may be the same agent
 # if it carries both flags; override with DMZ_CLIENT_KEY).
 CLIENT_KEY = os.getenv("DMZ_CLIENT_KEY", PROVIDER_KEY)
 DMZ_BASE_URL = os.getenv("DMZ_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
+# Always the directory beside this file — not cwd — so register/update work
+# from the repo root or from examples/.
 SCHEMA_DIR = Path(__file__).resolve().parent / "schemas"
 
 REQUEST_MARKER = "REQUEST JSON FOLLOWS:"
@@ -95,7 +101,8 @@ HANDLERS = {
 
 
 def _load_schema(name: str) -> dict[str, Any]:
-    with (SCHEMA_DIR / f"{name}.json").open(encoding="utf-8") as fh:
+    path = SCHEMA_DIR / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
         return json.load(fh)  # type: ignore[no-any-return]
 
 

@@ -207,24 +207,25 @@ class TestLiteLLMArbiter:
     def test_prompt_construction_and_parse(self):
         calls = []
 
-        def completer(model, system, user, timeout, max_tokens, temperature):
-            calls.append((model, timeout, max_tokens, temperature))
+        def completer(model, system, user, timeout, max_tokens, temperature, api_key=""):
+            calls.append((model, timeout, max_tokens, temperature, api_key))
             return '{"approved": false, "reason": "injection"}'
 
         verdict = self._client(completer).check(
             side="request", action_id="crm_search", payload=REQUEST, extra_instructions="extra"
         )
         assert verdict.approved is False and verdict.reason == "injection"
-        model, timeout, max_tokens, temperature = calls[0]
+        model, timeout, max_tokens, temperature, api_key = calls[0]
         # #2 knobs: temp 0, max_tokens 512, timeout 30, default model.
         assert temperature == 0.0 and max_tokens == 512 and timeout == 30
         assert model == "openai/gpt-4o-mini"
+        assert api_key == ""
 
     def test_transient_fault(self):
         def raise_rate_limit(*a):
             raise RuntimeError("rate limit hit")
 
-        with pytest.raises(ArbiterTransportError):
+        with pytest.raises(ArbiterTransportError, match="rate limit hit"):
             self._client(raise_rate_limit).check(side="response", action_id="a", payload={})
 
     def test_config_fault(self):
@@ -234,7 +235,7 @@ class TestLiteLLMArbiter:
         def raise_auth(*a):
             raise AuthenticationError("bad key")
 
-        with pytest.raises(ArbiterConfigFault):
+        with pytest.raises(ArbiterConfigFault, match="bad key"):
             self._client(raise_auth).check(side="request", action_id="a", payload={})
 
     def test_unparseable_is_failed_check(self):

@@ -18,6 +18,7 @@ dependencies = [
     "datastar-py>=1.0.2,<1.1",
     "dydantic>=0.0.8,<0.1",
     "jsonschema>=4.21,<5",
+    "email-validator>=2.0,<3",
     "gunicorn>=21.2,<24",
 ]
 
@@ -35,7 +36,7 @@ dmz-serve = "admz.app:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-admz = ["templates/*.html", "templates/**/*.html", "static/vendor/*"]
+admz = ["templates/*.html", "templates/**/*.html", "static/*", "static/vendor/*", "skills/*.md"]
 
 [tool.ruff]
 line-length = 100
@@ -56,4 +57,4 @@ warn_unused_ignores = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = [".", "examples"]
