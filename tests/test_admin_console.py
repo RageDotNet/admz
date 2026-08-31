@@ -90,6 +90,8 @@ class TestAuthMatrix:  # T4.4
         assert "default-src 'none'" in csp
         assert "frame-ancestors 'none'" in csp
         assert "script-src 'self'" in csp
+        assert "'unsafe-eval'" in csp
+        assert "img-src 'self' data:" in csp
         match = re.search(r"nonce-([A-Za-z0-9_-]+)", csp)
         assert match
         assert f'nonce="{match.group(1)}"' in resp.get_data(as_text=True)

@@ -102,7 +102,7 @@
   data-on:hashchange__window="$tab = ['directory','enrollments','agents','log','audit'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'directory'; __adminSetTitle($tab)"
   data-on:datastar-fetch__document="$busy = __adminBusy($busy, evt); $flashError = __adminFlash($flashError, evt)"
 >
-<script>
+<script nonce="{{ csp_nonce }}">
 (function () {
   var allowed = ["directory", "enrollments", "agents", "log", "audit"];
   var t = (location.hash || "#directory").slice(1);

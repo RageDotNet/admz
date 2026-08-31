@@ -70,9 +70,9 @@ def create_app(config: Config | None = None) -> Flask:
         nonce = getattr(g, "csp_nonce", "")
         response.headers["Content-Security-Policy"] = (
             "default-src 'none'; "
-            f"script-src 'self' 'nonce-{nonce}'; "
+            f"script-src 'self' 'unsafe-eval' 'nonce-{nonce}'; "
             "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self'; "
+            "img-src 'self' data:; "
             "connect-src 'self'; "
             "form-action 'self'; "
             "base-uri 'self'; "
