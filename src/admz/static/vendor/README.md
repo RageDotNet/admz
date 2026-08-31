@@ -20,5 +20,3 @@
   with `selector`/`mode`/`elements` keys (was `datastar-merge-fragments` with
   `mergeMode`/`fragments`), and form submits use
   `@get(url, {contentType: 'form'})` instead of `?' + $formData`.
-- `datastar.min.js` — Datastar **v1.0.0-beta.11** (pre-1.0 npm release).
-  Kept for reference/rollback only; no longer loaded by any page.

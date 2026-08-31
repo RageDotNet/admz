@@ -63,10 +63,6 @@ def get_agent(session: Session, agent_id: str) -> Agent | None:
     return session.get(Agent, agent_id)
 
 
-def find_agent_by_name(session: Session, name: str) -> Agent | None:
-    return session.scalar(select(Agent).where(Agent.name == name))
-
-
 def find_agent_by_key(session: Session, plaintext_key: str) -> Agent | None:
     return session.scalar(select(Agent).where(Agent.api_key_hash == hash_key(plaintext_key)))
 
@@ -162,10 +158,6 @@ def list_versions(session: Session, action_id: str) -> list[ActionVersion]:
 
 
 # --- enrollments ------------------------------------------------------------
-
-
-def get_enrollment(session: Session, enrollment_id: str) -> Enrollment | None:
-    return session.get(Enrollment, enrollment_id)
 
 
 def find_enrollment(

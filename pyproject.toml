@@ -29,6 +29,7 @@ dev = [
     "pytest>=8,<10",
     "ruff>=0.4",
     "mypy>=1.8",
+    "fabric>=3,<4",
 ]
 
 [project.scripts]

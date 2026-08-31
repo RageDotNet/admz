@@ -18,19 +18,10 @@ VENDOR = ROOT / "src" / "admz" / "static" / "vendor"
 
 # Pinned versions. Datastar is fetched from the official jsdelivr bundle.
 VENDOR_VERSIONS = {
-    "datastar.min.js": {
-        "version": "1.0.0-beta.11",
-        "url": (
-            "https://cdn.jsdelivr.net/npm/@starfederation/datastar@"
-            "1.0.0-beta.11/dist/datastar.min.js"
-        ),
-    },
     "bootstrap-5.3.3.min.css": {
         "version": "5.3.3",
         "url": "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css",
     },
-    # Reference copy of the post-rewrite Datastar core (signals/effects only).
-    # NOT loaded by any page — see vendor/README.md before swapping it in.
     "datastar-1.0.2.js": {
         "version": "1.0.2",
         "url": (
