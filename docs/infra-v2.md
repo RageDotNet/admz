@@ -55,8 +55,8 @@ Notes:
 
 ## LLM stack
 
-- **LiteLLM** for every model call — LLM agents (internal/external) and the security arbiter.
-- Calls route through **OpenRouter** (`OPENROUTER_API_KEY`; arbiter model configurable via `ARBITER_MODEL`).
+- **LiteLLM** for every arbiter model call. The model id (`ARBITER_MODEL` / `arbiter.model`) selects the backend (OpenRouter, OpenAI, Anthropic, and other LiteLLM providers). Operators may use any LiteLLM backend; OpenRouter is the documented default.
+- Default example: OpenRouter (`OPENROUTER_API_KEY` + `openrouter/...` model). Direct providers use their native env vars (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …). Optional `ARBITER_API_KEY` / YAML `arbiter.api_key` forces the key on the LiteLLM call.
 
 ## Schema validation
 
@@ -78,8 +78,11 @@ Key environment variables:
 
 | Variable | Purpose |
 |---|---|
-| `OPENROUTER_API_KEY` | OpenRouter API key (agents + arbiter) |
-| `ARBITER_MODEL` | Arbiter model string |
+| `OPENROUTER_API_KEY` | LiteLLM OpenRouter key (default arbiter path; not mapped into YAML) |
+| `OPENAI_API_KEY` | LiteLLM OpenAI key when the model id is OpenAI |
+| `ANTHROPIC_API_KEY` | LiteLLM Anthropic key when the model id is Anthropic |
+| `ARBITER_API_KEY` | Optional force-key passed to LiteLLM (any provider) |
+| `ARBITER_MODEL` | LiteLLM arbiter model id |
 | `DMZ_DATABASE_URL` | SQLAlchemy DSN (default: SQLite file) |
 | `DMZ_APP_PORT` | Bind port for the Flask app |
 | `FLASK_SECRET_KEY` | Admin console session cookies |

@@ -20,7 +20,7 @@ CI is [.github/workflows/ci.yml](.github/workflows/ci.yml) (Python 3.12, plus co
 - Alembic: `migrations/`
 - Agent-facing skill markdown (served at `/v2/skill`): `src/admz/skills/`
 - Sample CRM: `examples/crm_provider.py`
-- Config path: `DMZ_CONFIG` or `./config.yaml`. Keys are documented in [config.yaml.example](config.yaml.example). Do not commit `config.yaml` or `.env`.
+- Config path: `DMZ_CONFIG` or `./config.yaml`. Keys are documented in [config.yaml.example](config.yaml.example). Do not commit `config.yaml` or `.env`. The arbiter is LiteLLM (model id chooses OpenRouter, OpenAI, Anthropic, …); provider keys stay in `.env`.
 
 ## Conventions
 

@@ -23,15 +23,18 @@ Operational notes for deploying the DMZ container. Read together with
   **`proxy_read_timeout` ≥ 900s** (and equivalent send/connect timeouts) —
   a shorter value truncates legitimate invokes.
 
-## OpenRouter / arbiter
+## LiteLLM arbiter
 
-- Set `OPENROUTER_API_KEY` in the repo-root `.env` (compose loads
+- Put the provider key in the repo-root `.env` (compose loads
   `deploy/../.env` into the container). Compose's project dir is `deploy/`,
-  so a `.env` next to `docker-compose.yml` is a different file.
+  so a `.env` next to `docker-compose.yml` is a different file. Default path:
+  `OPENROUTER_API_KEY` with model `openrouter/...`. Direct OpenAI/Anthropic
+  (and other LiteLLM backends) use `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`
+  (etc.) and a matching `arbiter.model`. Optional `ARBITER_API_KEY` forces
+  the key LiteLLM receives.
 - Compose does **not** default `ARBITER_MODEL` in `environment` (that
   overrode repo `.env` and `config.yaml` with `openai/gpt-4o-mini`). Model
-  comes from `config.yaml` (`arbiter_model`) or `ARBITER_MODEL` in `.env`.
-  Use the `openrouter/...` prefix so LiteLLM calls OpenRouter, not OpenAI.
+  comes from `config.yaml` (`arbiter.model`) or `ARBITER_MODEL` in `.env`.
   Call knobs: temperature 0, `max_tokens=512`, per-call timeout 30s, no LiteLLM retries.
 - An invalid key or unknown model surfaces as **`500 internal_error`** on
   invokes — alerts on `internal_error` spikes are the operator's early
@@ -74,7 +77,8 @@ Operational notes for deploying the DMZ container. Read together with
 
 ## Live smoke script
 
-`scripts/smoke_live.py` exercises the real LiteLLM/OpenRouter arbiter adapter
+`scripts/smoke_live.py` exercises the real LiteLLM arbiter adapter
 (not covered by the offline suite, clarification #31). Run manually with
-`OPENROUTER_API_KEY=... python scripts/smoke_live.py`; it prints the parsed
+the same provider keys as production (`OPENROUTER_API_KEY=... python scripts/smoke_live.py`
+or OpenAI/Anthropic env vars + `ARBITER_MODEL`); it prints the parsed
 verdict and exits non-zero on failure.

@@ -2,7 +2,7 @@
 
 This directory is a small **trusted CRM provider** and **client** that talk to Agent DMZ over `/v2`. It is not part of the `admz` package. The mock contact store is [`crmtool.py`](crmtool.py); JSON Schemas live in [`schemas/`](schemas/); sample invoke bodies are in [`requests/`](requests/).
 
-You need a running DMZ (`dmz-serve` or Docker on port 8000), an OpenRouter key for the arbiter (invokes), and admin access to approve actions and enrollments.
+You need a running DMZ (`dmz-serve` or Docker on port 8000), LiteLLM credentials for the arbiter (invokes; OpenRouter by default), and admin access to approve actions and enrollments.
 
 You can run the same commands from the repo root as `python examples/crm_provider.py ...` (the script adds `examples/` to `sys.path` so `crmtool` imports).
 

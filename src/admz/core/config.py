@@ -16,9 +16,11 @@ from typing import Any
 import yaml
 from werkzeug.security import check_password_hash
 
-# Optional .env support (python-dotenv): secrets like OPENROUTER_API_KEY live
-# in .env (gitignored) instead of config.yaml. Real environment variables
-# always win over .env values. Failure to find/parse .env is not an error.
+# Optional .env support (python-dotenv): provider keys (OPENROUTER_API_KEY,
+# OPENAI_API_KEY, ANTHROPIC_API_KEY, …) live in .env (gitignored). LiteLLM
+# reads those from the process environment based on the arbiter model id.
+# Real environment variables always win over .env values. Failure to
+# find/parse .env is not an error.
 try:
     from dotenv import load_dotenv
 
@@ -59,7 +61,7 @@ _ENV_MAP = {
     "flask_debug": "FLASK_DEBUG",
     "log_level": "LOG_LEVEL",
     "arbiter_model": "ARBITER_MODEL",
-    "arbiter_api_key": "OPENROUTER_API_KEY",
+    "arbiter_api_key": "ARBITER_API_KEY",
     "arbiter_timeout": "ARBITER_TIMEOUT",
     "arbiter_max_tokens": "ARBITER_MAX_TOKENS",
     "arbiter_temperature": "ARBITER_TEMPERATURE",

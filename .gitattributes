@@ -1,0 +1,2 @@
+# Shell scripts must be LF in the image (CRLF shebang → exec: no such file or directory).
+*.sh text eol=lf

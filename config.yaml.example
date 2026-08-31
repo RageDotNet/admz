@@ -5,7 +5,7 @@
 #
 # Env equivalents (set these instead of YAML when you prefer):
 #   DMZ_DATABASE_URL, FLASK_SECRET_KEY, DMZ_APP_PORT, FLASK_DEBUG, LOG_LEVEL,
-#   ARBITER_MODEL, OPENROUTER_API_KEY, ARBITER_TIMEOUT, ARBITER_MAX_TOKENS,
+#   ARBITER_MODEL, ARBITER_API_KEY, ARBITER_TIMEOUT, ARBITER_MAX_TOKENS,
 #   ARBITER_TEMPERATURE, DMZ_DISPATCH_RETRIES, DMZ_DISPATCH_TIMEOUT,
 #   DMZ_KEY_PAYLOAD_CHARS, DMZ_PUBLIC_BASE_URL
 
@@ -35,12 +35,13 @@ public_base_url: ""  # e.g. "https://dmz.example.com"
 # (14–128; default 14 → dmz_ + 16).
 key_payload_chars: 14
 
-# Nested `arbiter:` keys map to arbiter_*; you can also set arbiter_model etc. at the top level.
-# Keep an `openrouter/` prefix so LiteLLM talks to OpenRouter.
-# Do not put the API key here — use OPENROUTER_API_KEY in a gitignored .env.
+# Nested `arbiter:` keys map to arbiter_*. `model` is a LiteLLM id (not OpenRouter-only).
+# `openrouter/...` uses OPENROUTER_API_KEY from .env; `openai/...` uses OPENAI_API_KEY;
+# `anthropic/...` uses ANTHROPIC_API_KEY. See https://docs.litellm.ai/docs/providers
+# Optional api_key / ARBITER_API_KEY forces a key; omit it so LiteLLM reads the env var.
 arbiter:
   model: "openrouter/openai/gpt-4o-mini"
-  # api_key: ""  # prefer OPENROUTER_API_KEY
+  # api_key: ""  # optional override; prefer provider env vars in .env
   timeout: 30  # seconds per arbiter call
   max_tokens: 512
   temperature: 0.0

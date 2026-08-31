@@ -3,7 +3,9 @@
 Adapters are thin: every external call goes through an injectable callable so
 tests use fakes (#31). The LiteLLM arbiter call is made once per check with
 config knobs (#2): temperature 0, max_tokens 512, timeout 30s, no LiteLLM
-retries.
+retries. Provider is selected by the LiteLLM model id; api_key is passed only
+when Config.arbiter_api_key is set (otherwise LiteLLM uses OPENROUTER_API_KEY /
+OPENAI_API_KEY / ANTHROPIC_API_KEY from the environment).
 """
 
 from __future__ import annotations
@@ -145,7 +147,7 @@ def build_structured_framing(
 
 
 class LiteLLMArbiterClient:
-    """Arbiter over LiteLLM/OpenRouter; one call per check, fail-closed verdicts."""
+    """Arbiter over LiteLLM; one call per check, fail-closed verdicts."""
 
     def __init__(self, config: Config, completer: Completer = _litellm_completer):
         self._config = config

@@ -10,15 +10,17 @@ What it is not: a sandbox for untrusted provider code, a human in the live reque
 
 ## Quickstart (Docker Compose)
 
-From the **repo root**. You need Docker and an [OpenRouter](https://openrouter.ai/) API key (invokes run an LLM arbiter).
+From the **repo root**. You need Docker. Invokes run an LLM arbiter through **LiteLLM** (default: [OpenRouter](https://openrouter.ai/); OpenAI, Anthropic, and other LiteLLM backends work too).
 
-1. Put the key in a gitignored **repo-root** `.env` (not `deploy/.env` — Compose’s project directory is `deploy/`, so it loads `../.env`):
+1. Put the provider key in a gitignored **repo-root** `.env` (not `deploy/.env` — Compose’s project directory is `deploy/`, so it loads `../.env`):
 
 ```
 OPENROUTER_API_KEY=sk-or-...
 ```
 
-2. Copy the example config and edit if you want (admins, `arbiter_model`). Keep the `openrouter/...` model prefix so LiteLLM talks to OpenRouter. Default login is `admin` / `changeme`.
+For OpenAI or Anthropic instead, set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` and change `arbiter.model` (see Arbiter / LLM provider). LiteLLM reads those names from the environment; do not also set `OPENROUTER_API_KEY` unless you still use an `openrouter/` model.
+
+2. Copy the example config and edit if you want (admins, `arbiter.model`). The example model is `openrouter/openai/gpt-4o-mini` so LiteLLM uses OpenRouter. Default login is `admin` / `changeme`.
 
 ```
 copy config.yaml.example config.yaml
@@ -51,7 +53,7 @@ Sign in at `/admin` (`admin` / `changeme`). Change that password before anything
    - **post** — HTTP POST of the request JSON to a URL you control.
    - **exec** — runs a command **inside the DMZ process environment**. A host script is not visible to a container-only DMZ. Treat `exec` as privileged: the command inherits the DMZ’s files and environment.
 3. **Publish an action** — The provider `POST`s `/v2/actions` with a schema package (the provider skill describes the shape). In **Directory**, **approve** the submitted version so it becomes active.
-4. **Enroll and invoke** — The client `POST`s `/v2/actions/{id}/enroll`. **Approve** the enrollment. Then `POST /v2/actions/{id}/invoke`. Invokes need a live arbiter (`OPENROUTER_API_KEY`).
+4. **Enroll and invoke** — The client `POST`s `/v2/actions/{id}/enroll`. **Approve** the enrollment. Then `POST /v2/actions/{id}/invoke`. Invokes need a live arbiter (LiteLLM credentials in `.env`).
 5. **Logs** — **Request log** is each invoke (payloads, arbiter verdicts, provider attempts). **Audit trail** is approvals, enrollments, and key issuance.
 
 A scripted CRM sample (register / enroll / client without an LLM driving `/v2`) is in [`examples/README.md`](examples/README.md).
@@ -60,7 +62,7 @@ A scripted CRM sample (register / enroll / client without an LLM driving `/v2`) 
 
 Path: environment `DMZ_CONFIG`, else `./config.yaml`. Precedence: **environment variables → YAML → code defaults**. Unknown YAML keys crash startup. Every key, nested `arbiter:` / `dispatch:` sections, and env names are listed in [`config.yaml.example`](config.yaml.example).
 
-Keep secrets out of git: `.env` and `config.yaml` are gitignored. Put `OPENROUTER_API_KEY` in `.env`. Prefer hashed admin passwords (`pbkdf2:sha256:...`) in production. Set `secret_key` / `FLASK_SECRET_KEY`, `flask_debug: false`, and `session_cookie_secure: true` when the console is on HTTPS.
+Keep secrets out of git: `.env` and `config.yaml` are gitignored. Put the arbiter provider key in `.env` (`OPENROUTER_API_KEY` for the default model, or the LiteLLM env name for another backend). Prefer hashed admin passwords (`pbkdf2:sha256:...`) in production. Set `secret_key` / `FLASK_SECRET_KEY`, `flask_debug: false`, and `session_cookie_secure: true` when the console is on HTTPS.
 
 Behind a reverse proxy, set `public_base_url` (no trailing slash) so onboarding prompts use the public origin.
 
@@ -70,11 +72,19 @@ Compose file: [`deploy/docker-compose.yml`](deploy/docker-compose.yml). Image en
 
 The request log and dispatch framings grow without bound; watch disk. Delivery headers live in the database and are not returned on `/v2`.
 
-### Arbiter
+### Arbiter / LLM provider
 
-Invokes call LiteLLM → OpenRouter. Use an `openrouter/` model prefix in config. A bad key or unknown model often shows up as `500 internal_error` on invoke. Optional prompt overrides in config replace the **entire** built-in prompt, including invariant clauses — leave them empty unless you mean that.
+Invokes call **LiteLLM**. The model id (`arbiter.model` in YAML, or `ARBITER_MODEL`) selects the backend. Examples:
 
-Live arbiter smoke (not in the offline pytest suite): `OPENROUTER_API_KEY=... python scripts/smoke_live.py`.
+| Model id | Key in `.env` |
+|---|---|
+| `openrouter/openai/gpt-4o-mini` (default example) | `OPENROUTER_API_KEY` |
+| `openai/gpt-4o-mini` | `OPENAI_API_KEY` |
+| `anthropic/claude-sonnet-4-5` | `ANTHROPIC_API_KEY` |
+
+LiteLLM’s [provider list](https://docs.litellm.ai/docs/providers) has the rest. Optional `arbiter.api_key` / `ARBITER_API_KEY` forces a key on the LiteLLM call; leave it unset so LiteLLM uses the native env var for that model. A bad key or unknown model often shows up as `500 internal_error` on invoke. Optional prompt overrides in config replace the **entire** built-in prompt, including invariant clauses — leave them empty unless you mean that.
+
+Live arbiter smoke (not in the offline pytest suite): `python scripts/smoke_live.py` with the same `.env` keys as production.
 
 ### Local development
 

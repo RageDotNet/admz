@@ -11,7 +11,7 @@ services:
       DMZ_DATABASE_URL: sqlite:////var/lib/dmz/dmz.db
       FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:-dev-secret-change-me}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    # Repo-root `.env` (OPENROUTER_API_KEY, ARBITER_MODEL, …). Do not set
+    # Repo-root `.env` (OPENROUTER_API_KEY, OPENAI_API_KEY, ARBITER_MODEL, …). Do not set
     # those keys under `environment` with `${VAR:-default}` — compose
     # interpolates from `deploy/` (not the repo `.env`) and a default like
     # `openai/gpt-4o-mini` would override both `.env` and config.yaml.

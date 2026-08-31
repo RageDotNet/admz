@@ -22,7 +22,7 @@ def _write(tmp_path: Path, text: str) -> str:
 def _clean_env(monkeypatch):
     for var in (
         "DMZ_CONFIG", "DMZ_DATABASE_URL", "FLASK_SECRET_KEY", "DMZ_APP_PORT",
-        "ARBITER_MODEL", "OPENROUTER_API_KEY", "ARBITER_TIMEOUT",
+        "ARBITER_MODEL", "OPENROUTER_API_KEY", "ARBITER_API_KEY", "ARBITER_TIMEOUT",
         "DMZ_DISPATCH_RETRIES", "DMZ_DISPATCH_TIMEOUT", "LOG_LEVEL",
         "DMZ_KEY_PAYLOAD_CHARS", "DMZ_PUBLIC_BASE_URL",
     ):
@@ -53,6 +53,22 @@ def test_env_overrides_yaml(tmp_path, monkeypatch):
     assert cfg.dispatch_retries == 7  # env beats YAML
     assert cfg.arbiter_model == "env/model"
     assert cfg.dispatch_timeout == 180  # YAML absent → code default
+
+
+def test_openrouter_key_does_not_fill_arbiter_api_key(tmp_path, monkeypatch):
+    path = _write(tmp_path, GOOD_ADMIN)
+    monkeypatch.setenv("DMZ_CONFIG", path)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-should-not-map")
+    cfg = load_config()
+    assert cfg.arbiter_api_key == ""
+
+
+def test_arbiter_api_key_from_env(tmp_path, monkeypatch):
+    path = _write(tmp_path, GOOD_ADMIN)
+    monkeypatch.setenv("DMZ_CONFIG", path)
+    monkeypatch.setenv("ARBITER_API_KEY", "forced-key")
+    cfg = load_config()
+    assert cfg.arbiter_api_key == "forced-key"
 
 
 def test_yaml_overrides_defaults(tmp_path, monkeypatch):
