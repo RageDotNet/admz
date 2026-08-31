@@ -2,7 +2,7 @@
 
 **Agent DMZ** (`admz`) is a directory-driven broker between **untrusted client agents** and **trusted provider agents**. The two sides never talk directly. Clients discover actions, request enrollment, and invoke; providers publish versioned actions; an LLM arbiter plus JSON Schema check every request and response; humans approve enrollments and action versions in the admin console.
 
-See [Why We Built This](docs/why-we-built-this.md) for the problem statement. Normative v2 behavior is in the [PRD index](docs/index-v2.md).
+See [Why We Built This](docs/why-we-built-this.md) for the problem statement. Normative v2 behavior is in the [PRD index](docs/index-v2.md). Licensed [MIT](LICENSE).
 
 ## Quickstart (Docker Compose)
 
