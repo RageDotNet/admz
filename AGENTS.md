@@ -1,6 +1,6 @@
 # Agent notes
 
-**Agent DMZ** (`admz`) brokers untrusted client agents and trusted provider agents. Humans use the admin console; agents use `/v2`. Package lives in `src/admz/`. Humans start at [README.md](README.md); normative behavior is [docs/index-v2.md](docs/index-v2.md). Licensed MIT ([LICENSE](LICENSE)).
+**Agent DMZ** (`admz`) brokers untrusted client agents and trusted provider agents. Humans use the admin console; agents use `/v2`. Package lives in `src/admz/`. Humans start at [README.md](README.md); how to send a PR is [CONTRIBUTING.md](CONTRIBUTING.md). Normative behavior is [docs/index-v2.md](docs/index-v2.md). Licensed MIT ([LICENSE](LICENSE)).
 
 ## Commands
 

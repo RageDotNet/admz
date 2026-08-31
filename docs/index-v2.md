@@ -5,7 +5,7 @@ The v2 documentation set. Each PRD is standalone; cross-references point to comp
 | Document | Covers |
 |---|---|
 | [`why-we-built-this.md`](why-we-built-this.md) | Positioning: external vs internal agent domains, lethal trifecta, benefits, human vs agent use, alternatives |
-| [`llm-dmz-overview-slide-deck.html`](llm-dmz-overview-slide-deck.html) | Overview slide deck for technical leaders (trifecta, mitigations, console walkthrough) |
+| [`agent-dmz-overview-slide-deck.html`](agent-dmz-overview-slide-deck.html) | Overview slide deck for technical leaders (trifecta, mitigations, console walkthrough) |
 | [`system-prd-v2.md`](system-prd-v2.md) | Overall system: goals, terms, request pipeline, `/skill`, admin capabilities, non-functional requirements |
 | [`rest-api-v2.md`](rest-api-v2.md) | Agent-facing REST API: auth, error shapes, actions/enroll/invoke endpoints |
 | [`dispatch-v2.md`](dispatch-v2.md) | DMZ-to-provider delivery: delivery configuration, `post`/`exec`/`completions` protocols, timeouts and retries |

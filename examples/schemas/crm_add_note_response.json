@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://llmdmz.example/schemas/crm-add-note-response.json",
+  "$id": "https://admz.example/schemas/crm-add-note-response.json",
   "title": "CRM Add Note Response",
   "description": "The CRM contact record after the note was appended.",
   "type": "object",

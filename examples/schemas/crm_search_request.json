@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://llmdmz.example/schemas/crm-search-request.json",
+  "$id": "https://admz.example/schemas/crm-search-request.json",
   "title": "CRM Search Request",
   "description": "Query CRM contacts by customer name and/or company name.",
   "type": "object",

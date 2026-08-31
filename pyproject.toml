@@ -7,6 +7,9 @@ name = "admz"
 version = "2.0.0"
 description = "Agent DMZ v2 — directory-driven broker between untrusted LLM agents"
 license = "MIT"
+authors = [
+    { name = "Greg Retkowski", email = "greg@rage.net" },
+]
 # Deployment targets Python 3.12 (docs/infra-v2.md); local dev venv is 3.11, so
 # the floor is 3.11 while CI/Docker images pin 3.12.
 requires-python = ">=3.11,<3.14"

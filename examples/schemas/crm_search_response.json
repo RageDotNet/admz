@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://llmdmz.example/schemas/crm-search-response.json",
+  "$id": "https://admz.example/schemas/crm-search-response.json",
   "title": "CRM Search Response",
   "description": "CRM contact records matching the search request, or an empty list if none matched.",
   "type": "object",

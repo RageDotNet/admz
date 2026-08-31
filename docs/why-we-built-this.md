@@ -2,7 +2,7 @@
 
 Agent DMZ is a **directory-driven broker where agents on opposite sides of a trust boundary meet on validated, arbitrated, human-approved terms.**
 
-This document explains the problem that motivated the system, what it addresses, who uses it, and how it relates to adjacent approaches such as sandboxes, session policy engines, and MCP proxies. Product requirements live in [`system-prd-v2.md`](system-prd-v2.md). A presentation of this overview is in [`llm-dmz-overview-slide-deck.html`](llm-dmz-overview-slide-deck.html); the system-design deck is [`agent-dmz-slide-deck.html`](agent-dmz-slide-deck.html).
+This document explains the problem that motivated the system, what it addresses, who uses it, and how it relates to adjacent approaches such as sandboxes, session policy engines, and MCP proxies. Product requirements live in [`system-prd-v2.md`](system-prd-v2.md). A presentation of this overview is in [`agent-dmz-overview-slide-deck.html`](agent-dmz-overview-slide-deck.html); the system-design deck is [`agent-dmz-slide-deck.html`](agent-dmz-slide-deck.html).
 
 ---
 
@@ -197,7 +197,7 @@ Choose a DMZ when **external-access agents** and **internal confidential-system 
 
 In one sentence: a directory-driven broker where agents on opposite sides of a trust boundary meet on validated, arbitrated, human-approved terms.
 
-For normative behavior and APIs, start with [`system-prd-v2.md`](system-prd-v2.md) and the [v2 PRD index](index-v2.md). For this overview as slides, see [`llm-dmz-overview-slide-deck.html`](llm-dmz-overview-slide-deck.html). For a system-design walkthrough, see [`agent-dmz-slide-deck.html`](agent-dmz-slide-deck.html).
+For normative behavior and APIs, start with [`system-prd-v2.md`](system-prd-v2.md) and the [v2 PRD index](index-v2.md). For this overview as slides, see [`agent-dmz-overview-slide-deck.html`](agent-dmz-overview-slide-deck.html). For a system-design walkthrough, see [`agent-dmz-slide-deck.html`](agent-dmz-slide-deck.html).
 
 ---
 
