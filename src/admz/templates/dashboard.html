@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory — Agent DMZ</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg', v=2) }}" type="image/svg+xml">
-  <script>
+  <script nonce="{{ csp_nonce }}">
     // Bootstrap color-mode init (before paint): honour saved or system preference.
     if (localStorage.getItem("bs-theme") === "dark" ||
         (!localStorage.getItem("bs-theme") &&
@@ -92,7 +92,7 @@
     };
   </script>
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-5.3.3.min.css') }}">
-  <script type="module" src="{{ url_for('static', filename='vendor/datastar-1.0.2.js') }}"></script>
+  <script type="module" nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='vendor/datastar-1.0.2.js') }}"></script>
 </head>
 <body>
 <div

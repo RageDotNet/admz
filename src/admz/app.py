@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import os
+import secrets
 
-from flask import Flask, request, send_from_directory
+from flask import Flask, g, request, send_from_directory
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from admz.core.config import Config, load_config
@@ -55,6 +56,29 @@ def create_app(config: Config | None = None) -> Flask:
     from admz.admin import bp as admin_bp
 
     app.register_blueprint(admin_bp)
+
+    @app.before_request
+    def _csp_nonce() -> None:
+        g.csp_nonce = secrets.token_urlsafe(16)
+
+    @app.context_processor
+    def _csp_nonce_ctx() -> dict[str, str]:
+        return {"csp_nonce": getattr(g, "csp_nonce", "")}
+
+    @app.after_request
+    def _security_headers(response):
+        nonce = getattr(g, "csp_nonce", "")
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'none'; "
+            f"script-src 'self' 'nonce-{nonce}'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self'; "
+            "connect-src 'self'; "
+            "form-action 'self'; "
+            "base-uri 'self'; "
+            "frame-ancestors 'none'"
+        )
+        return response
 
     @app.get("/favicon.ico")
     def favicon():

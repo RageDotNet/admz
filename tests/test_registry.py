@@ -139,3 +139,23 @@ def test_runtime_payload_validation():
     assert validate_payload(schema, {}) != []  # anyOf requires name or company
     errors = validate_payload(schema, {"name": 123, "extra": True})
     assert len(errors) == 2  # wrong type + additionalProperties
+
+
+def test_runtime_allows_extra_when_additional_properties_omitted():
+    schema = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+    }
+    assert validate_payload(schema, {"name": "Ada", "extra": True}) == []
+
+
+def test_runtime_enforces_nested_additional_properties_false():
+    schema = validate_submission(CRM_SEARCH).normalized["response_schema"]
+    payload = {
+        "contacts": [
+            {"name": "Ada", "secret": "should-not-pass"},
+        ]
+    }
+    errors = validate_payload(schema, payload)
+    assert errors
+    assert any("additional" in e.lower() or "unexpected" in e.lower() for e in errors)

@@ -126,6 +126,61 @@ def validate_submission(body: Any) -> SubmissionValidation:
     return result
 
 
+def _resolve_local_ref(schema: dict[str, Any], root: dict[str, Any]) -> dict[str, Any]:
+    """Follow a local ``#/...`` ``$ref`` so nested ``additionalProperties`` is visible."""
+    ref = schema.get("$ref")
+    if not isinstance(ref, str) or not ref.startswith("#/"):
+        return schema
+    node: Any = root
+    for part in ref[2:].split("/"):
+        part = part.replace("~1", "/").replace("~0", "~")
+        if not isinstance(node, dict) or part not in node:
+            return schema
+        node = node[part]
+    if not isinstance(node, dict):
+        return schema
+    extra = {k: v for k, v in schema.items() if k != "$ref"}
+    return {**node, **extra} if extra else node
+
+
+def _additional_property_violations(
+    schema: Any, instance: Any, *, root: dict[str, Any] | None = None
+) -> list[str]:
+    """Reject extra object keys wherever the schema sets additionalProperties false.
+
+    jsonschema already reports many of these; this walk covers nested ``$ref``
+    targets so a declared ``false`` is never a no-op.
+    """
+    if not isinstance(schema, dict):
+        return []
+    root = root if root is not None else schema
+    schema = _resolve_local_ref(schema, root)
+    found: list[str] = []
+    if schema.get("additionalProperties") is False and isinstance(instance, dict):
+        allowed = set(schema.get("properties") or {})
+        patterns = [str(p) for p in (schema.get("patternProperties") or {})]
+        for key in instance:
+            if key in allowed:
+                continue
+            if any(re.fullmatch(pat, key) for pat in patterns):
+                continue
+            found.append(f"Additional properties are not allowed ({key!r} was unexpected)")
+    if isinstance(instance, dict):
+        for key, sub in (schema.get("properties") or {}).items():
+            if key in instance:
+                found.extend(_additional_property_violations(sub, instance[key], root=root))
+        for pat, sub in (schema.get("patternProperties") or {}).items():
+            for key, val in instance.items():
+                if re.fullmatch(str(pat), key):
+                    found.extend(_additional_property_violations(sub, val, root=root))
+    items = schema.get("items")
+    if isinstance(instance, list) and isinstance(items, dict):
+        for item in instance:
+            found.extend(_additional_property_violations(items, item, root=root))
+    for sub in schema.get("allOf") or []:
+        found.extend(_additional_property_violations(sub, instance, root=root))
+    return found
+
 
 def compile_schemas(submission: dict[str, Any]) -> list[ValidationIssue]:
     """Compile request/response schemas with jsonschema + dydantic (422 on failure).
@@ -158,6 +213,10 @@ def compile_schemas(submission: dict[str, Any]) -> list[ValidationIssue]:
 def validate_payload(schema: dict[str, Any], payload: Any) -> list[str]:
     """Runtime structural validation of an invoke payload; returns error strings."""
     validator = jsonschema.Draft202012Validator(schema)
-    return [e.message for e in sorted(validator.iter_errors(payload), key=lambda e: e.path)]
+    errors = [e.message for e in sorted(validator.iter_errors(payload), key=lambda e: e.path)]
+    for msg in _additional_property_violations(schema, payload):
+        if msg not in errors:
+            errors.append(msg)
+    return errors
 
 

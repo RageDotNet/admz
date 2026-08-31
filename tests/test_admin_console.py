@@ -83,6 +83,17 @@ class TestAuthMatrix:  # T4.4
         resp = client_http.get("/admin")
         assert resp.status_code == 302 and "/admin/login" in resp.headers["Location"]
 
+    def test_login_page_sends_csp(self, client_http):
+        resp = client_http.get("/admin/login")
+        assert resp.status_code == 200
+        csp = resp.headers.get("Content-Security-Policy", "")
+        assert "default-src 'none'" in csp
+        assert "frame-ancestors 'none'" in csp
+        assert "script-src 'self'" in csp
+        match = re.search(r"nonce-([A-Za-z0-9_-]+)", csp)
+        assert match
+        assert f'nonce="{match.group(1)}"' in resp.get_data(as_text=True)
+
     def test_fragment_401(self, client_http):
         assert client_http.get("/admin/partials/stats").status_code == 401
 
