@@ -8,20 +8,19 @@ You can run the same commands from the repo root as `python examples/crm_provide
 
 ## Environment
 
-Set these in the shell before running commands (cwd can be `examples/` or the repo root).
+The script loads the **repo-root** `.env` (parent of `examples/`) via python-dotenv, regardless of cwd. Real environment variables still win. Put the reveal-once admin keys there so you do not edit this script when a key is reissued.
 
 | Variable | Purpose | Default |
 |---|---|---|
 | `DMZ_BASE_URL` | DMZ origin | `http://127.0.0.1:8000` |
-| `DMZ_PROVIDER_KEY` | Bearer key of a **provider** agent (from the admin console, reveal-once) | a placeholder in `crm_provider.py` — replace it |
-| `DMZ_CLIENT_KEY` | Bearer key of a **client** agent (`enroll` / `client`) | same as provider key if that agent is both |
+| `DMZ_PROVIDER_KEY` | Bearer key of a **provider** agent (from the admin console, reveal-once) | required for `register` / `update` |
+| `DMZ_CLIENT_KEY` | Bearer key of a **client** agent (`enroll` / `client`) | same as `DMZ_PROVIDER_KEY` if unset |
 
-Example (PowerShell):
+Example repo-root `.env` (gitignored):
 
 ```
-$env:DMZ_BASE_URL = "http://127.0.0.1:8000"
-$env:DMZ_PROVIDER_KEY = "dmz_...."
-$env:DMZ_CLIENT_KEY = "dmz_...."
+DMZ_PROVIDER_KEY=dmz_....
+DMZ_CLIENT_KEY=dmz_....
 ```
 
 ## One-time setup in the admin console

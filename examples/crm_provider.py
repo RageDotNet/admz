@@ -45,16 +45,23 @@ from pathlib import Path
 from typing import Any
 
 # Allow `python examples/crm_provider.py` from the repo root.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_EXAMPLES_DIR = Path(__file__).resolve().parent
+_REPO_ROOT = _EXAMPLES_DIR.parent
+sys.path.insert(0, str(_EXAMPLES_DIR))
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(_REPO_ROOT / ".env")
+except ImportError:
+    pass
 
 from crmtool import add_contact_note, search_contacts
 
-# Provider bearer key (agent must carry the provider capability). Override
-# with DMZ_PROVIDER_KEY when the key is reissued.
-PROVIDER_KEY = os.getenv("DMZ_PROVIDER_KEY", "dmz_9P743qIGQaCzfHrm")
-# Client-capability key used by `enroll` and `client` (may be the same agent
-# if it carries both flags; override with DMZ_CLIENT_KEY).
-CLIENT_KEY = os.getenv("DMZ_CLIENT_KEY", PROVIDER_KEY)
+# Bearer keys from the admin console (reveal-once). Put them in the repo-root
+# `.env` as DMZ_PROVIDER_KEY / DMZ_CLIENT_KEY so a reissued key is not a code change.
+PROVIDER_KEY = os.getenv("DMZ_PROVIDER_KEY", "")
+CLIENT_KEY = os.getenv("DMZ_CLIENT_KEY") or PROVIDER_KEY
 DMZ_BASE_URL = os.getenv("DMZ_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
 # Always the directory beside this file — not cwd — so register/update work
@@ -155,8 +162,23 @@ ACTION_PACKAGES = [
 ]
 
 
+def _require_keys(*, client: bool = False) -> int | None:
+    """Return an exit code if the needed bearer key is missing."""
+    needed = CLIENT_KEY if client else PROVIDER_KEY
+    var = "DMZ_CLIENT_KEY or DMZ_PROVIDER_KEY" if client else "DMZ_PROVIDER_KEY"
+    if needed:
+        return None
+    print(
+        f"Set {var} in {_REPO_ROOT / '.env'} (or the environment).",
+        file=sys.stderr,
+    )
+    return 2
+
+
 def register() -> int:
     """POST each schema package to /v2/actions with the provider key."""
+    if (rc := _require_keys()) is not None:
+        return rc
     failures = 0
     for package in ACTION_PACKAGES:
         req = urllib.request.Request(
@@ -237,6 +259,8 @@ def _report(label: str, status: int, body: Any, ok: tuple[int, ...] = (200, 201)
 
 def update() -> int:
     """PUT each schema package to /v2/actions/{id}: submits a NEW pending version."""
+    if (rc := _require_keys()) is not None:
+        return rc
     failures = 0
     for package in ACTION_PACKAGES:
         status, body, _ = _api("PUT", f"/v2/actions/{package['id']}", package)
@@ -254,6 +278,8 @@ def update() -> int:
 
 def enroll(pattern: str = "crm") -> int:
     """As a client, request enrollment in every directory action matching `pattern`."""
+    if (rc := _require_keys(client=True)) is not None:
+        return rc
     status, body, _ = _api("GET", "/v2/actions", key=CLIENT_KEY)
     items = body.get("items") if isinstance(body, dict) else None
     if status != 200 or not isinstance(items, list):
@@ -286,6 +312,8 @@ def client_invoke(action_id: str, payload_json: str | None) -> int:
 
     The request payload is the argument if given, else read from stdin.
     """
+    if (rc := _require_keys(client=True)) is not None:
+        return rc
     raw = payload_json if payload_json is not None else sys.stdin.read()
     # Convenience: if the argument names an existing file, read the JSON from it.
     if payload_json is not None:
