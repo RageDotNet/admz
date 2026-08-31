@@ -1,0 +1,64 @@
+# Copy to config.yaml (or point DMZ_CONFIG at another path).
+# Precedence, highest wins: environment variables → this file → code defaults.
+# Unknown top-level keys crash startup. Empty arbiter prompt strings mean
+# "use the built-in prompt" (an override replaces the built-in entirely).
+#
+# Env equivalents (set these instead of YAML when you prefer):
+#   DMZ_DATABASE_URL, FLASK_SECRET_KEY, DMZ_APP_PORT, FLASK_DEBUG, LOG_LEVEL,
+#   ARBITER_MODEL, OPENROUTER_API_KEY, ARBITER_TIMEOUT, ARBITER_MAX_TOKENS,
+#   ARBITER_TEMPERATURE, DMZ_DISPATCH_RETRIES, DMZ_DISPATCH_TIMEOUT,
+#   DMZ_KEY_PAYLOAD_CHARS, DMZ_PUBLIC_BASE_URL
+
+# At least one admin is required. Password may be plaintext (dev) or a
+# werkzeug hash (pbkdf2:sha256:... / scrypt: / argon2:). token is an optional
+# admin API bearer (dmzadm_...); omit or null if unused.
+admins:
+  - username: admin
+    password: "changeme"  # replace with a pbkdf2:sha256 hash in production
+    token: null
+  # - username: reviewer
+  #   password: "pbkdf2:sha256:600000$salt$hash"
+  #   token: "dmzadm_replace-me"
+
+secret_key: "dev-secret-change-me"  # FLASK_SECRET_KEY; empty warns, set in production
+database_url: sqlite:///data/dmz.db  # SQLAlchemy DSN; e.g. postgresql+psycopg://user:pass@host/db
+app_port: 8000  # bind port for `dmz-serve` (Compose maps the host port via DMZ_APP_PORT)
+flask_debug: true  # false in production
+log_level: INFO  # DEBUG | INFO | WARNING | ERROR | CRITICAL
+session_cookie_secure: false  # true when the admin console is served over HTTPS
+
+# Public origin for skill URLs in the agent onboarding prompt (no trailing slash).
+# Leave empty to derive from the incoming request.
+public_base_url: ""  # e.g. "https://dmz.example.com"
+
+# Agent key body length: random base64url chars before the 2-char checksum
+# (14–128; default 14 → dmz_ + 16).
+key_payload_chars: 14
+
+# Nested `arbiter:` keys map to arbiter_*; you can also set arbiter_model etc. at the top level.
+# Keep an `openrouter/` prefix so LiteLLM talks to OpenRouter.
+# Do not put the API key here — use OPENROUTER_API_KEY in a gitignored .env.
+arbiter:
+  model: "openrouter/openai/gpt-4o-mini"
+  # api_key: ""  # prefer OPENROUTER_API_KEY
+  timeout: 30  # seconds per arbiter call
+  max_tokens: 512
+  temperature: 0.0
+
+# Optional full replacements of the built-in arbiter texts. Omit or "" to keep
+# defaults. A non-empty value replaces the whole prompt, including invariant
+# clauses (verdict JSON shape, injection refusal).
+# arbiter_request_prompt: |
+#   You are the security arbiter ...
+# arbiter_response_prompt: |
+#   You are the security arbiter ...
+# arbiter_injection_focus: |
+#   Extra request-side screening emphasis ...
+# arbiter_exfiltration_focus: |
+#   Extra response-side screening emphasis ...
+
+# Nested `dispatch:` keys map to dispatch_*. Per-provider delivery config can
+# override these for a single agent.
+dispatch:
+  retries: 2
+  timeout: 180  # seconds for provider delivery

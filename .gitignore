@@ -9,3 +9,4 @@ __pycache__/
 data/
 emails/
 emails_out/
+config.yaml
