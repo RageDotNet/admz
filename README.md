@@ -4,6 +4,8 @@ If you run AI agents that talk to the **outside world** (email, chat, the web) a
 
 Use it when you want external and internal agents to **collaborate without talking directly**: clients discover named **actions**, request **enrollment**, and **invoke**; providers publish versioned JSON Schema contracts; an LLM **arbiter** plus schema checks every request and response; humans approve what is allowed *before* traffic runs. You get a contract-first API agents can call without an SDK, least-privilege access you can revoke, and one audit trail of what crossed the boundary.
 
+![External agents request through Agent DMZ; validated responses return. The DMZ dispatches to internal providers and checks their replies.](docs/img/2026-08-31_11-29.png)
+
 What it is not: a sandbox for untrusted provider code, a human in the live request path, or a way to merge internet reach and confidential systems into a single agent. Longer positioning is in [Why We Built This](docs/why-we-built-this.md). Normative behavior is the [PRD index](docs/index-v2.md). Licensed [MIT](LICENSE). [Contributing](CONTRIBUTING.md). [Security reports](SECURITY.md).
 
 ## Quickstart (Docker Compose)
