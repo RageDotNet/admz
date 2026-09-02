@@ -372,7 +372,11 @@ def csrf_token() -> str:
 # --- T4.6: multi-patch SSE merge responses (#25) -------------------------------
 
 
-def sse_merge(patches: list[tuple[str, str]], remove_signals: list[str] | None = None) -> Response:
+def sse_merge(
+    patches: list[tuple[str, str]],
+    remove_signals: list[str] | None = None,
+    signals: dict[str, Any] | None = None,
+) -> Response:
     """Datastar SSE merge response: one event per (selector, html) patch.
 
     Event formatting is delegated to the official ``datastar-py`` SDK
@@ -396,6 +400,8 @@ def sse_merge(patches: list[tuple[str, str]], remove_signals: list[str] | None =
         SSE.patch_elements(html, selector=selector, mode=ElementPatchMode.INNER)
         for selector, html in patches
     )
+    if signals:
+        body += SSE.patch_signals(signals)
     response = Response(body, content_type="text/event-stream; charset=utf-8")
     response.headers["Cache-Control"] = "no-cache"
     return response
@@ -466,7 +472,13 @@ def _db():
     return session_scope(current_app)
 
 
-def _render_partial(template: str, target: str | None = None, remove_signals: list[str] | None = None, **ctx):
+def _render_partial(
+    template: str,
+    target: str | None = None,
+    remove_signals: list[str] | None = None,
+    signals: dict[str, Any] | None = None,
+    **ctx,
+):
     """Render a partial; when a CSS selector is given, wrap as a Datastar SSE
     merge response so the browser patches it into that target element.
 
@@ -476,7 +488,9 @@ def _render_partial(template: str, target: str | None = None, remove_signals: li
     """
     html = render_template(template, csrf_token=csrf_token(), **ctx)
     if target is not None:
-        return sse_merge([(target, html)], remove_signals=remove_signals)
+        return sse_merge(
+            [(target, html)], remove_signals=remove_signals, signals=signals
+        )
     return html
 
 

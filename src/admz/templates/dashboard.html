@@ -17,7 +17,8 @@
       enrollments: "Enrollments",
       agents: "Agents",
       log: "Request log",
-      audit: "Audit trail"
+      audit: "Audit trail",
+      tools: "Tools"
     };
     window.__adminSetTitle = function (tab) {
       document.title = (window.__adminTabTitles[tab] || "Admin") + " — Agent DMZ";
@@ -99,12 +100,12 @@
   id="admin-root"
   class="container py-4"
   data-attr-aria-busy="$busy > 0"
-  data-on:hashchange__window="$tab = ['directory','enrollments','agents','log','audit'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'directory'; __adminSetTitle($tab)"
+  data-on:hashchange__window="$tab = ['directory','enrollments','agents','log','audit','tools'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'directory'; __adminSetTitle($tab)"
   data-on:datastar-fetch__document="$busy = __adminBusy($busy, evt); $flashError = __adminFlash($flashError, evt)"
 >
 <script nonce="{{ csp_nonce }}">
 (function () {
-  var allowed = ["directory", "enrollments", "agents", "log", "audit"];
+  var allowed = ["directory", "enrollments", "agents", "log", "audit", "tools"];
   var t = (location.hash || "#directory").slice(1);
   if (allowed.indexOf(t) === -1) t = "directory";
   var dark = document.documentElement.getAttribute("data-bs-theme") === "dark";
@@ -173,6 +174,11 @@
        data-attr-class="$tab==='audit' ? 'nav-link active' : 'nav-link'"
        data-attr-aria-selected="$tab==='audit' ? 'true' : 'false'"
        data-on:click="$tab='audit'">Audit trail</a>
+    <a class="nav-link" role="tab" href="#tools" id="tab-tools"
+       aria-controls="tools"
+       data-attr-class="$tab==='tools' ? 'nav-link active' : 'nav-link'"
+       data-attr-aria-selected="$tab==='tools' ? 'true' : 'false'"
+       data-on:click="$tab='tools'">Tools</a>
   </nav>
 
   <section id="directory" role="tabpanel" aria-labelledby="tab-directory" data-show="$tab==='directory'">
@@ -189,6 +195,9 @@
   </section>
   <section id="audit" role="tabpanel" aria-labelledby="tab-audit" data-show="$tab==='audit'">
     <div id="audit-list" data-init="@get('/admin/partials/audit')"></div>
+  </section>
+  <section id="tools" role="tabpanel" aria-labelledby="tab-tools" data-show="$tab==='tools'">
+    <div id="tools-panel" data-init="@get('/admin/partials/tools')"></div>
   </section>
 </div>
 </body>

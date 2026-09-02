@@ -565,12 +565,31 @@ def admin_enroll(action_id: str):
 _DELIVERY_PROTOCOLS = ("post", "exec", "completions")
 _HEADER_ROWS = 5  # matches the 5 client-side header rows in delivery_fields.html
 
-# Every `edit_*` signal delivery_fields.html can declare (sig='edit'). Sent as
-# remove_signals when the agent-detail form is patched so a previous agent's
+# Every `edit_*` signal delivery_fields.html can declare (sig='edit'). Nulled
+# then replaced when the agent-detail form is patched so a previous agent's
 # values don't leak into the next one (signals are a global browser-side store).
 _EDIT_SIGNALS = ["edit_provider", "edit_protocol", "edit_headerRows"] + [
     f"edit_{k}{i}" for i in range(_HEADER_ROWS) for k in ("hk", "hv")
 ]
+
+
+def _delivery_edit_signals(agent: Any) -> dict[str, Any]:
+    """Authoritative Datastar signals for the edit-agent delivery form."""
+    cfg = agent.delivery_config or {}
+    headers = cfg.get("headers") if isinstance(cfg.get("headers"), dict) else {}
+    pairs = [(str(k), str(v)) for k, v in headers.items()]
+    signals: dict[str, Any] = {
+        "edit_provider": bool(agent.is_provider),
+        "edit_protocol": (cfg.get("protocol") or "post"),
+        "edit_headerRows": max(1, len(pairs)),
+    }
+    for i in range(_HEADER_ROWS):
+        if i < len(pairs):
+            signals[f"edit_hk{i}"], signals[f"edit_hv{i}"] = pairs[i]
+        else:
+            signals[f"edit_hk{i}"] = ""
+            signals[f"edit_hv{i}"] = ""
+    return signals
 
 
 def _compose_delivery(data: dict[str, str]) -> dict[str, Any]:
@@ -587,7 +606,14 @@ def _compose_delivery(data: dict[str, str]) -> dict[str, Any]:
     if protocol in ("post", "completions"):
         endpoint = (data.get("endpoint") or "").strip()
         headers: dict[str, str] = {}
-        for i in range(_HEADER_ROWS):
+        raw_rows = (data.get("header_rows") or "").strip()
+        if raw_rows:
+            if not raw_rows.isdigit():
+                abort(400)
+            used_rows = min(_HEADER_ROWS, int(raw_rows))
+        else:
+            used_rows = _HEADER_ROWS
+        for i in range(used_rows):
             key = (data.get(f"header_key_{i}") or "").strip()
             value = (data.get(f"header_value_{i}") or "").strip()
             if key:
@@ -708,8 +734,12 @@ def agent_detail(agent_id: str):
         agent = storage.get_agent(session, agent_id)
         if agent is None:
             abort(404)
-    return _render_partial("partials/agent_detail.html", agent=agent,
-        target="#agent-detail-region", remove_signals=_EDIT_SIGNALS,
+    return _render_partial(
+        "partials/agent_detail.html",
+        agent=agent,
+        target="#agent-detail-region",
+        remove_signals=_EDIT_SIGNALS,
+        signals=_delivery_edit_signals(agent),
     )
 
 
@@ -734,9 +764,54 @@ def agent_edit(agent_id: str):
     # partial's root carries the card's own id, and morphing an element that
     # contains the patch target into that target throws HierarchyRequestError.
     return _render_partial(
-        "partials/agent_detail.html", agent=agent, saved=True, target="#agent-detail-region",
+        "partials/agent_detail.html",
+        agent=agent,
+        saved=True,
+        target="#agent-detail-region",
         remove_signals=_EDIT_SIGNALS,
+        signals=_delivery_edit_signals(agent),
     )
+
+
+def _connection_test_html(result) -> str:
+    return render_template("partials/connection_test.html", result=result)
+
+
+@bp.post("/agents/<agent_id>/test-delivery")
+@admin_required(page=False)
+def agent_test_delivery(agent_id: str):
+    """Probe saved provider delivery settings (not unsaved form edits)."""
+    from admz.dispatch.adapters import (
+        ConnectionTestResult,
+        _default_poster,
+        _default_runner,
+        ping_provider,
+    )
+
+    with _db() as session:
+        agent = storage.get_agent(session, agent_id)
+        if agent is None:
+            abort(404)
+        is_provider = agent.is_provider
+        delivery = dict(agent.delivery_config or {})
+    if not is_provider:
+        result = ConnectionTestResult(ok=False, summary="This agent is not a provider.")
+    elif not delivery:
+        result = ConnectionTestResult(
+            ok=False,
+            summary="No saved delivery settings. Save the form first, then test.",
+        )
+    else:
+        config = current_app.config["DMZ"]
+        poster = current_app.extensions.get("DMZ_POSTER") or _default_poster
+        runner = current_app.extensions.get("DMZ_RUNNER") or _default_runner
+        result = ping_provider(
+            delivery,
+            default_timeout=config.dispatch_timeout,
+            poster=poster,
+            runner=runner,
+        )
+    return sse_merge([("#agent-delivery-test", _connection_test_html(result))])
 
 
 @bp.post("/agents/<agent_id>/revoke-key")
@@ -1038,4 +1113,34 @@ def partial_audit():
             page=page + 1, actor=actor, target_type=target_type, kind=kind, per_page=per_page
         ),
     )
+
+
+# --- Tools tab: arbiter connectivity ------------------------------------------
+
+
+@bp.get("/partials/tools")
+@admin_required(page=False, csrf=False)
+def partial_tools():
+    config = current_app.config["DMZ"]
+    return _render_partial(
+        "partials/tools.html",
+        target="#tools-panel",
+        arbiter_model=config.arbiter_model,
+        arbiter_timeout=config.arbiter_timeout,
+    )
+
+
+@bp.post("/tools/test-arbiter")
+@admin_required(page=False)
+def tools_test_arbiter():
+    from admz.dispatch.adapters import LiteLLMArbiterClient, _litellm_completer, ping_arbiter
+
+    config = current_app.config["DMZ"]
+    completer = current_app.extensions.get("DMZ_COMPLETER") or _litellm_completer
+    arbiter = current_app.extensions.get("DMZ_ARBITER")
+    if isinstance(arbiter, LiteLLMArbiterClient):
+        result = arbiter.ping()
+    else:
+        result = ping_arbiter(config, completer)
+    return sse_merge([("#tools-arbiter-result", _connection_test_html(result))])
 

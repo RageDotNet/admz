@@ -13,6 +13,8 @@ from admz.dispatch.adapters import (
     PostTransport,
     build_structured_framing,
     build_unstructured_framing,
+    ping_arbiter,
+    ping_provider,
 )
 from admz.dispatch.interfaces import (
     ArbiterConfigFault,
@@ -242,3 +244,85 @@ class TestLiteLLMArbiter:
         client = self._client(lambda *a: "I cannot answer that")
         v = client.check(side="request", action_id="a", payload={})
         assert v.approved is False
+
+
+class TestConnectionPing:
+    def test_arbiter_echo_ok(self):
+        token = "admz-ok-feedface"
+
+        def completer(model, system, user, timeout, max_tokens, temperature, api_key=""):
+            assert "feedface" in user
+            return f"  {token}  "
+
+        result = ping_arbiter(make_config(), completer, token=token)
+        assert result.ok is True
+        assert token in result.reply
+
+    def test_arbiter_exception_includes_traceback_and_errno(self):
+        def completer(*a, **k):
+            raise ConnectionRefusedError(111, "Connection refused")
+
+        result = ping_arbiter(make_config(), completer, token="admz-ok-x")
+        assert result.ok is False
+        assert "ConnectionRefusedError" in result.summary
+        assert "Connection refused" in result.summary
+        assert "Traceback" in result.traceback
+        assert "completer" in result.traceback
+
+    def test_arbiter_echo_mismatch(self):
+        result = ping_arbiter(make_config(), lambda *a, **k: "hello", token="admz-ok-nope")
+        assert result.ok is False
+        assert "not in the reply" in result.summary
+        assert result.reply == "hello"
+        assert result.traceback == ""
+
+    def test_completions_provider_ok_and_http_error(self):
+        token = "admz-ok-cafe0001"
+
+        def poster(endpoint, headers, body, timeout):
+            payload = json.loads(body.decode("utf-8"))
+            user = payload["messages"][1]["content"]
+            assert token in user
+            return 200, json.dumps({"choices": [{"message": {"content": token}}]})
+
+        cfg = {
+            "protocol": "completions",
+            "endpoint": "http://127.0.0.1:8090/v1/chat/completions",
+            "model": "crm-provider",
+        }
+        ok = ping_provider(cfg, default_timeout=30, poster=poster, token=token)
+        assert ok.ok is True
+
+        fail = ping_provider(
+            cfg,
+            default_timeout=30,
+            poster=lambda *a: (401, '{"error":"invalid api key"}'),
+            token=token,
+        )
+        assert fail.ok is False
+        assert "HTTP 401" in fail.summary
+        assert "invalid api key" in fail.detail
+        assert fail.traceback == ""
+
+    def test_completions_transport_error(self):
+        def poster(*a, **k):
+            raise TimeoutError("timed out")
+
+        result = ping_provider(
+            {
+                "protocol": "completions",
+                "endpoint": "https://example.invalid/v1/chat/completions",
+                "model": "x",
+            },
+            default_timeout=5,
+            poster=poster,
+            token="admz-ok-t",
+        )
+        assert result.ok is False
+        assert "TimeoutError" in result.summary
+        assert "timed out" in result.traceback
+
+    def test_post_missing_endpoint(self):
+        result = ping_provider({"protocol": "post"}, default_timeout=10, token="admz-ok-z")
+        assert result.ok is False
+        assert "no endpoint" in result.summary.lower()

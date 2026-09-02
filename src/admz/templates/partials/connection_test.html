@@ -1,0 +1,31 @@
+{% if result.ok %}
+<div class="alert alert-success mb-0" role="status">
+  <p class="mb-1 fw-semibold">Connected</p>
+  <p class="mb-0">{{ result.summary }}</p>
+  {% if result.model %}<p class="small mb-0 mt-2">Model: <code>{{ result.model }}</code></p>{% endif %}
+  {% if result.endpoint %}<p class="small mb-0">Endpoint: <code>{{ result.endpoint }}</code></p>{% endif %}
+  {% if result.reply %}
+  <p class="small mb-1 mt-2">Reply</p>
+  <pre class="small bg-success-subtle border rounded p-2 mb-0 overflow-auto" style="max-height: 16rem">{{ result.reply }}</pre>
+  {% endif %}
+</div>
+{% else %}
+<div class="alert alert-danger mb-0" role="alert">
+  <p class="mb-1 fw-semibold">Connection test failed</p>
+  <pre class="small bg-danger-subtle border rounded p-2 mb-0 overflow-auto" style="max-height: 12rem">{{ result.summary }}</pre>
+  {% if result.model %}<p class="small mb-0 mt-2">Model: <code>{{ result.model }}</code></p>{% endif %}
+  {% if result.endpoint %}<p class="small mb-0">Endpoint: <code>{{ result.endpoint }}</code></p>{% endif %}
+  {% if result.reply %}
+  <p class="small mb-1 mt-2">Reply</p>
+  <pre class="small bg-body-tertiary border rounded p-2 mb-0 overflow-auto" style="max-height: 12rem">{{ result.reply }}</pre>
+  {% endif %}
+  {% if result.detail %}
+  <p class="small mb-1 mt-2">Response body / stderr</p>
+  <pre class="small bg-body-tertiary border rounded p-2 mb-0 overflow-auto" style="max-height: 16rem">{{ result.detail }}</pre>
+  {% endif %}
+  {% if result.traceback %}
+  <p class="small mb-1 mt-2">Traceback</p>
+  <pre class="small bg-body-tertiary border rounded p-2 mb-0 overflow-auto" style="max-height: 24rem">{{ result.traceback }}</pre>
+  {% endif %}
+</div>
+{% endif %}

@@ -10,12 +10,16 @@ OPENAI_API_KEY / ANTHROPIC_API_KEY from the environment).
 
 from __future__ import annotations
 
+import errno
 import json
 import logging
+import secrets
 import subprocess  # noqa: S404 — exec transport is a deliberate design decision
+import traceback
 import urllib.error
 import urllib.request
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from admz.core.config import Config
@@ -97,6 +101,311 @@ def _litellm_completer(
         kwargs["api_key"] = api_key
     response = litellm.completion(**kwargs)
     return str(response.choices[0].message.content or "")
+
+
+# --- Connectivity probes (admin console) --------------------------------------
+
+PING_SYSTEM = (
+    "You are a connectivity probe for Agent DMZ. "
+    "Reply with the probe token exactly as given and nothing else."
+)
+_PING_MAX_TOKENS = 64
+
+
+@dataclass(frozen=True)
+class ConnectionTestResult:
+    """Outcome of an admin connectivity probe. Failures keep traceback/detail."""
+
+    ok: bool
+    summary: str
+    reply: str = ""
+    detail: str = ""
+    traceback: str = ""
+    model: str = ""
+    endpoint: str = ""
+
+
+def new_probe_token() -> str:
+    return "admz-ok-" + secrets.token_hex(8)
+
+
+def ping_user_message(token: str) -> str:
+    return f"Repeat this token exactly, with no extra words: {token}"
+
+
+def format_exception_report(exc: BaseException) -> tuple[str, str]:
+    """Human-readable exception chain plus a full traceback (no secrets added)."""
+    chain: list[str] = []
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        name = f"{type(cur).__module__}.{type(cur).__qualname__}"
+        extras: list[str] = []
+        if isinstance(cur, OSError):
+            if cur.errno is not None:
+                extras.append(f"errno={cur.errno}")
+                code = errno.errorcode.get(cur.errno)
+                if code:
+                    extras.append(code)
+            winerror = getattr(cur, "winerror", None)
+            if winerror:
+                extras.append(f"winerror={winerror}")
+        suffix = f" ({', '.join(extras)})" if extras else ""
+        message = str(cur).strip() or "(no message)"
+        chain.append(f"{name}{suffix}: {message}")
+        nxt = cur.__cause__
+        if nxt is None and not cur.__suppress_context__:
+            nxt = cur.__context__
+        cur = nxt
+    summary = "\n".join(chain) if chain else type(exc).__name__
+    tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    return summary, tb
+
+
+def ping_arbiter(
+    config: Config,
+    completer: Completer = _litellm_completer,
+    *,
+    token: str | None = None,
+) -> ConnectionTestResult:
+    """LiteLLM round-trip: ask the configured arbiter model to echo a token."""
+    probe = token or new_probe_token()
+    model = config.arbiter_model
+    try:
+        reply = completer(
+            model,
+            PING_SYSTEM,
+            ping_user_message(probe),
+            config.arbiter_timeout,
+            min(_PING_MAX_TOKENS, config.arbiter_max_tokens),
+            0.0,
+            config.arbiter_api_key,
+        )
+    except Exception as exc:  # noqa: BLE001 — surface the real provider error
+        summary, tb = format_exception_report(exc)
+        return ConnectionTestResult(
+            ok=False,
+            summary=summary,
+            traceback=tb,
+            model=model,
+        )
+    text = reply if isinstance(reply, str) else str(reply)
+    if probe not in text:
+        return ConnectionTestResult(
+            ok=False,
+            summary=(
+                "Arbiter responded, but the probe token was not in the reply. "
+                "The model is reachable; the echo check failed."
+            ),
+            reply=text,
+            model=model,
+        )
+    return ConnectionTestResult(
+        ok=True,
+        summary="Arbiter connection succeeded; the model echoed the probe token.",
+        reply=text,
+        model=model,
+    )
+
+
+def ping_provider(
+    delivery: dict[str, Any],
+    *,
+    default_timeout: int,
+    poster: Poster = _default_poster,
+    runner: Runner = _default_runner,
+    token: str | None = None,
+) -> ConnectionTestResult:
+    """Probe saved delivery settings. Completions: chat echo; post/exec: reachability."""
+    protocol = (delivery.get("protocol") or "post").strip()
+    timeout = int(delivery.get("timeout") or default_timeout)
+    probe = token or new_probe_token()
+    if protocol == "completions":
+        return _ping_completions(delivery, timeout=timeout, poster=poster, probe=probe)
+    if protocol == "exec":
+        return _ping_exec(delivery, timeout=timeout, runner=runner, probe=probe)
+    if protocol == "post":
+        return _ping_post(delivery, timeout=timeout, poster=poster, probe=probe)
+    return ConnectionTestResult(
+        ok=False,
+        summary=f"Unknown delivery protocol {protocol!r}.",
+    )
+
+
+def _ping_completions(
+    delivery: dict[str, Any],
+    *,
+    timeout: int,
+    poster: Poster,
+    probe: str,
+) -> ConnectionTestResult:
+    endpoint = (delivery.get("endpoint") or "").strip()
+    model = (delivery.get("model") or "").strip()
+    if not endpoint:
+        return ConnectionTestResult(
+            ok=False,
+            summary="Saved delivery has no endpoint URL. Save an OpenAI-compatible "
+            "/chat/completions URL first.",
+            model=model,
+        )
+    if not model:
+        return ConnectionTestResult(
+            ok=False,
+            summary="Saved delivery has no model name.",
+            endpoint=endpoint,
+        )
+    headers = {"Content-Type": "application/json"}
+    headers.update(delivery.get("headers") or {})
+    body = json.dumps(
+        {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": PING_SYSTEM},
+                {"role": "user", "content": ping_user_message(probe)},
+            ],
+            "temperature": 0,
+            "max_tokens": _PING_MAX_TOKENS,
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+    try:
+        status, text = poster(endpoint, headers, body, timeout)
+    except Exception as exc:  # noqa: BLE001
+        summary, tb = format_exception_report(exc)
+        return ConnectionTestResult(
+            ok=False,
+            summary=summary,
+            traceback=tb,
+            model=model,
+            endpoint=endpoint,
+        )
+    if status != 200:
+        return ConnectionTestResult(
+            ok=False,
+            summary=f"Provider HTTP {status} from {endpoint}.",
+            detail=text,
+            model=model,
+            endpoint=endpoint,
+        )
+    try:
+        data = json.loads(text)
+        content = data["choices"][0]["message"]["content"]
+    except (json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError):
+        return ConnectionTestResult(
+            ok=False,
+            summary="Provider returned HTTP 200 but not a parseable chat-completions body.",
+            detail=text,
+            model=model,
+            endpoint=endpoint,
+        )
+    if not isinstance(content, str):
+        return ConnectionTestResult(
+            ok=False,
+            summary="Provider completions content is not a string.",
+            detail=text,
+            model=model,
+            endpoint=endpoint,
+        )
+    if probe not in content:
+        return ConnectionTestResult(
+            ok=False,
+            summary=(
+                "Provider responded, but the probe token was not in the reply. "
+                "The endpoint is reachable; the echo check failed."
+            ),
+            reply=content,
+            detail=text,
+            model=model,
+            endpoint=endpoint,
+        )
+    return ConnectionTestResult(
+        ok=True,
+        summary="Provider connection succeeded; the model echoed the probe token.",
+        reply=content,
+        model=model,
+        endpoint=endpoint,
+    )
+
+
+def _ping_post(
+    delivery: dict[str, Any],
+    *,
+    timeout: int,
+    poster: Poster,
+    probe: str,
+) -> ConnectionTestResult:
+    endpoint = (delivery.get("endpoint") or "").strip()
+    if not endpoint:
+        return ConnectionTestResult(
+            ok=False,
+            summary="Saved delivery has no endpoint URL.",
+        )
+    headers = {"Content-Type": "text/plain; charset=utf-8"}
+    headers.update(delivery.get("headers") or {})
+    body = ping_user_message(probe).encode("utf-8")
+    try:
+        status, text = poster(endpoint, headers, body, timeout)
+    except Exception as exc:  # noqa: BLE001
+        summary, tb = format_exception_report(exc)
+        return ConnectionTestResult(
+            ok=False,
+            summary=summary,
+            traceback=tb,
+            endpoint=endpoint,
+        )
+    if status != 200:
+        return ConnectionTestResult(
+            ok=False,
+            summary=f"Provider HTTP {status} from {endpoint}.",
+            detail=text,
+            endpoint=endpoint,
+        )
+    return ConnectionTestResult(
+        ok=True,
+        summary="Provider HTTP POST succeeded (HTTP 200).",
+        reply=text,
+        endpoint=endpoint,
+    )
+
+
+def _ping_exec(
+    delivery: dict[str, Any],
+    *,
+    timeout: int,
+    runner: Runner,
+    probe: str,
+) -> ConnectionTestResult:
+    command = (delivery.get("command") or "").strip()
+    if not command:
+        return ConnectionTestResult(
+            ok=False,
+            summary="Saved delivery has no command.",
+        )
+    try:
+        exit_code, stdout, stderr = runner(command, ping_user_message(probe), timeout)
+    except Exception as exc:  # noqa: BLE001
+        summary, tb = format_exception_report(exc)
+        return ConnectionTestResult(ok=False, summary=summary, traceback=tb)
+    if exit_code == -1 and stderr == "timeout":
+        return ConnectionTestResult(
+            ok=False,
+            summary=f"Provider command timed out after {timeout}s.",
+            detail=stderr,
+        )
+    if exit_code != 0:
+        return ConnectionTestResult(
+            ok=False,
+            summary=f"Provider command exited {exit_code}.",
+            reply=stdout,
+            detail=stderr,
+        )
+    return ConnectionTestResult(
+        ok=True,
+        summary="Provider command exited 0.",
+        reply=stdout,
+        detail=stderr,
+    )
 
 
 # --- Framing builders (dispatch-v2.md "Input framing") ------------------------
@@ -192,6 +501,10 @@ class LiteLLMArbiterClient:
                 raise ArbiterConfigFault(f"arbiter configuration fault: {summary}") from exc
             raise ArbiterTransportError(f"arbiter transport failure: {summary}") from exc
         return parse_verdict(reply)
+
+    def ping(self, *, token: str | None = None) -> ConnectionTestResult:
+        """Admin connectivity probe; does not use the security-arbiter prompts."""
+        return ping_arbiter(self._config, self._completer, token=token)
 
 
 # --- T3.7-T3.9: provider transports ------------------------------------------

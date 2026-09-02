@@ -31,11 +31,14 @@ EXPECTED_ROUTES = {
     ("POST", "/admin/agents"),
     ("GET", "/admin/agents/<agent_id>"),
     ("POST", "/admin/agents/<agent_id>"),
+    ("POST", "/admin/agents/<agent_id>/test-delivery"),
     ("POST", "/admin/agents/<agent_id>/revoke-key"),
     ("POST", "/admin/agents/<agent_id>/new-key"),
     ("GET", "/admin/partials/log"),
     ("GET", "/admin/partials/request/<request_id>"),
     ("GET", "/admin/partials/audit"),
+    ("GET", "/admin/partials/tools"),
+    ("POST", "/admin/tools/test-arbiter"),
 }
 
 
@@ -477,6 +480,15 @@ class TestRevealOnce:  # T4.18
         assert '"edit_hk0":null' in detail
         assert "super-secret-provider-token" in detail
         assert "secret.example" in detail
+        assert 'name="header_key_0"' in detail
+        assert 'value="Authorization"' in detail
+        assert 'name="header_value_0"' in detail
+        assert 'value="Bearer super-secret-provider-token"' in detail
+        # After the HTML merge, signals are set so data-bind matches saved headers.
+        assert '"edit_hk0":"Authorization"' in detail or '"edit_hk0": "Authorization"' in detail
+        assert '"edit_hv0":"Bearer super-secret-provider-token"' in detail or (
+            '"edit_hv0": "Bearer super-secret-provider-token"' in detail
+        )
         # data-signals attribute must stay intact (JSON quotes escaped) or Datastar hides nothing
         q = '"edit_provider": true'.replace('"', "&#34;")
         hk = '"edit_hk0": "Authorization"'.replace('"', "&#34;")
@@ -525,6 +537,69 @@ class TestRevealOnce:  # T4.18
                 "retries": 2,
                 "timeout": 45,
             }
+            s.close()
+
+    def test_agent_edit_clears_headers_when_rows_empty(self, app_fixture, client_http):
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            agent = s.scalars(select(Agent).where(Agent.name == "provider")).first()
+            agent.delivery_config = {
+                "protocol": "completions",
+                "endpoint": "https://llm.example/v1/chat/completions",
+                "model": "x",
+                "headers": {"Authorization": "Bearer keep-me"},
+            }
+            agent_id = agent.id
+            s.commit()
+            s.close()
+        _login(client_http)
+        resp = client_http.post(
+            f"/admin/agents/{agent_id}",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+            data={
+                "is_provider": "on",
+                "protocol": "completions",
+                "endpoint": "https://llm.example/v1/chat/completions",
+                "model": "x",
+                "header_key_0": "",
+                "header_value_0": "",
+            },
+        )
+        assert resp.status_code == 200
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            agent = s.scalars(select(Agent).where(Agent.id == agent_id)).first()
+            assert "headers" not in agent.delivery_config
+            s.close()
+
+    def test_agent_edit_header_rows_drops_removed_rows(self, app_fixture, client_http):
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            agent = s.scalars(select(Agent).where(Agent.name == "provider")).first()
+            agent_id = agent.id
+            s.close()
+        _login(client_http)
+        resp = client_http.post(
+            f"/admin/agents/{agent_id}",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+            data={
+                "is_provider": "on",
+                "protocol": "post",
+                "endpoint": "https://hook.example/prov",
+                "header_rows": "1",
+                "header_key_0": "Authorization",
+                "header_value_0": "Bearer keep",
+                "header_key_1": "X-Removed",
+                "header_value_1": "gone",
+            },
+        )
+        assert resp.status_code == 200
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            agent = s.scalars(select(Agent).where(Agent.id == agent_id)).first()
+            assert agent.delivery_config["headers"] == {"Authorization": "Bearer keep"}
             s.close()
 
     def test_agent_edit_structured_delivery_exec(self, app_fixture, client_http):
@@ -812,3 +887,101 @@ class TestLogOutcome:
 
         req = SimpleNamespace(outcome="completed", attempts=[])
         assert log_outcome(req) == "completed"
+
+
+class TestConnectionProbes:
+    def test_tools_tab_and_arbiter_success(self, app_fixture, client_http):
+        app, _, _ = app_fixture
+
+        def completer(model, system, user, timeout, max_tokens, temperature, api_key=""):
+            for word in user.split():
+                if word.startswith("admz-ok-"):
+                    return word
+            return "nope"
+
+        app.extensions["DMZ_COMPLETER"] = completer
+        _login(client_http)
+        dash = client_http.get("/admin").get_data(as_text=True)
+        assert 'href="#tools"' in dash
+        tools = client_http.get("/admin/partials/tools").get_data(as_text=True)
+        assert "Test arbiter connection" in tools
+        assert "openai/gpt-4o-mini" in tools
+        resp = client_http.post(
+            "/admin/tools/test-arbiter",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+        )
+        body = resp.get_data(as_text=True)
+        assert resp.status_code == 200
+        assert "Connected" in body
+        assert "data: selector #tools-arbiter-result" in body
+
+    def test_arbiter_failure_shows_traceback(self, app_fixture, client_http):
+        app, _, _ = app_fixture
+
+        def completer(*a, **k):
+            raise ConnectionRefusedError("Connection refused")
+
+        app.extensions["DMZ_COMPLETER"] = completer
+        _login(client_http)
+        body = client_http.post(
+            "/admin/tools/test-arbiter",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+        ).get_data(as_text=True)
+        assert "Connection test failed" in body
+        assert "Connection refused" in body
+        assert "Traceback" in body
+
+    def test_delivery_uses_saved_settings(self, app_fixture, client_http):
+        import json as json_mod
+
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            agent = s.scalars(select(Agent).where(Agent.name == "provider")).first()
+            agent.delivery_config = {
+                "protocol": "completions",
+                "endpoint": "http://127.0.0.1:8090/v1/chat/completions",
+                "model": "crm-provider",
+            }
+            agent_id = agent.id
+            s.commit()
+            s.close()
+
+        def poster(endpoint, headers, body, timeout):
+            payload = json_mod.loads(body.decode("utf-8"))
+            user = payload["messages"][1]["content"]
+            token = [w for w in user.split() if w.startswith("admz-ok-")][0]
+            return 200, json_mod.dumps({"choices": [{"message": {"content": token}}]})
+
+        app.extensions["DMZ_POSTER"] = poster
+        _login(client_http)
+        detail = client_http.get(f"/admin/agents/{agent_id}").get_data(as_text=True)
+        assert "Test delivery connection" in detail
+        body = client_http.post(
+            f"/admin/agents/{agent_id}/test-delivery",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+        ).get_data(as_text=True)
+        assert "Connected" in body
+        assert "data: selector #agent-delivery-test" in body
+
+    def test_delivery_http_error_body(self, app_fixture, client_http):
+        app, _, _ = app_fixture
+        with app.app_context():
+            s = app.extensions["DMZ_SESSION_FACTORY"]()
+            agent = s.scalars(select(Agent).where(Agent.name == "provider")).first()
+            agent.delivery_config = {
+                "protocol": "completions",
+                "endpoint": "http://127.0.0.1:8090/v1/chat/completions",
+                "model": "crm-provider",
+            }
+            agent_id = agent.id
+            s.commit()
+            s.close()
+        app.extensions["DMZ_POSTER"] = lambda *a: (403, '{"error":"forbidden-from-upstream"}')
+        _login(client_http)
+        body = client_http.post(
+            f"/admin/agents/{agent_id}/test-delivery",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
+        ).get_data(as_text=True)
+        assert "HTTP 403" in body
+        assert "forbidden-from-upstream" in body

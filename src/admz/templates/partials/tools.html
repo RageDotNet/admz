@@ -1,0 +1,29 @@
+<div class="card">
+  <div class="card-body">
+    <h2 class="h5">Arbiter</h2>
+    <p class="small text-body-secondary mb-3">
+      Sends a short chat completion through LiteLLM using the configured arbiter model
+      (<code>{{ arbiter_model }}</code>, timeout {{ arbiter_timeout }}s) and checks that
+      the model echoes a probe token. Failures include the exception chain, traceback,
+      and any HTTP body the provider returned.
+    </p>
+    <form class="mb-3" data-indicator="arbiterTesting"
+          data-on:submit="$arbiterTesting = true; @post('/admin/tools/test-arbiter', {contentType: 'form'})">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-sm btn-primary"
+              data-attr-disabled="$arbiterTesting"
+              data-attr-aria-busy="$arbiterTesting ? 'true' : 'false'">
+        <span data-show="$arbiterTesting" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+        <span data-show="!$arbiterTesting">Test arbiter connection</span>
+        <span data-show="$arbiterTesting">Testing…</span>
+      </button>
+    </form>
+    <div data-show="$arbiterTesting">
+      <div class="alert alert-info d-flex align-items-center gap-2 py-2 mb-0" role="status">
+        <div class="spinner-border spinner-border-sm flex-shrink-0" aria-hidden="true"></div>
+        <span>Waiting for the arbiter (up to {{ arbiter_timeout }}s)…</span>
+      </div>
+    </div>
+    <div id="tools-arbiter-result" data-show="!$arbiterTesting"></div>
+  </div>
+</div>

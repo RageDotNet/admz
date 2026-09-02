@@ -33,7 +33,7 @@ The admin webui is the browser-based operational surface for the DMZ, mounted un
 
 ## Console structure
 
-A single dashboard: a **stats bar** on top (agent count, action counts by state, pending enrollment requests, request totals by outcome) and **six tabs**. Tab switches and region updates are server-rendered fragments fetched via Datastar — no full page reloads.
+A single dashboard: a **stats bar** on top (agent count, action counts by state, pending enrollment requests, request totals by outcome) and **seven tabs**. Tab switches and region updates are server-rendered fragments fetched via Datastar — no full page reloads.
 
 | Tab | Purpose |
 |---|---|
@@ -42,6 +42,7 @@ A single dashboard: a **stats bar** on top (agent count, action counts by state,
 | **Agents** | Register agents, manage keys and capability flags, configure provider delivery (`dispatch-v2.md`) |
 | **Request log** | All traffic with validation/arbitration outcomes, retries, and final results |
 | **Audit trail** | Every state change: approvals, rejections, enrollments/revocations, agent registration/edits, key issuance/revocation |
+| **Tools** | Operator connectivity probes (arbiter LiteLLM round-trip) |
 | **Login** | (Not a tab — standalone page) |
 
 ## Directory tab & per-action detail
@@ -85,6 +86,13 @@ The admin's "one place to understand one capability," with three sections:
 - **Edit agent**: toggle capability flags independently (revoking one capability leaves the other intact), edit the delivery configuration (`dispatch-v2.md`): protocol (`completions`/`exec`/`post`), endpoint URL + headers or command, timeout, retry count, enable/disable the agent.
 - **Revoke key**: immediately cuts off the agent; a new key can be issued later.
 - Delivery-config forms validate per protocol (e.g. `exec` requires a command; `completions`/`post` require a URL) and accept timeout/retry values.
+- **Test delivery connection** on the edit form probes the **last saved** delivery settings (not unsaved form edits): `completions` sends a chat completion asking the model to echo a probe token; `post`/`exec` send the same probe text to the saved endpoint or command. Failures show the exception chain, traceback, and HTTP body or stderr.
+
+## Tools tab
+
+- **Test arbiter connection** sends a short LiteLLM chat completion using configured `arbiter.model` / timeout / key and checks that the model echoes a probe token.
+- Failures are rendered in place with the exception type and message, nested cause chain (including `errno` / `winerror` when present), HTTP response bodies when the provider answered, and a full Python traceback.
+- The probe is not an invoke and does not write the request log.
 
 ## Request log tab
 
@@ -125,11 +133,14 @@ The admin's "one place to understand one capability," with three sections:
 | GET | `/admin/partials/agents` | Agent list fragment | session |
 | POST | `/admin/agents` | Register agent (returns key once) | session |
 | GET/POST | `/admin/agents/<agent_id>` | View / edit agent (flags, endpoint, enable/disable) | session |
+| POST | `/admin/agents/<agent_id>/test-delivery` | Probe saved provider delivery settings | session / admin token |
 | POST | `/admin/agents/<agent_id>/revoke-key` | Revoke bearer key | session |
 | POST | `/admin/agents/<agent_id>/new-key` | Issue a replacement key (shown once) | session |
 | GET | `/admin/partials/log` | Request log fragment (filters/pagination) | session |
 | GET | `/admin/partials/request/<request_id>` | Request detail fragment | session |
 | GET | `/admin/partials/audit` | Audit trail fragment (filters/pagination) | session |
+| GET | `/admin/partials/tools` | Tools tab fragment | session |
+| POST | `/admin/tools/test-arbiter` | Probe configured LiteLLM arbiter | session / admin token |
 
 Action endpoints that mutate state return **multi-patch responses** (e.g. affected list + stats bar in one Datastar response) so the UI updates without a separate fetch.
 

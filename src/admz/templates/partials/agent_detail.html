@@ -24,4 +24,32 @@
     {% with sig = 'edit' %}{% include "partials/delivery_fields.html" %}{% endwith %}
     <button type="submit" class="btn btn-sm btn-primary align-self-start">Save</button>
   </form>
+  {% if agent.is_provider %}
+  <div class="mt-3 pt-3 border-top">
+    <h3 class="h6">Test saved delivery</h3>
+    <p class="small text-body-secondary mb-2">
+      Uses the last saved settings, not unsaved form edits.
+      Completions: a chat call that asks the model to repeat a probe token.
+      HTTP POST / exec: the same probe text against the saved endpoint or command.
+    </p>
+    <form class="mb-2" data-indicator="deliveryTesting"
+          data-on:submit="$deliveryTesting = true; @post('/admin/agents/{{ agent.id }}/test-delivery', {contentType: 'form'})">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-sm btn-outline-primary"
+              data-attr-disabled="$deliveryTesting"
+              data-attr-aria-busy="$deliveryTesting ? 'true' : 'false'">
+        <span data-show="$deliveryTesting" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+        <span data-show="!$deliveryTesting">Test delivery connection</span>
+        <span data-show="$deliveryTesting">Testing…</span>
+      </button>
+    </form>
+    <div data-show="$deliveryTesting">
+      <div class="alert alert-info d-flex align-items-center gap-2 py-2 mb-0" role="status">
+        <div class="spinner-border spinner-border-sm flex-shrink-0" aria-hidden="true"></div>
+        <span>Waiting for the provider…</span>
+      </div>
+    </div>
+    <div id="agent-delivery-test" data-show="!$deliveryTesting"></div>
+  </div>
+  {% endif %}
 </div>

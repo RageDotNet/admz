@@ -1,8 +1,9 @@
 {% set cfg = (agent.delivery_config or {}) if agent is defined and agent else {} %}
 {% set prov = agent.is_provider if agent is defined and agent else false %}
 {% set proto = cfg.get('protocol', 'post') if cfg else 'post' %}
-{% set hdrs = cfg.headers or {} %}
-{% set hrows = [1, hdrs | length] | max %}
+{% set hdrs = cfg.get('headers') if cfg.get('headers') is mapping else {} %}
+{% set header_pairs = hdrs.items() | list %}
+{% set hrows = [1, header_pairs | length] | max %}
 {% set sig = sig if sig is defined else 'delivery' %}
   {% set signals = {sig ~ '_provider': prov, sig ~ '_protocol': proto, sig ~ '_headerRows': hrows} %}
   {# pre-seed every header row to '' so data-bind inputs always have a signal #}
@@ -33,17 +34,24 @@
                      value="{{ cfg.get('endpoint', '') }}"
                      placeholder="https://provider.example/v1/chat/completions">
             </div>
+            <input type="hidden" name="header_rows" value="{{ hrows }}" data-bind="${{ sig }}_headerRows">
             <div class="small text-body-secondary mb-0">Headers (added verbatim to every request)</div>
             {% for i in range(5) %}
+            {% set hk = header_pairs[i][0] if i < header_pairs|length else '' %}
+            {% set hv = header_pairs[i][1] if i < header_pairs|length else '' %}
             <div data-show="${{ sig }}_headerRows > {{ i }}">
               <div class="d-flex flex-wrap gap-2 align-items-center">
                 <input type="text" name="header_key_{{ i }}" class="form-control form-control-sm"
-                       style="max-width: 14rem" placeholder="Header name" data-bind="${{ sig }}_hk{{ i }}">
+                       style="max-width: 14rem" placeholder="Header name"
+                       value="{{ hk }}" data-bind="${{ sig }}_hk{{ i }}"
+                       data-attr-disabled="${{ sig }}_headerRows <= {{ i }}">
                 <input type="text" name="header_value_{{ i }}" class="form-control form-control-sm"
-                       style="max-width: 20rem" placeholder="Value (e.g. Bearer &hellip;)" data-bind="${{ sig }}_hv{{ i }}">
+                       style="max-width: 20rem" placeholder="Value (e.g. Bearer &hellip;)"
+                       value="{{ hv }}" data-bind="${{ sig }}_hv{{ i }}"
+                       data-attr-disabled="${{ sig }}_headerRows <= {{ i }}">
                 {% if i %}
                 <button type="button" class="btn btn-sm btn-outline-danger"
-                        data-on:click="${{ sig }}_headerRows={{ i }};{% for j in range(i, 5) %} ${{ sig }}_hk{{ j }}=null; ${{ sig }}_hv{{ j }}=null;{% endfor %}">remove</button>
+                        data-on:click="${{ sig }}_headerRows={{ i }};{% for j in range(i, 5) %} ${{ sig }}_hk{{ j }}=''; ${{ sig }}_hv{{ j }}='';{% endfor %}">remove</button>
                 {% endif %}
               </div>
             </div>
