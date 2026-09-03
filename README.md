@@ -49,7 +49,7 @@ Sign in at `/admin` (`admin` / `changeme`). Change that password before anything
 
 1. **Agents** — Register an agent. Check **Client** and **Provider** if one agent will both publish and invoke (simplest first run). Copy the key when it is shown; it is not shown again. **Copy prompt** and paste that block into your agent so it fetches the skill(s) (`GET /v2/skill`) and uses the bearer key.
 2. **Provider delivery** — Open the agent, set delivery **before** any invoke.
-   - **completions** (typical with Docker): OpenAI-compatible `POST /v1/chat/completions`. If the provider runs on the host, use `http://host.docker.internal:8090/v1/chat/completions` from a DMZ in Docker (Windows/Mac). The process that answers that URL must already be running (your agent, or `python examples/crm_provider.py serve`).
+   - **completions** (typical with Docker): OpenAI-compatible `POST /v1/chat/completions`. If the provider runs on the host, use `http://host.docker.internal:8090/v1/chat/completions` from a DMZ in Docker (Windows/Mac). The process that answers that URL must already be running (your agent, or `python examples/crm_provider.py serve`). [OpenClaw as a chat-completions provider](docs/openclaw-provider.md).
    - **post** — HTTP POST of the request JSON to a URL you control.
    - **exec** — runs a command **inside the DMZ process environment**. A host script is not visible to a container-only DMZ. Treat `exec` as privileged: the command inherits the DMZ’s files and environment.
 3. **Publish an action** — The provider `POST`s `/v2/actions` with a schema package (the provider skill describes the shape). In **Directory**, **approve** the submitted version so it becomes active.
@@ -106,7 +106,7 @@ src/admz/skills/   Client and provider skill markdown (`GET /v2/skill`)
 examples/          Sample CRM client/provider
 deploy/            Dockerfile and compose
 tests/             Offline pytest suite
-docs/              v2 PRDs (index-v2.md)
+docs/              v2 PRDs (index-v2.md) and operator guides (openclaw-provider.md)
 config.yaml        Runtime YAML (admins, DSN, arbiter) — gitignored; start from config.yaml.example
 pyproject.toml     Package and tool config
 ```
