@@ -576,7 +576,8 @@ _EDIT_SIGNALS = ["edit_provider", "edit_protocol", "edit_headerRows"] + [
 def _delivery_edit_signals(agent: Any) -> dict[str, Any]:
     """Authoritative Datastar signals for the edit-agent delivery form."""
     cfg = agent.delivery_config or {}
-    headers = cfg.get("headers") if isinstance(cfg.get("headers"), dict) else {}
+    raw_headers = cfg.get("headers")
+    headers = raw_headers if isinstance(raw_headers, dict) else {}
     pairs = [(str(k), str(v)) for k, v in headers.items()]
     signals: dict[str, Any] = {
         "edit_provider": bool(agent.is_provider),
